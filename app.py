@@ -7,50 +7,61 @@ from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import json
 import os
+import sys
 from datetime import datetime
-from pathlib import Path
 
 from career_manager import CareerManager
-from setup_wizard import check_and_run_setup
+
+# ---------------------------------------------------------------------------
+# Path helpers — work both as script and as frozen EXE
+# ---------------------------------------------------------------------------
+
+def get_app_dir():
+    """Directory where config/save files live (next to EXE, or project root)."""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def ensure_config():
+    """On first EXE run, copy bundled config template to app dir."""
+    if not os.path.exists(CONFIG_PATH):
+        if getattr(sys, 'frozen', False):
+            bundled = os.path.join(sys._MEIPASS, 'config.json')
+        else:
+            bundled = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+        if os.path.exists(bundled) and os.path.abspath(bundled) != os.path.abspath(CONFIG_PATH):
+            import shutil
+            shutil.copy(bundled, CONFIG_PATH)
+
+
+APP_DIR     = get_app_dir()
+CONFIG_PATH = os.path.join(APP_DIR, 'config.json')
+DATA_PATH   = os.path.join(APP_DIR, 'career_data.json')
+
+ensure_config()
+
+# ---------------------------------------------------------------------------
+# Flask app
+# ---------------------------------------------------------------------------
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app)
 
-# ---------------------------------------------------------------------------
-# First-run setup
-# ---------------------------------------------------------------------------
-print("\nChecking configuration...")
-if not check_and_run_setup('config.json'):
-    print("Setup failed. Please check your AC installation path.")
-    exit(1)
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-CONFIG_PATH = 'config.json'
-DATA_PATH   = 'career_data.json'
-
 TRACK_NAMES = {
-    # MX5 Cup
-    'ks_silverstone/national':        'Silverstone National',
-    'ks_brands_hatch/indy':           'Brands Hatch Indy',
-    'magione':                        'Magione',
-    'ks_vallelunga/club_circuit':     'Vallelunga Club',
-    'ks_black_cat_county/layout_long':'Black Cat County',
-    # GT4
-    'ks_silverstone/gp':              'Silverstone GP',
-    'ks_brands_hatch/gp':             'Brands Hatch GP',
+    'ks_silverstone/national':         'Silverstone National',
+    'ks_brands_hatch/indy':            'Brands Hatch Indy',
+    'magione':                         'Magione',
+    'ks_vallelunga/club_circuit':      'Vallelunga Club',
+    'ks_black_cat_county/layout_long': 'Black Cat County',
+    'ks_silverstone/gp':               'Silverstone GP',
+    'ks_brands_hatch/gp':              'Brands Hatch GP',
     'ks_red_bull_ring/layout_national':'Red Bull Ring',
-    # GT3 / WEC
-    'spa':                            'Spa-Francorchamps',
-    'monza':                          'Monza',
-    'ks_laguna_seca':                 'Laguna Seca',
-    'mugello':                        'Mugello',
-    'imola':                          'Imola',
-    # Extras
-    'ks_nurburgring/layout_gp_a':     'Nürburgring GP',
-    'ks_barcelona/layout_gp':         'Barcelona',
-    'ks_zandvoort':                   'Zandvoort',
+    'spa':                             'Spa-Francorchamps',
+    'monza':                           'Monza',
+    'ks_laguna_seca':                  'Laguna Seca',
+    'mugello':                         'Mugello',
+    'imola':                           'Imola',
 }
 
 # ---------------------------------------------------------------------------
@@ -94,7 +105,7 @@ def _fmt_track(track_id):
 
 
 # ---------------------------------------------------------------------------
-# Initialise
+# Initialise career manager
 # ---------------------------------------------------------------------------
 config = load_config()
 career = CareerManager(config)
@@ -110,6 +121,30 @@ def index():
     return render_template('dashboard.html', career_data=career_data, config=cfg)
 
 
+@app.route('/api/setup-status')
+def setup_status():
+    cfg     = load_config()
+    ac_path = cfg.get('paths', {}).get('ac_install', '')
+    valid   = os.path.exists(os.path.join(ac_path, 'acs.exe'))
+    return jsonify({'valid': valid, 'path': ac_path})
+
+
+@app.route('/api/save-ac-path', methods=['POST'])
+def save_ac_path():
+    data    = request.json
+    path    = data.get('path', '').strip()
+    if not os.path.exists(os.path.join(path, 'acs.exe')):
+        return jsonify({'status': 'error', 'message': 'acs.exe niet gevonden in die map'}), 400
+    cfg = load_config()
+    cfg['paths']['ac_install'] = path
+    cm = os.path.join(path, 'Content Manager.exe')
+    if os.path.exists(cm):
+        cfg['paths']['content_manager'] = cm
+    with open(CONFIG_PATH, 'w') as f:
+        json.dump(cfg, f, indent=2)
+    return jsonify({'status': 'success'})
+
+
 @app.route('/api/career-status')
 def get_career_status():
     return jsonify(load_career_data())
@@ -119,9 +154,7 @@ def get_career_status():
 def get_standings():
     career_data = load_career_data()
     tier_info   = career.get_tier_info(career_data['tier'])
-
-    standings = career.generate_standings(tier_info, career_data)
-
+    standings   = career.generate_standings(tier_info, career_data)
     return jsonify({
         'standings':       standings,
         'races_completed': career_data['races_completed'],
@@ -143,16 +176,13 @@ def get_season_calendar():
     cal = []
     for i in range(races_per_tier):
         track_id = tracks[i % len(tracks)]
-
         if i < races_done:
             status = 'completed'
         elif i == races_done:
             status = 'next'
         else:
             status = 'upcoming'
-
         result = race_results[i] if i < len(race_results) else None
-
         cal.append({
             'round':      i + 1,
             'track':      track_id,
@@ -160,7 +190,6 @@ def get_season_calendar():
             'status':     status,
             'result':     result,
         })
-
     return jsonify(cal)
 
 
@@ -170,11 +199,7 @@ def get_next_race():
     cfg         = load_config()
     tier_info   = career.get_tier_info(career_data['tier'])
     race_num    = career_data['races_completed'] + 1
-
-    race = career.generate_race(
-        tier_info, race_num,
-        career_data['team'], career_data['car']
-    )
+    race = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'])
     return jsonify(race)
 
 
@@ -184,15 +209,9 @@ def start_race():
     cfg         = load_config()
     tier_info   = career.get_tier_info(career_data['tier'])
     race_num    = career_data['races_completed'] + 1
-
-    race = career.generate_race(
-        tier_info, race_num,
-        career_data['team'], career_data['car']
-    )
+    race        = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'])
     race['driver_name'] = career_data.get('driver_name', 'Player')
-
     success = career.launch_ac_race(race, cfg)
-
     if success:
         return jsonify({'status': 'success', 'message': 'AC launched!', 'race': race})
     else:
@@ -203,35 +222,26 @@ def start_race():
 def finish_race():
     data        = request.json
     career_data = load_career_data()
-
     position    = data.get('position', 1)
     fastest_lap = data.get('fastest_lap', False)
     pts_table   = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
     pts         = pts_table[min(position - 1, 9)] if position <= 10 else 0
     if fastest_lap and position <= 10:
         pts += 1
-
     result = {
-        'race_num': career_data['races_completed'] + 1,
-        'position': position,
-        'points':   pts,
-        'lap_time': data.get('lap_time', ''),
+        'race_num':    career_data['races_completed'] + 1,
+        'position':    position,
+        'points':      pts,
+        'lap_time':    data.get('lap_time', ''),
         'fastest_lap': fastest_lap,
     }
-
     career_data['races_completed'] += 1
     career_data['points']          += pts
     career_data['race_results'].append(result)
     save_career_data(career_data)
-
     if career_data['races_completed'] >= career.get_tier_races():
         return _do_end_season()
-
-    return jsonify({
-        'status':       'success',
-        'result':       result,
-        'total_points': career_data['points'],
-    })
+    return jsonify({'status': 'success', 'result': result, 'total_points': career_data['points']})
 
 
 @app.route('/api/end-season', methods=['POST'])
@@ -242,23 +252,13 @@ def end_season():
 def _do_end_season():
     career_data = load_career_data()
     cfg         = load_config()
-
-    tier_info = career.get_tier_info(career_data['tier'])
-    standings = career.generate_standings(tier_info, career_data)
-
-    # Player position
-    position = next(
-        (s['position'] for s in standings if s['is_player']), 1
-    )
-
-    contracts = career.generate_contract_offers(
-        position, career_data['tier'] + 1, cfg
-    )
-
-    career_data['contracts']       = contracts
-    career_data['final_position']  = position
+    tier_info   = career.get_tier_info(career_data['tier'])
+    standings   = career.generate_standings(tier_info, career_data)
+    position    = next((s['position'] for s in standings if s['is_player']), 1)
+    contracts   = career.generate_contract_offers(position, career_data['tier'] + 1, cfg)
+    career_data['contracts']      = contracts
+    career_data['final_position'] = position
     save_career_data(career_data)
-
     return jsonify({
         'status':       'season_complete',
         'position':     position,
@@ -272,14 +272,9 @@ def accept_contract():
     data        = request.json
     career_data = load_career_data()
     contract_id = data.get('contract_id')
-
-    selected = next(
-        (c for c in career_data['contracts'] if c.get('id') == contract_id),
-        None
-    )
+    selected    = next((c for c in career_data['contracts'] if c.get('id') == contract_id), None)
     if not selected:
         return jsonify({'status': 'error', 'message': 'Contract not found'}), 400
-
     career_data['tier']            += 1
     career_data['season']          += 1
     career_data['team']             = selected['team_name']
@@ -289,15 +284,13 @@ def accept_contract():
     career_data['race_results']     = []
     career_data['contracts']        = None
     career_data['standings']        = []
-
     save_career_data(career_data)
-
     return jsonify({
-        'status':    'success',
-        'message':   f"Welcome to {selected['team_name']}!",
-        'new_tier':  career_data['tier'],
-        'new_team':  career_data['team'],
-        'new_car':   career_data['car'],
+        'status':   'success',
+        'message':  f"Welcome to {selected['team_name']}!",
+        'new_tier': career_data['tier'],
+        'new_team': career_data['team'],
+        'new_car':  career_data['car'],
     })
 
 
@@ -305,7 +298,6 @@ def accept_contract():
 def new_career():
     data        = request.json or {}
     driver_name = data.get('driver_name', '').strip() or 'Driver'
-
     initial = {
         'tier':            0,
         'season':          1,
@@ -319,12 +311,7 @@ def new_career():
         'contracts':       None,
     }
     save_career_data(initial)
-
-    return jsonify({
-        'status':      'success',
-        'message':     'New career started!',
-        'career_data': initial,
-    })
+    return jsonify({'status': 'success', 'message': 'New career started!', 'career_data': initial})
 
 
 @app.route('/api/config', methods=['GET'])
@@ -350,5 +337,37 @@ def server_error(e):
     return jsonify({'error': 'Server error', 'detail': str(e)}), 500
 
 
+# ---------------------------------------------------------------------------
+# Entry point — launches pywebview window (works as script and as EXE)
+# ---------------------------------------------------------------------------
+
 if __name__ == '__main__':
-    app.run(debug=False, host='localhost', port=5000)
+    import threading
+    import time
+    import webview
+
+    class JsApi:
+        """Python functions exposed to JavaScript via window.pywebview.api"""
+        def browse_folder(self):
+            result = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
+            return result[0] if result else None
+
+    def run_flask():
+        app.run(debug=False, host='127.0.0.1', port=5000, use_reloader=False)
+
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
+    time.sleep(0.8)  # let Flask start up
+
+    api    = JsApi()
+    window = webview.create_window(
+        'AC Career Manager',
+        'http://127.0.0.1:5000',
+        width=1440, height=920,
+        min_size=(1000, 700),
+        js_api=api,
+    )
+    try:
+        webview.start(gui='edgechromium')
+    except Exception:
+        webview.start()

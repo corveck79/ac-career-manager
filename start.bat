@@ -24,14 +24,10 @@ if not exist "venv\Scripts\python.exe" (
 )
 set PYTHON=venv\Scripts\python.exe
 
-echo  [3/3] Server starten op http://localhost:5000
+echo  [3/3] App starten...
 echo.
-echo  Browser opent automatisch over 2 seconden.
 echo  Sluit dit venster of druk Ctrl+C om te stoppen.
 echo.
-
-REM Open browser after server has had time to start
-start /b cmd /c "timeout /t 2 /nobreak >nul && start http://localhost:5000"
 
 %PYTHON% app.py
 

@@ -6,20 +6,14 @@
     <title>AC Career Manager</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script>
-      // Detect direct file:// opening — CSS/JS won't work without the Flask server
       if (location.protocol === 'file:') {
         document.addEventListener('DOMContentLoaded', function() {
           document.body.innerHTML =
             '<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;' +
             'justify-content:center;background:#07091A;color:#E8EAF0;font-family:system-ui;text-align:center;gap:1.5rem;padding:2rem">' +
             '<div style="font-size:3rem">&#9889;</div>' +
-            '<h1 style="color:#E84A0A;font-size:1.4rem;letter-spacing:3px;text-transform:uppercase">Open via de server</h1>' +
-            '<p style="color:#8890B0;max-width:440px;line-height:1.8">Je opent het HTML bestand direct vanuit Windows.<br>' +
-            'Dat werkt niet &mdash; CSS en JavaScript laden dan niet.<br>Buttons doen niets en de layout klopt niet.</p>' +
-            '<p style="color:#E8EAF0;font-weight:700">Dubbelklik op <code style="color:#F7B801;background:rgba(247,184,1,.1);padding:.2rem .5rem;border-radius:4px">start.bat</code> en ga dan naar:</p>' +
-            '<a href="http://localhost:5000" style="color:#F7B801;font-size:1.1rem;border:1px solid rgba(247,184,1,.4);' +
-            'padding:.65rem 2rem;border-radius:8px;text-decoration:none;font-weight:700">&#127760; http://localhost:5000</a>' +
-            '<p style="color:#4A5070;font-size:.78rem">start.bat staat in de AC_Career map</p>' +
+            '<h1 style="color:#E84A0A;font-size:1.4rem;letter-spacing:3px;text-transform:uppercase">Open via de app</h1>' +
+            '<p style="color:#8890B0;max-width:440px;line-height:1.8">Dubbelklik op <strong>AC_Career_Manager.exe</strong> of <strong>start.bat</strong> om de app te starten.</p>' +
             '</div>';
         });
       }
@@ -128,14 +122,61 @@
     </div>
     <div id="view-config" class="card view-card hidden">
       <div class="view-header">
-        <h2 class="section-title">Settings</h2>
+        <h2 class="section-title">&#9881; Settings</h2>
         <button class="close-btn" onclick="showView('standings')" title="Close">&#10005;</button>
       </div>
-      <p class="view-subtitle">Edit raw JSON config. Restart the app after saving.</p>
-      <textarea id="config-editor" class="config-editor" spellcheck="false"></textarea>
-      <div class="form-actions">
-        <button class="btn btn-race"      onclick="saveConfig()">Save</button>
-        <button class="btn btn-secondary" onclick="showView('standings')">Cancel</button>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Moeilijkheidsgraad</div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <span>AI basisniveau</span>
+            <span class="setting-val" id="s-ai-level-val">85</span>
+          </div>
+          <input type="range" class="slider" id="s-ai-level" min="60" max="100" step="1" value="85"
+                 oninput="document.getElementById('s-ai-level-val').textContent=this.value">
+          <div class="slider-hints"><span>Makkelijk (60)</span><span>Moeilijk (100)</span></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <span>AI variatie per race</span>
+            <span class="setting-val" id="s-ai-var-val">&#177;1.5</span>
+          </div>
+          <input type="range" class="slider" id="s-ai-var" min="0" max="5" step="0.5" value="1.5"
+                 oninput="document.getElementById('s-ai-var-val').textContent='&#177;'+this.value">
+          <div class="slider-hints"><span>Geen variatie</span><span>Veel variatie</span></div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Seizoen</div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <span>Races per tier</span>
+            <span class="setting-val" id="s-races-val">10</span>
+          </div>
+          <input type="range" class="slider" id="s-races" min="5" max="20" step="1" value="10"
+                 oninput="document.getElementById('s-races-val').textContent=this.value">
+          <div class="slider-hints"><span>5</span><span>20</span></div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Assetto Corsa</div>
+        <div class="setting-row">
+          <div class="setting-label"><span>Installatiemap</span></div>
+          <div class="path-row">
+            <input type="text" id="s-ac-path" class="form-input path-input"
+                   placeholder="C:\Program Files (x86)\Steam\steamapps\common\assettocorsa">
+            <button class="btn btn-secondary btn-browse" onclick="browseAcFolder()" title="Map kiezen">&#128193;</button>
+          </div>
+          <div class="slider-hints" id="s-ac-hint" style="color:var(--text-faint)"></div>
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top:1.5rem">
+        <button class="btn btn-race"      onclick="saveSettings()">Opslaan</button>
+        <button class="btn btn-secondary" onclick="showView('standings')">Annuleren</button>
       </div>
     </div>
   </main>
@@ -169,6 +210,24 @@
       <button class="btn btn-race"      onclick="confirmNewCareer()">&#127937; Start Career</button>
       <button class="btn btn-secondary" onclick="closeModal('modal-new-career')">Cancel</button>
     </div>
+  </div>
+</div>
+<!-- Setup overlay — shown when AC install path not set / invalid -->
+<div id="setup-overlay" class="setup-overlay hidden">
+  <div class="setup-box">
+    <div class="setup-icon">&#9889;</div>
+    <h1 class="setup-title">AC Career Manager</h1>
+    <p class="setup-sub">Stel de Assetto Corsa installatiemap in om te beginnen.</p>
+    <div class="setting-label" style="text-align:left;margin-bottom:.5rem;margin-top:1rem">
+      <span>Assetto Corsa map</span>
+    </div>
+    <div class="path-row">
+      <input type="text" id="setup-ac-path" class="form-input path-input"
+             placeholder="C:\Program Files (x86)\Steam\steamapps\common\assettocorsa">
+      <button class="btn btn-secondary btn-browse" onclick="browseSetupFolder()" title="Map kiezen">&#128193;</button>
+    </div>
+    <div class="setup-hint" id="setup-hint"></div>
+    <button class="btn btn-race setup-confirm" onclick="confirmSetup()">Verder &#8594;</button>
   </div>
 </div>
 <div id="toast" class="toast hidden"></div>

@@ -54,6 +54,7 @@ function tierName(index) {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+    await checkSetup();
     await Promise.all([loadCareer(), loadConfig()]);
     await Promise.all([loadStandings(), loadCalendar()]);
     refresh();
@@ -221,6 +222,55 @@ function renderStandings() {
     }).join('');
 }
 
+// ── Setup ──────────────────────────────────────────────────────────────────
+async function checkSetup() {
+    try {
+        const r = await fetch('/api/setup-status');
+        const d = await r.json();
+        if (!d.valid) {
+            const input = document.getElementById('setup-ac-path');
+            if (input && d.path) input.value = d.path;
+            document.getElementById('setup-overlay').classList.remove('hidden');
+        }
+    } catch (e) { /* server not ready yet, ignore */ }
+}
+
+async function browseSetupFolder() {
+    const path = await browseFolder();
+    if (path) document.getElementById('setup-ac-path').value = path;
+}
+
+async function confirmSetup() {
+    const path = (document.getElementById('setup-ac-path').value || '').trim();
+    const hint = document.getElementById('setup-hint');
+    if (!path) { hint.textContent = 'Vul een map in.'; return; }
+    try {
+        const r = await fetch('/api/save-ac-path', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path }),
+        });
+        const d = await r.json();
+        if (d.status === 'success') {
+            document.getElementById('setup-overlay').classList.add('hidden');
+            await Promise.all([loadCareer(), loadConfig()]);
+            await Promise.all([loadStandings(), loadCalendar()]);
+            refresh();
+            showToast('Assetto Corsa gevonden!');
+        } else {
+            hint.textContent = d.message || 'Map niet gevonden.';
+        }
+    } catch (e) { hint.textContent = 'Fout: ' + e.message; }
+}
+
+// Native folder picker — only available inside pywebview
+async function browseFolder() {
+    if (window.pywebview && window.pywebview.api) {
+        return await window.pywebview.api.browse_folder();
+    }
+    return null;
+}
+
 // ── View management ────────────────────────────────────────────────────────
 const ALL_VIEWS = ['standings', 'result', 'contracts', 'config'];
 
@@ -241,8 +291,29 @@ function showView(name) {
 }
 
 function openConfig() {
-    const editor = document.getElementById('config-editor');
-    if (editor) editor.value = JSON.stringify(config, null, 2);
+    if (!config) return;
+    const diff  = config.difficulty || {};
+    const seas  = config.seasons    || {};
+    const paths = config.paths      || {};
+
+    const aiEl    = document.getElementById('s-ai-level');
+    const varEl   = document.getElementById('s-ai-var');
+    const racesEl = document.getElementById('s-races');
+    const pathEl  = document.getElementById('s-ac-path');
+    const hint    = document.getElementById('s-ac-hint');
+
+    aiEl.value    = diff.base_ai_level || 85;
+    document.getElementById('s-ai-level-val').textContent = aiEl.value;
+
+    varEl.value   = diff.ai_variance || 1.5;
+    document.getElementById('s-ai-var-val').textContent = '\u00b1' + varEl.value;
+
+    racesEl.value = seas.races_per_tier || 10;
+    document.getElementById('s-races-val').textContent = racesEl.value;
+
+    pathEl.value  = paths.ac_install || '';
+    if (hint) hint.textContent = '';
+
     showView('config');
 }
 
@@ -448,24 +519,44 @@ async function acceptContract(contractId) {
 }
 
 // ── Settings ───────────────────────────────────────────────────────────────
-async function saveConfig() {
+async function browseAcFolder() {
+    const path = await browseFolder();
+    if (path) {
+        document.getElementById('s-ac-path').value = path;
+        const hint = document.getElementById('s-ac-hint');
+        if (hint) hint.textContent = '';
+    }
+}
+
+async function saveSettings() {
+    const aiLevel = parseFloat(document.getElementById('s-ai-level').value);
+    const aiVar   = parseFloat(document.getElementById('s-ai-var').value);
+    const races   = parseInt(document.getElementById('s-races').value);
+    const acPath  = (document.getElementById('s-ac-path').value || '').trim();
+    const hint    = document.getElementById('s-ac-hint');
+
+    // Deep-clone and patch
+    const updated = JSON.parse(JSON.stringify(config));
+    updated.difficulty.base_ai_level = aiLevel;
+    updated.difficulty.ai_variance   = aiVar;
+    updated.seasons.races_per_tier   = races;
+    if (acPath) updated.paths.ac_install = acPath;
+
     try {
-        const txt = document.getElementById('config-editor').value;
-        const obj = JSON.parse(txt);   // validate JSON first
         const r = await fetch('/api/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(obj),
+            body: JSON.stringify(updated),
         });
         const d = await r.json();
         if (d.status === 'success') {
-            config = obj;
-            showToast('Settings saved! Restart the app to apply changes.');
+            config = updated;
+            showToast('Instellingen opgeslagen!');
             showView('standings');
         } else {
-            showToast('Save failed', 'error');
+            showToast('Opslaan mislukt', 'error');
         }
-    } catch (e) { showToast('Invalid JSON — check your edits', 'error'); }
+    } catch (e) { showToast('Fout: ' + e.message, 'error'); }
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
