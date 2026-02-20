@@ -1,0 +1,85 @@
+{
+  "app": {
+    "name": "AC Career Manager",
+    "version": "1.0.0"
+  },
+  
+  "paths": {
+    "ac_install": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Assetto Corsa",
+    "content_manager": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Assetto Corsa\\apps\\python\\ContentManager"
+  },
+
+  "difficulty": {
+    "base_ai_level": 85,
+    "ai_variance": 1.5,
+    "tier_multipliers": {
+      "mx5_cup": -4,
+      "gt4": -2,
+      "gt3": 0,
+      "wec": 1.5
+    }
+  },
+
+  "seasons": {
+    "races_per_tier": 10,
+    "points_system": "f1_standard",
+    "championship_points": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+    "fastest_lap_bonus": 1
+  },
+
+  "teams": {
+    "mx5_cup": {
+      "count": 14,
+      "teams": [
+        {"name": "Mazda Academy", "car": "ks_mazda_mx5_cup", "tier": "factory"},
+        {"name": "Apex Racing", "car": "ks_mazda_mx5_cup", "tier": "semi"},
+        // ... more teams
+      ]
+    },
+    "gt4": {
+      "count": 16,
+      "teams": [
+        {"name": "Ferrari AF Corse", "car": "ks_ferrari_488_gt3", "tier": "factory"},
+        {"name": "Porsche Weissach", "car": "ks_porsche_cayman_gt4_clubsport", "tier": "factory"},
+        // ... more teams
+      ]
+    }
+  },
+
+  "contracts": {
+    "champion_offers": 4,
+    "top5_offers": 3,
+    "top10_offers": 2,
+    "ai_difficulty_boost_factory": 0.5
+  },
+
+  "tracks": {
+    "mx5_cup": ["silverstone", "donington", "brands_hatch", "snetterton", "oulton_park"],
+    "gt4": ["silverstone", "donington", "spa", "brands_hatch", "snetterton"],
+    "gt3": ["silverstone", "donington", "spa", "monza", "paul_ricard", "laguna_seca"],
+    "wec": ["silverstone", "spa", "le_mans_gp", "monza"]
+  },
+
+  "race_format": {
+    "mx5_cup": {
+      "laps": 20,
+      "time_limit_minutes": 45,
+      "weather": "clear"
+    },
+    "gt4": {
+      "laps": 18,
+      "time_limit_minutes": 60,
+      "weather": "variable"
+    },
+    "gt3": {
+      "laps": 20,
+      "time_limit_minutes": 90,
+      "weather": "variable"
+    },
+    "wec": {
+      "laps": 40,
+      "time_limit_minutes": 180,
+      "weather": "variable"
+    }
+  }
+}

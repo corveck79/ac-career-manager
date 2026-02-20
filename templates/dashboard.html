@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AC Career Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+      // Detect direct file:// opening — CSS/JS won't work without the Flask server
+      if (location.protocol === 'file:') {
+        document.addEventListener('DOMContentLoaded', function() {
+          document.body.innerHTML =
+            '<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;' +
+            'justify-content:center;background:#07091A;color:#E8EAF0;font-family:system-ui;text-align:center;gap:1.5rem;padding:2rem">' +
+            '<div style="font-size:3rem">&#9889;</div>' +
+            '<h1 style="color:#E84A0A;font-size:1.4rem;letter-spacing:3px;text-transform:uppercase">Open via de server</h1>' +
+            '<p style="color:#8890B0;max-width:440px;line-height:1.8">Je opent het HTML bestand direct vanuit Windows.<br>' +
+            'Dat werkt niet &mdash; CSS en JavaScript laden dan niet.<br>Buttons doen niets en de layout klopt niet.</p>' +
+            '<p style="color:#E8EAF0;font-weight:700">Dubbelklik op <code style="color:#F7B801;background:rgba(247,184,1,.1);padding:.2rem .5rem;border-radius:4px">start.bat</code> en ga dan naar:</p>' +
+            '<a href="http://localhost:5000" style="color:#F7B801;font-size:1.1rem;border:1px solid rgba(247,184,1,.4);' +
+            'padding:.65rem 2rem;border-radius:8px;text-decoration:none;font-weight:700">&#127760; http://localhost:5000</a>' +
+            '<p style="color:#4A5070;font-size:.78rem">start.bat staat in de AC_Career map</p>' +
+            '</div>';
+        });
+      }
+    </script>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="topbar-brand"><span class="topbar-icon">&#9889;</span><span class="topbar-title">AC CAREER</span></div>
+    <div class="topbar-center" id="topbar-driver-name"></div>
+    <div class="topbar-right">
+        <span class="badge badge-tier" id="tier-badge">MX5 Cup</span>
+        <span class="badge badge-season" id="season-badge">Season 1</span>
+    </div>
+  </div>
+</header>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="card driver-card">
+      <div class="driver-avatar" id="driver-avatar"><span id="driver-initials">?</span></div>
+      <div class="driver-name" id="driver-name">No Driver</div>
+      <div class="driver-team" id="driver-team">-</div>
+      <div class="driver-car"  id="driver-car">-</div>
+      <div class="driver-stats">
+        <div class="dstat"><div class="dstat-val" id="driver-points">0</div><div class="dstat-lbl">Points</div></div>
+        <div class="dstat"><div class="dstat-val" id="driver-pos">-</div><div class="dstat-lbl">Position</div></div>
+        <div class="dstat"><div class="dstat-val" id="races-done">0/10</div><div class="dstat-lbl">Races</div></div>
+      </div>
+    </div>
+    <div class="card actions-card">
+      <button class="btn btn-race" onclick="startRace()">&#127937; Start Race</button>
+      <div class="action-sep"></div>
+      <button class="btn btn-secondary" onclick="showView('standings')">&#128202; Standings</button>
+      <button class="btn btn-secondary" onclick="openConfig()">&#9881; Settings</button>
+      <div class="action-sep"></div>
+      <button class="btn btn-ghost" onclick="openNewCareer()">&#128260; New Career</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="card calendar-card">
+      <div class="calendar-header">
+        <h2 class="section-title">Season Calendar</h2>
+        <span class="calendar-progress" id="calendar-progress">0 / 10 races</span>
+      </div>
+      <div class="rounds-row" id="rounds-row"></div>
+      <div class="next-race-bar" id="next-race-bar">
+        <div class="nrb-left">
+          <div class="nrb-label">NEXT RACE</div>
+          <div class="nrb-track" id="nrb-track">-</div>
+          <div class="nrb-meta"  id="nrb-meta">-</div>
+        </div>
+        <div class="nrb-right">
+          <div class="nrb-ai-label">AI LEVEL</div>
+          <div class="nrb-ai-val" id="nrb-ai">-</div>
+        </div>
+      </div>
+      <div class="season-done-bar hidden" id="season-done-bar">
+        &#127942; Season complete - check your contract offers below!
+      </div>
+    </div>
+    <div id="view-standings" class="card view-card active">
+      <h2 class="section-title">Championship Standings</h2>
+      <div class="empty-state" id="standings-empty" style="display:none">Start a new career to see standings.</div>
+      <div class="table-wrap">
+        <table class="standings-table" id="standings-table">
+          <thead><tr>
+            <th class="col-pos">Pos</th>
+            <th class="col-team">Team</th>
+            <th class="col-car">Car</th>
+            <th class="col-pts">Pts</th>
+            <th class="col-gap">Gap</th>
+          </tr></thead>
+          <tbody id="standings-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="view-result" class="card view-card hidden">
+      <h2 class="section-title">Enter Race Result</h2>
+      <p class="view-subtitle" id="result-race-label">-</p>
+      <form onsubmit="submitResult(event)" class="result-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Finishing Position</label>
+            <input type="number" id="finish-position" class="form-input input-pos" min="1" max="30" value="1" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Best Lap (mm:ss.sss)</label>
+            <input type="text" id="best-lap" class="form-input" placeholder="02:15.345">
+          </div>
+        </div>
+        <div class="form-check-row">
+          <input type="checkbox" id="fastest-lap" class="form-check">
+          <label for="fastest-lap" class="form-check-label">Fastest Lap <span class="fl-tag">+1 pt</span></label>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-race">Submit Result</button>
+          <button type="button" class="btn btn-secondary" onclick="showView('standings')">Cancel</button>
+        </div>
+      </form>
+    </div>
+    <div id="view-contracts" class="card view-card hidden">
+      <h2 class="section-title">&#127942; Season Complete!</h2>
+      <p class="view-subtitle" id="final-pos-text"></p>
+      <h3 class="subsection-title">Contract Offers</h3>
+      <div id="contracts-list" class="contracts-grid"></div>
+    </div>
+    <div id="view-config" class="card view-card hidden">
+      <div class="view-header">
+        <h2 class="section-title">Settings</h2>
+        <button class="close-btn" onclick="showView('standings')" title="Close">&#10005;</button>
+      </div>
+      <p class="view-subtitle">Edit raw JSON config. Restart the app after saving.</p>
+      <textarea id="config-editor" class="config-editor" spellcheck="false"></textarea>
+      <div class="form-actions">
+        <button class="btn btn-race"      onclick="saveConfig()">Save</button>
+        <button class="btn btn-secondary" onclick="showView('standings')">Cancel</button>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="modal-race" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Race Details</h2>
+      <button class="close-btn" onclick="closeModal('modal-race')">&#10005;</button>
+    </div>
+    <div id="race-details" class="race-detail-grid"></div>
+    <div class="modal-actions">
+      <button class="btn btn-race"      onclick="confirmStartRace()">&#127918; Launch AC</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-race')">Cancel</button>
+    </div>
+  </div>
+</div>
+<div id="modal-new-career" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">New Career</h2>
+      <button class="close-btn" onclick="closeModal('modal-new-career')">&#10005;</button>
+    </div>
+    <p class="modal-subtitle">Start fresh in MX5 Cup. All current progress will be lost.</p>
+    <div class="form-group">
+      <label class="form-label">Driver Name</label>
+      <input type="text" id="new-driver-name" class="form-input" placeholder="Your name (used in AC)" maxlength="30">
+      <div class="form-hint">This name appears in Assetto Corsa as your driver.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-race"      onclick="confirmNewCareer()">&#127937; Start Career</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-new-career')">Cancel</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast hidden"></div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

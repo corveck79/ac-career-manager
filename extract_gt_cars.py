@@ -1,0 +1,29 @@
+# Extract GT-relevant cars from the list
+
+cars = """ks_aston_martin_v8_vantage_gt3
+ks_aston_martin_v12_vantage_gt3
+ks_audi_r8_lms
+ks_audi_r8_lms_2016
+ks_bentley_continental_gt3
+ks_bentley_continental_gt3_2018
+ks_bmw_m4
+ks_bmw_m4_gt3
+ks_bmw_z4_gt3
+ks_ferrari_488_gt3
+ks_ferrari_f430
+ks_ferrari_f430_gt3
+ks_Ferrari_458_gt2
+ks_lamborghini_huracan_gt3
+ks_lamborghini_gallardo_gt3
+ks_mclaren_650s_gt3
+ks_mclaren_mp412c_gt3
+ks_mercedes_amg_gt3
+ks_nissan_gtr_nismo_gt3
+ks_porsche_911_gt3_2015
+ks_porsche_911_gt3_rs_weissach_package
+ks_porsche_cayman_gt4
+ks_porsche_cayman_gt4_clubsport
+ks_porsche_cayman_gt4_std"""
+
+for car in cars.strip().split('\n'):
+    print(car)
