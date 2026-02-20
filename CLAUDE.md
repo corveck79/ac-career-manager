@@ -6,7 +6,8 @@ AC Career Manager is a desktop app (pywebview + Flask) that adds a career mode t
 
 - **Backend:** Python / Flask (`app.py`, `career_manager.py`)
 - **Frontend:** Vanilla JS + HTML/CSS (`templates/dashboard.html`, `static/app.js`, `static/style.css`)
-- **Window:** PySide6 6.10+ with `QWebEngineView` (Chromium-based, bundled with Qt)
+- **Window:** pywebview 4.4.1 with `gui='edgechromium'` (Edge WebView2, pre-installed on Win 10/11)
+- **Python:** 3.12 required — pythonnet (pywebview dep) has no wheel for 3.13/3.14
 - **Config:** `config.json` (all tunable game settings)
 - **Save data:** `career_data.json` (auto-created at runtime, next to EXE)
 - **Platform:** Windows only (AC is a Windows game)
@@ -14,7 +15,7 @@ AC Career Manager is a desktop app (pywebview + Flask) that adds a career mode t
 ## Architecture
 
 ```
-app.py                       # Flask server, REST API, AC launch logic, pywebview startup
+app.py                       # Flask server, REST API, AC launch logic, pywebview window
 career_manager.py            # Game logic: tiers, teams, contracts, race generation
 extract_gt_cars.py           # Utility: extracts GT car data from AC content folder
 templates/dashboard.html     # Single-page web UI (served by Flask)
@@ -32,7 +33,7 @@ Note: `dashboard.html`, `style.css`, and `app.js` also exist as duplicates in th
 
 1. `app.py` is run (directly or as EXE)
 2. Flask starts in a daemon thread on port 5000
-3. PySide6 `QApplication` + `QWebEngineView` window opens `http://127.0.0.1:5000`
+3. pywebview creates an Edge WebView2 window pointing to `http://127.0.0.1:5000`
 4. On page load, JS calls `/api/setup-status`; if AC path is invalid, setup overlay is shown
 5. User sets AC path → saved to `config.json` → app is ready
 
@@ -42,9 +43,8 @@ Note: `dashboard.html`, `style.css`, and `app.js` also exist as duplicates in th
 - `ensure_config()` copies bundled `config.json` template to app dir on first run
 
 ### Folder picker bridge (Python ↔ JS)
-JS calls `fetch('/api/browse-folder', {method:'POST'})`. Flask sets a `threading.Event`
-and waits on a `Queue`. A `QTimer` (100ms) polls on the Qt main thread, opens
-`QFileDialog.getExistingDirectory()`, and puts the result in the Queue.
+JS calls `window.pywebview.api.browse_folder()`. This invokes `JsApi.browse_folder()` in
+Python, which calls `webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)`.
 
 ## Common Commands
 
@@ -135,7 +135,7 @@ Delete to reset career. Backup before editing config.
 - `Flask==3.0.0` + `flask-cors==4.0.0` + `Werkzeug==3.0.0`
 - `Jinja2==3.1.2`
 - `requests==2.31.0`
-- `PySide6>=6.10.0` — native window with `QWebEngineView` (Python 3.14 compatible)
+- `pywebview==4.4.1` — native window via Edge WebView2 (requires Python 3.12)
 - `pyinstaller==6.19.0` (build only)
 
 ## Windows-Specific Notes
@@ -144,8 +144,7 @@ Delete to reset career. Backup before editing config.
 - AC install path must contain `acs.exe`
 - Default AC path: `C:\Program Files (x86)\Steam\steamapps\common\assettocorsa`
 - Port 5000 is the default; change in `app.py` if it conflicts
-- `start.bat` activates venv and runs `app.py` (Qt window opens automatically)
-- `build.bat` produces a `dist/AC_Career_Manager/` folder (~430 MB) using `--onedir`
-  - Large size is unavoidable: Qt6WebEngineCore.dll alone is 193 MB
-  - `--onefile` cannot be used with Qt WebEngine (needs helper processes as separate files)
-- PySide6 requires `--onedir`; `--onefile` will fail at runtime
+- `start.bat` activates venv (creates with `py -3.12` if missing) and runs `app.py`
+- `build.bat` produces a single `dist/AC_Career_Manager.exe` (~13 MB) using `--onefile`
+- pywebview uses Edge WebView2 (pre-installed on Win 10/11) — no browser bundled
+- **Python 3.12 required**: pythonnet has no wheel for 3.13/3.14

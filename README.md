@@ -2,20 +2,20 @@
 ## Professional Racing Career Simulator for Assetto Corsa
 
 **Version:** 1.0.0
-**Platform:** Windows
-**Python:** 3.10+
+**Platform:** Windows 10/11
+**Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
 ---
 
 ## OVERVIEW
 
-AC Career Manager is a complete professional career mode system for Assetto Corsa. It provides:
+AC Career Manager is a complete professional career mode system for Assetto Corsa. It opens in its own native window (no browser needed) and provides:
 
 - **4-Tier Career Progression:** MX5 Cup → GT4 → GT3 → WEC
 - **10 Races Per Tier** with dynamic team assignments
 - **Contract System:** End-of-season team/car selection based on performance
 - **Intelligent AI Scaling:** Difficulty increases as you progress
-- **Web-Based Dashboard:** Modern, responsive UI for career management
+- **Native Desktop App:** Runs in its own window via pywebview (Edge WebView2)
 - **One-Click Race Launching:** Automatic AC integration
 
 ---
@@ -23,8 +23,8 @@ AC Career Manager is a complete professional career mode system for Assetto Cors
 ## QUICK START
 
 **Requirements:**
-- Python 3.10 or higher
-- Windows (paths configured for Windows)
+- Python **3.12** (not 3.13 or 3.14 — pywebview requires 3.12)
+- Windows 10/11 (Edge WebView2 is pre-installed)
 - Assetto Corsa installed via Steam
 
 **Installation:**
@@ -33,20 +33,20 @@ AC Career Manager is a complete professional career mode system for Assetto Cors
 git clone https://github.com/corveck79/ac-career-manager.git
 
 # 2. Open command prompt in the app folder
-# 3. Create virtual environment
-python -m venv venv
+# 3. Create virtual environment with Python 3.12
+py -3.12 -m venv venv
 venv\Scripts\activate
 
 # 4. Install dependencies
 pip install -r requirements.txt
 
-# 5. Set your AC path in config.json (see CONFIGURATION below)
-
-# 6. Start the app
-start.bat        # recommended: handles venv + opens browser automatically
+# 5. Start the app
+start.bat        # recommended: handles venv automatically
 # OR
-python app.py    # then open http://localhost:5000 manually
+python app.py    # same result
 ```
+
+On first run, a setup screen appears — enter your Assetto Corsa install path (or use the folder button to browse).
 
 ---
 
@@ -54,11 +54,12 @@ python app.py    # then open http://localhost:5000 manually
 
 ```
 ac-career-manager/
-├── app.py                    # Flask backend (main server)
+├── app.py                    # Flask backend + pywebview window
 ├── career_manager.py         # Career logic & game rules
 ├── config.json              # All configuration (tunable!)
 ├── requirements.txt         # Python dependencies
-├── start.bat               # Quick start script
+├── start.bat               # Quick start script (auto-creates venv)
+├── build.bat               # Build standalone EXE
 │
 ├── templates/
 │   └── dashboard.html      # Web UI (HTML)
@@ -72,32 +73,26 @@ ac-career-manager/
 
 ## CONFIGURATION
 
-Edit `config.json` while the app is **stopped**.
+Settings can be changed in the **Settings panel** (⚙ button in the app):
+- AI base level (slider)
+- AI variance per race (slider)
+- Races per tier (slider)
+- Assetto Corsa install path (with folder browser)
 
-### Set your AC install path:
+For advanced changes, edit `config.json` while the app is **stopped**.
+
+### AC install path:
 ```json
 "paths": {
   "ac_install": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa"
 }
 ```
 
-### Change races per tier:
-```json
-"seasons": {
-  "races_per_tier": 10
-}
-```
-
-### Adjust AI difficulty:
+### AI difficulty:
 ```json
 "difficulty": {
   "base_ai_level": 85,
-  "tier_multipliers": {
-    "mx5_cup": -4,
-    "gt4":     -2,
-    "gt3":      0,
-    "wec":      1.5
-  }
+  "ai_variance": 1.5
 }
 ```
 
@@ -107,8 +102,9 @@ Edit `config.json` while the app is **stopped**.
 
 ### Starting a Career
 1. Click **"New Career"** in the app
-2. You start in **MX5 Cup** with **Mazda Academy**
-3. Dashboard shows your team, points, and next race
+2. Enter your driver name
+3. You start in **MX5 Cup** with **Mazda Academy**
+4. Dashboard shows your team, points, and next race
 
 ### Race Workflow
 1. Click **"START RACE"** button
@@ -120,7 +116,7 @@ Edit `config.json` while the app is **stopped**.
 7. Points calculated automatically
 
 ### End of Season
-After 10 races:
+After completing all races:
 1. Season completes automatically
 2. You receive contract offers based on your championship position
 3. Choose which team/car you want next season
@@ -137,35 +133,38 @@ P1: 25 · P2: 18 · P3: 15 · P4: 12 · P5: 10 · P6: 8 · P7: 6 · P8: 4 · P9:
 ### Tier 1: MX5 Cup (Junior)
 - Car: Mazda MX5 Cup (one-make)
 - Teams: 14
-- AI Difficulty: base 85 − 4 = **81** ± 1.5
+- AI Difficulty: base − 4
 - Tracks: Silverstone National, Brands Hatch Indy, Magione, Vallelunga, Black Cat County
 
 ### Tier 2: GT4 SuperCup
 - Cars: Porsche Cayman GT4, Maserati GT MC GT4, Lotus 2-Eleven GT4
 - Teams: 16
-- AI Difficulty: base 85 − 2 = **83** ± 1.5
+- AI Difficulty: base − 2
 - Tracks: Silverstone GP, Spa, Brands Hatch GP, Monza, Red Bull Ring
 
 ### Tier 3: British GT GT3
 - Cars: Ferrari 488 GT3, Porsche 911 GT3, McLaren 650 GT3, BMW Z4 GT3, Lamborghini Huracán GT3, Mercedes AMG GT3, Nissan GTR GT3, and more
 - Teams: 20 (Factory / Semi-Factory / Customer)
-- AI Difficulty: base 85 + 0 = **85** ± 1.5
+- AI Difficulty: base + 0
 - Tracks: Silverstone GP, Spa, Monza, Laguna Seca, Mugello, Imola
 
 ### Tier 4: WEC / Elite Endurance
-- Cars: Same GT3 lineup, endurance setup
+- Cars: GT3 lineup, endurance setup
 - Teams: 10 elite teams
-- AI Difficulty: base 85 + 1.5 = **86.5** ± 1.5
+- AI Difficulty: base + 1.5
 - Tracks: Silverstone GP, Spa, Monza, Mugello
 
 ---
 
 ## TROUBLESHOOTING
 
-### "AC not found"
-- Check AC install path in `config.json`
+### App shows setup screen on startup
+- Enter your AC install path (folder containing `acs.exe`)
 - Steam default: `C:\Program Files (x86)\Steam\steamapps\common\assettocorsa`
-- Note: folder name is all lowercase, no spaces
+
+### "AC not found" / race doesn't launch
+- Check AC install path in Settings or `config.json`
+- The folder name is lowercase: `assettocorsa` (not `Assetto Corsa`)
 
 ### "Port 5000 already in use"
 - `start.bat` kills existing processes on port 5000 automatically
@@ -179,12 +178,16 @@ P1: 25 · P2: 18 · P3: 15 · P4: 12 · P5: 10 · P6: 8 · P7: 6 · P8: 4 · P9:
 - Backup `career_data.json` before editing config
 - Delete `career_data.json` to start fresh
 
+### pywebview / pythonnet error on startup
+- Make sure your venv uses **Python 3.12** (not 3.13 or 3.14)
+- Delete `venv\` and run `start.bat` again — it will recreate with Python 3.12
+
 ---
 
 ## SYSTEM REQUIREMENTS
 
 - Windows 10/11
-- Python 3.10+
+- Python **3.12** (install from python.org)
 - Assetto Corsa (Steam)
 - All required base game DLC cars
 
