@@ -18,8 +18,8 @@ timeout /t 1 /nobreak >nul
 REM Use venv Python if available, else create it
 echo  [2/3] Python omgeving controleren...
 if not exist "venv\Scripts\python.exe" (
-    echo  [!] venv niet gevonden, aanmaken...
-    python -m venv venv
+    echo  [!] venv niet gevonden, aanmaken met Python 3.12...
+    py -3.12 -m venv venv
     venv\Scripts\pip install -r requirements.txt
 )
 set PYTHON=venv\Scripts\python.exe
