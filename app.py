@@ -8,7 +8,13 @@ from flask_cors import CORS
 import json
 import os
 import sys
+import threading
+import queue as _queue
 from datetime import datetime
+
+# Bridge for native folder picker (Qt main thread ↔ Flask thread)
+_folder_request = threading.Event()
+_folder_result  = _queue.Queue()
 
 from career_manager import CareerManager
 
@@ -327,6 +333,17 @@ def update_config():
     return jsonify({'status': 'success', 'message': 'Configuration updated'})
 
 
+@app.route('/api/browse-folder', methods=['POST'])
+def browse_folder():
+    """Signal the Qt main thread to open a native folder picker; return the chosen path."""
+    _folder_request.set()
+    try:
+        path = _folder_result.get(timeout=30)
+    except _queue.Empty:
+        path = ''
+    return jsonify({'folder': path})
+
+
 @app.errorhandler(404)
 def not_found(e):
     return jsonify({'error': 'Not found'}), 404
@@ -338,19 +355,14 @@ def server_error(e):
 
 
 # ---------------------------------------------------------------------------
-# Entry point — launches pywebview window (works as script and as EXE)
+# Entry point — launches PySide6 window with embedded Edge WebEngine
 # ---------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    import threading
     import time
-    import webview
-
-    class JsApi:
-        """Python functions exposed to JavaScript via window.pywebview.api"""
-        def browse_folder(self):
-            result = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
-            return result[0] if result else None
+    from PySide6.QtWidgets import QApplication, QFileDialog
+    from PySide6.QtWebEngineWidgets import QWebEngineView
+    from PySide6.QtCore import QUrl, QTimer
 
     def run_flask():
         app.run(debug=False, host='127.0.0.1', port=5000, use_reloader=False)
@@ -359,15 +371,24 @@ if __name__ == '__main__':
     flask_thread.start()
     time.sleep(0.8)  # let Flask start up
 
-    api    = JsApi()
-    window = webview.create_window(
-        'AC Career Manager',
-        'http://127.0.0.1:5000',
-        width=1440, height=920,
-        min_size=(1000, 700),
-        js_api=api,
-    )
-    try:
-        webview.start(gui='edgechromium')
-    except Exception:
-        webview.start()
+    qt_app = QApplication(sys.argv)
+    qt_app.setApplicationName('AC Career Manager')
+
+    window = QWebEngineView()
+    window.setWindowTitle('AC Career Manager')
+    window.resize(1440, 920)
+    window.setMinimumSize(1000, 700)
+    window.load(QUrl('http://127.0.0.1:5000'))
+    window.show()
+
+    def _check_folder_request():
+        if _folder_request.is_set():
+            _folder_request.clear()
+            folder = QFileDialog.getExistingDirectory(window, 'Selecteer Assetto Corsa map')
+            _folder_result.put(folder or '')
+
+    timer = QTimer()
+    timer.timeout.connect(_check_folder_request)
+    timer.start(100)  # poll every 100 ms
+
+    sys.exit(qt_app.exec())

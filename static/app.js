@@ -263,12 +263,15 @@ async function confirmSetup() {
     } catch (e) { hint.textContent = 'Fout: ' + e.message; }
 }
 
-// Native folder picker — only available inside pywebview
+// Native folder picker — calls Qt main thread via Flask endpoint
 async function browseFolder() {
-    if (window.pywebview && window.pywebview.api) {
-        return await window.pywebview.api.browse_folder();
+    try {
+        const r = await fetch('/api/browse-folder', { method: 'POST' });
+        const d = await r.json();
+        return d.folder || null;
+    } catch {
+        return null;
     }
-    return null;
 }
 
 // ── View management ────────────────────────────────────────────────────────
