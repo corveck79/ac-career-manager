@@ -183,7 +183,8 @@ function renderCalendar() {
         document.getElementById('nrb-meta').textContent  =
             'Race ' + nextRound.round + ' / ' + total + '  ·  ' + laps + ' laps';
         // AI level filled when race modal opens; show placeholder here
-        document.getElementById('nrb-ai').textContent = '~' + (85 + (tierCfg ? tierCfg.ai_difficulty : 0));
+        const baseAi = config && config.difficulty ? (config.difficulty.base_ai_level || 85) : 85;
+        document.getElementById('nrb-ai').textContent = '~' + (baseAi + (tierCfg ? tierCfg.ai_difficulty : 0));
     }
 }
 
