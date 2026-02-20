@@ -6,7 +6,7 @@ AC Career Manager is a desktop app (pywebview + Flask) that adds a career mode t
 
 - **Backend:** Python / Flask (`app.py`, `career_manager.py`)
 - **Frontend:** Vanilla JS + HTML/CSS (`templates/dashboard.html`, `static/app.js`, `static/style.css`)
-- **Window:** pywebview 4.4.1 with `gui='edgechromium'` (Edge WebView2, built into Win 10/11)
+- **Window:** PySide6 6.10+ with `QWebEngineView` (Chromium-based, bundled with Qt)
 - **Config:** `config.json` (all tunable game settings)
 - **Save data:** `career_data.json` (auto-created at runtime, next to EXE)
 - **Platform:** Windows only (AC is a Windows game)
@@ -32,7 +32,7 @@ Note: `dashboard.html`, `style.css`, and `app.js` also exist as duplicates in th
 
 1. `app.py` is run (directly or as EXE)
 2. Flask starts in a daemon thread on port 5000
-3. pywebview creates a native window pointing to `http://127.0.0.1:5000`
+3. PySide6 `QApplication` + `QWebEngineView` window opens `http://127.0.0.1:5000`
 4. On page load, JS calls `/api/setup-status`; if AC path is invalid, setup overlay is shown
 5. User sets AC path → saved to `config.json` → app is ready
 
@@ -41,14 +41,10 @@ Note: `dashboard.html`, `style.css`, and `app.js` also exist as duplicates in th
 - `get_app_dir()` returns `os.path.dirname(sys.executable)` when frozen
 - `ensure_config()` copies bundled `config.json` template to app dir on first run
 
-### JsApi (Python ↔ JS bridge)
-```python
-class JsApi:
-    def browse_folder(self):
-        result = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
-        return result[0] if result else None
-```
-Called from JS as `await window.pywebview.api.browse_folder()`.
+### Folder picker bridge (Python ↔ JS)
+JS calls `fetch('/api/browse-folder', {method:'POST'})`. Flask sets a `threading.Event`
+and waits on a `Queue`. A `QTimer` (100ms) polls on the Qt main thread, opens
+`QFileDialog.getExistingDirectory()`, and puts the result in the Queue.
 
 ## Common Commands
 
@@ -139,8 +135,7 @@ Delete to reset career. Backup before editing config.
 - `Flask==3.0.0` + `flask-cors==4.0.0` + `Werkzeug==3.0.0`
 - `Jinja2==3.1.2`
 - `requests==2.31.0`
-- `pywebview==4.4.1` — native window (requires pythonnet, bottle, proxy-tools, clr-loader)
-- `pythonnet==3.0.0rc6` — must be installed with `pip install pythonnet --pre`
+- `PySide6>=6.10.0` — native window with `QWebEngineView` (Python 3.14 compatible)
 - `pyinstaller==6.19.0` (build only)
 
 ## Windows-Specific Notes
@@ -149,6 +144,8 @@ Delete to reset career. Backup before editing config.
 - AC install path must contain `acs.exe`
 - Default AC path: `C:\Program Files (x86)\Steam\steamapps\common\assettocorsa`
 - Port 5000 is the default; change in `app.py` if it conflicts
-- `start.bat` activates venv and runs `app.py` (pywebview opens its own window)
-- `build.bat` produces a self-contained EXE (~17 MB) in `dist/` using `--windowed`
-- pywebview uses Edge WebView2 (`gui='edgechromium'`), pre-installed on Windows 10/11
+- `start.bat` activates venv and runs `app.py` (Qt window opens automatically)
+- `build.bat` produces a `dist/AC_Career_Manager/` folder (~430 MB) using `--onedir`
+  - Large size is unavoidable: Qt6WebEngineCore.dll alone is 193 MB
+  - `--onefile` cannot be used with Qt WebEngine (needs helper processes as separate files)
+- PySide6 requires `--onedir`; `--onefile` will fail at runtime
