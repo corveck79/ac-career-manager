@@ -20,6 +20,17 @@ AC Career Manager is a complete professional career mode system for Assetto Cors
 
 ---
 
+## DOWNLOAD
+
+**[⬇ Download AC_Career_Manager.exe (v1.0.0)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_Manager.exe)**
+
+- Windows 10/11 only
+- No Python installation needed
+- ~13 MB single file
+- Requires Assetto Corsa installed via Steam
+
+---
+
 ## QUICK START
 
 **Requirements:**
