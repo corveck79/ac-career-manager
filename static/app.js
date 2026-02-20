@@ -555,6 +555,7 @@ async function saveSettings() {
         const d = await r.json();
         if (d.status === 'success') {
             config = updated;
+            renderCalendar();  // refresh next-race bar with new AI level
             showToast('Instellingen opgeslagen!');
             showView('standings');
         } else {
