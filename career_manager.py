@@ -14,6 +14,14 @@ import os
 class CareerManager:
     """Main career management system"""
 
+    DRIVER_NAMES = [
+        "Marco Rossi",    "James Hunt",     "Pierre Dupont",  "Hans Mueller",
+        "Carlos Rivera",  "Tom Bradley",    "Luca Ferrari",   "Alex Chen",
+        "David Williams", "Raj Patel",      "Sven Johansson", "Omar Hassan",
+        "Kenji Tanaka",   "Igor Petrov",    "Fabio Romano",   "Ethan Clark",
+        "Nina Kovac",     "Lucas Petit",    "Aiden Burke",    "Zara Osman",
+    ]
+
     def __init__(self, config):
         self.config = config
         self.tiers = ['mx5_cup', 'gt4', 'gt3', 'wec']
@@ -109,7 +117,18 @@ class CareerManager:
     # Standings — deterministic AI, real player points
     # ------------------------------------------------------------------
 
-    def generate_standings(self, tier_info, career_data):
+    def _get_driver_name(self, team_index, tier_key, season):
+        """Return a unique driver name for an AI team slot.
+        Shuffles the name pool per tier+season so names are unique within each tier."""
+        seed = int(hashlib.md5(
+            f"{tier_key}|{season}".encode()
+        ).hexdigest()[:8], 16)
+        rng  = random.Random(seed)
+        pool = list(self.DRIVER_NAMES)
+        rng.shuffle(pool)
+        return pool[team_index % len(pool)]
+
+    def generate_standings(self, tier_info, career_data, tier_key=None):
         """
         Build championship standings.
         AI points are deterministic per race so they are consistent
@@ -122,19 +141,25 @@ class CareerManager:
         tier_index   = career_data.get('tier', 0)
         team_count   = len(tier_info['teams'])
 
+        if tier_key is None:
+            tier_key = self.tiers[tier_index]
+
         standings = []
-        for team in tier_info['teams']:
+        for i, team in enumerate(tier_info['teams']):
             is_player = (team['name'] == player_team)
 
             if is_player:
-                pts = player_pts
+                pts    = player_pts
+                driver = career_data.get('driver_name') or 'Player'
             else:
-                pts = self._calc_ai_points(
+                pts    = self._calc_ai_points(
                     team, season, tier_index, races_done, team_count
                 )
+                driver = self._get_driver_name(i, tier_key, season)
 
             standings.append({
                 'team':       team['name'],
+                'driver':     driver,
                 'car':        team['car'],
                 'points':     pts,
                 'races':      races_done,
@@ -152,6 +177,27 @@ class CareerManager:
             s['gap']      = leader - s['points']
 
         return standings
+
+    def generate_all_standings(self, career_data):
+        """Return standings for all 4 tiers simultaneously.
+        Player appears only in their own tier; other tiers show pure AI."""
+        result      = {}
+        player_tier = career_data.get('tier', 0)
+        for idx, tk in enumerate(self.tiers):
+            tier_info = self.config['tiers'][tk]
+            if idx == player_tier:
+                sim = career_data
+            else:
+                sim = {
+                    'tier':            idx,
+                    'season':          career_data.get('season', 1),
+                    'team':            None,
+                    'races_completed': career_data.get('races_completed', 0),
+                    'points':          0,
+                    'driver_name':     '',
+                }
+            result[tk] = self.generate_standings(tier_info, sim, tier_key=tk)
+        return result
 
     def _calc_ai_points(self, team, season, tier_index, races_done, team_count):
         """
@@ -188,25 +234,85 @@ class CareerManager:
     # Contracts
     # ------------------------------------------------------------------
 
-    def generate_contract_offers(self, player_position, next_tier, config):
-        """Generate contract offers based on championship finish"""
+    def generate_contract_offers(self, player_position, next_tier, config,
+                                 current_tier=0, team_count=20):
+        """Generate contract offers based on championship finish.
+
+        Bottom 3 finishers get degradation risk: only the worst seat in the
+        current tier or (if not already in the lowest tier) offers from the
+        tier below.  Champion always gets promoted; top-3 get scouted by
+        higher-tier teams.
+        """
+        # Career complete
         if next_tier >= len(self.tiers):
             return [{'message': 'Congratulations! Career complete!', 'complete': True}]
 
+        degradation_risk = (player_position >= team_count - 2)
+
+        if degradation_risk:
+            offers = []
+            current_tier_info = config['tiers'][self.tiers[current_tier]]
+
+            # Worst customer seat in current tier (same level)
+            customers = [t for t in current_tier_info['teams']
+                         if t.get('tier', 'customer') == 'customer']
+            customers.sort(key=lambda t: t.get('performance', 0))
+            if customers:
+                team = customers[0]
+                offers.append({
+                    'id':               f"contract_deg_0_{int(datetime.now().timestamp())}",
+                    'team_name':        team['name'],
+                    'car':              team['car'],
+                    'tier_name':        self.tier_names[self.tiers[current_tier]],
+                    'tier_level':       'customer',
+                    'degradation_risk': True,
+                    'description':      (
+                        f"Your season results were poor. "
+                        f"{team['name']} offers you a chance to stay in "
+                        f"{self.tier_names[self.tiers[current_tier]]}."
+                    ),
+                })
+
+            # Offer from lower tier (if not already in the bottom tier)
+            if current_tier > 0:
+                lower_tier_key  = self.tiers[current_tier - 1]
+                lower_tier_info = config['tiers'][lower_tier_key]
+                lower_teams     = [t for t in lower_tier_info['teams']
+                                   if t.get('tier', 'customer') in ('factory', 'semi')]
+                lower_teams.sort(key=lambda t: t.get('performance', 0), reverse=True)
+                for j, team in enumerate(lower_teams[:2]):
+                    offers.append({
+                        'id':               f"contract_deg_{j+1}_{int(datetime.now().timestamp())}",
+                        'team_name':        team['name'],
+                        'car':              team['car'],
+                        'tier_name':        self.tier_names[lower_tier_key],
+                        'tier_level':       team.get('tier', 'semi'),
+                        'degradation_risk': True,
+                        'description':      (
+                            f"{team['name']} in {self.tier_names[lower_tier_key]} "
+                            f"is interested in signing you."
+                        ),
+                    })
+            return offers
+
+        # Normal promotion path
         tier_info = config['tiers'][self.tiers[next_tier]]
 
         if player_position == 1:
-            offer_count  = config.get('contracts', {}).get('champion_offers', 4)
-            tier_filter  = ['factory', 'semi']
+            offer_count = config.get('contracts', {}).get('champion_offers', 4)
+            tier_filter = ['factory', 'semi']
+        elif player_position <= 3:
+            offer_count = config.get('contracts', {}).get('top5_offers', 3)
+            tier_filter = ['factory', 'semi']
         elif player_position <= 5:
-            offer_count  = config.get('contracts', {}).get('top5_offers', 3)
-            tier_filter  = ['semi', 'customer']
+            offer_count = config.get('contracts', {}).get('top5_offers', 3)
+            tier_filter = ['semi', 'customer']
         elif player_position <= 10:
-            offer_count  = config.get('contracts', {}).get('top10_offers', 2)
-            tier_filter  = ['customer']
+            offer_count = config.get('contracts', {}).get('top10_offers', 2)
+            tier_filter = ['customer']
         else:
-            offer_count  = 1
-            tier_filter  = ['customer']
+            offer_count = 1
+            tier_filter = ['customer']
 
         available = [
             t for t in tier_info['teams']
@@ -218,12 +324,13 @@ class CareerManager:
         offers = []
         for i, team in enumerate(selected):
             offers.append({
-                'id':          f"contract_{i}_{int(datetime.now().timestamp())}",
-                'team_name':   team['name'],
-                'car':         team['car'],
-                'tier_name':   self.tier_names[self.tiers[next_tier]],
-                'tier_level':  team.get('tier', 'customer'),
-                'description': (
+                'id':               f"contract_{i}_{int(datetime.now().timestamp())}",
+                'team_name':        team['name'],
+                'car':              team['car'],
+                'tier_name':        self.tier_names[self.tiers[next_tier]],
+                'tier_level':       team.get('tier', 'customer'),
+                'degradation_risk': False,
+                'description':      (
                     f"Join {team['name']} for the "
                     f"{self.tier_names[self.tiers[next_tier]]} season"
                 ),

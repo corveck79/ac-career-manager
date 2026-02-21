@@ -75,14 +75,24 @@
       </div>
     </div>
     <div id="view-standings" class="card view-card active">
-      <h2 class="section-title">Championship Standings</h2>
+      <!-- Tier tabs -->
+      <div class="tier-tabs" id="tier-tabs">
+        <button class="tier-tab" data-tier="0" onclick="switchStandingsTier(0)">MX5 Cup</button>
+        <button class="tier-tab" data-tier="1" onclick="switchStandingsTier(1)">GT4</button>
+        <button class="tier-tab" data-tier="2" onclick="switchStandingsTier(2)">GT3</button>
+        <button class="tier-tab" data-tier="3" onclick="switchStandingsTier(3)">WEC</button>
+      </div>
+      <!-- Driver / Team toggle -->
+      <div class="champ-tabs">
+        <button class="champ-tab active" id="champ-tab-drivers" onclick="switchChampMode('drivers')">Rijders</button>
+        <button class="champ-tab"        id="champ-tab-teams"   onclick="switchChampMode('teams')">Teams</button>
+      </div>
       <div class="empty-state" id="standings-empty" style="display:none">Start a new career to see standings.</div>
       <div class="table-wrap">
         <table class="standings-table" id="standings-table">
           <thead><tr>
             <th class="col-pos">Pos</th>
-            <th class="col-team">Team</th>
-            <th class="col-car">Car</th>
+            <th class="col-name" id="standings-col-label">Rijder</th>
             <th class="col-pts">Pts</th>
             <th class="col-gap">Gap</th>
           </tr></thead>

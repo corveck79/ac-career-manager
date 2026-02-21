@@ -212,3 +212,25 @@ td.col-gap{text-align:right;color:var(--text-dim);font-size:.72rem}
 .toast.warning{background:var(--accent);color:#000}
 @keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
 .hidden{display:none!important}
+
+/* TIER TABS */
+.tier-tabs{display:flex;gap:4px;margin-bottom:10px}
+.tier-tab{flex:1;padding:6px 4px;background:var(--bg2);color:var(--text-dim);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font:bold 10px var(--mono);text-transform:uppercase;letter-spacing:.05em;transition:var(--t)}
+.tier-tab:hover{background:var(--card);color:var(--text)}
+.tier-tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.tier-tab.player-tier::after{content:' ★'}
+
+/* CHAMPIONSHIP TYPE TOGGLE */
+.champ-tabs{display:flex;gap:4px;margin-bottom:14px}
+.champ-tab{flex:1;padding:5px;background:var(--bg);color:var(--text-dim);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font:bold 10px var(--mono);text-transform:uppercase;transition:var(--t)}
+.champ-tab:hover{background:var(--bg2);color:var(--text)}
+.champ-tab.active{background:var(--card);color:var(--text);border-color:var(--border-hi)}
+
+/* STANDINGS: name column with sub-name */
+.col-name{min-width:160px}
+.sub-name{font-size:10px;color:var(--text-faint);margin-top:1px;font-weight:400}
+
+/* DEGRADATION RISK */
+.deg-risk-banner{background:rgba(255,71,87,.12);border:1px solid rgba(255,71,87,.3);color:var(--danger);padding:.6rem .85rem;border-radius:var(--radius-sm);font-size:.78rem;font-weight:600;margin-bottom:1rem}
+.contract-deg{border-color:rgba(255,71,87,.3)!important}
+.contract-desc{font-size:.75rem;color:var(--text-dim);margin:.4rem 0}

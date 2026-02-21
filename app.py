@@ -163,6 +163,18 @@ def get_standings():
     })
 
 
+@app.route('/api/all-standings')
+def get_all_standings():
+    career_data = load_career_data()
+    all_s = career.generate_all_standings(career_data)
+    return jsonify({
+        'all_standings':   all_s,
+        'current_tier':    career_data.get('tier', 0),
+        'races_completed': career_data.get('races_completed', 0),
+        'total_races':     career.get_tier_races(),
+    })
+
+
 @app.route('/api/season-calendar')
 def get_season_calendar():
     career_data    = load_career_data()
@@ -333,7 +345,12 @@ def _do_end_season():
     tier_info   = career.get_tier_info(career_data['tier'])
     standings   = career.generate_standings(tier_info, career_data)
     position    = next((s['position'] for s in standings if s['is_player']), 1)
-    contracts   = career.generate_contract_offers(position, career_data['tier'] + 1, cfg)
+    team_count  = len(tier_info['teams'])
+    contracts   = career.generate_contract_offers(
+        position, career_data['tier'] + 1, cfg,
+        current_tier=career_data['tier'],
+        team_count=team_count,
+    )
     career_data['contracts']      = contracts
     career_data['final_position'] = position
     save_career_data(career_data)

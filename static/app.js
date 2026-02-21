@@ -2,11 +2,14 @@
 'use strict';
 
 // ── State ──────────────────────────────────────────────────────────────────
-let career     = null;
-let config     = null;
-let standings  = [];
-let calendar   = [];
-let pendingRace = null;
+let career        = null;
+let config        = null;
+let standings     = [];
+let allStandings  = {};       // { mx5_cup: [...], gt4: [...], ... }
+let standingsTier = 0;        // currently displayed tier index
+let champMode     = 'drivers'; // 'drivers' | 'teams'
+let calendar      = [];
+let pendingRace   = null;
 
 // ── Track name map ──────────────────────────────────────────────────────────
 const TRACK_NAMES = {
@@ -66,8 +69,9 @@ function tierName(index) {
 document.addEventListener('DOMContentLoaded', async () => {
     await checkSetup();
     await Promise.all([loadCareer(), loadConfig()]);
-    await Promise.all([loadStandings(), loadCalendar()]);
+    await Promise.all([loadAllStandings(), loadCalendar()]);
     refresh();
+    if (career) switchStandingsTier(career.tier || 0);
 });
 
 // ── Data loaders ───────────────────────────────────────────────────────────
@@ -83,12 +87,14 @@ async function loadConfig() {
         config  = await r.json();
     } catch (e) { console.error('loadConfig', e); }
 }
-async function loadStandings() {
+async function loadAllStandings() {
     try {
-        const r   = await fetch('/api/standings');
-        const d   = await r.json();
-        standings = d.standings || [];
-    } catch (e) { console.error('loadStandings', e); }
+        const r      = await fetch('/api/all-standings');
+        const d      = await r.json();
+        allStandings = d.all_standings || {};
+        standingsTier = career ? (career.tier || 0) : 0;
+        standings    = allStandings[tierKey(standingsTier)] || [];
+    } catch (e) { console.error('loadAllStandings', e); }
 }
 async function loadCalendar() {
     try {
@@ -198,6 +204,28 @@ function renderCalendar() {
     }
 }
 
+// ── Standings tier / mode switching ────────────────────────────────────────
+function switchStandingsTier(idx) {
+    standingsTier = idx;
+    standings     = allStandings[tierKey(idx)] || [];
+    const playerTier = career ? (career.tier || 0) : 0;
+    document.querySelectorAll('.tier-tab').forEach(t => {
+        const ti = parseInt(t.dataset.tier);
+        t.classList.toggle('active',       ti === idx);
+        t.classList.toggle('player-tier',  ti === playerTier);
+    });
+    renderStandings();
+}
+
+function switchChampMode(mode) {
+    champMode = mode;
+    document.getElementById('champ-tab-drivers').classList.toggle('active', mode === 'drivers');
+    document.getElementById('champ-tab-teams').classList.toggle('active',   mode === 'teams');
+    const lbl = document.getElementById('standings-col-label');
+    if (lbl) lbl.textContent = mode === 'drivers' ? 'Rijder' : 'Team';
+    renderStandings();
+}
+
 // ── Standings ──────────────────────────────────────────────────────────────
 function renderStandings() {
     const tbody = document.getElementById('standings-body');
@@ -221,13 +249,17 @@ function renderStandings() {
                          s.position === 3 ? 'pos-3' : '';
         const rowClass = s.is_player ? 'player-row' : '';
         const gap      = s.gap === 0 ? '–' : '–' + s.gap;
+        const main     = champMode === 'drivers' ? (s.driver || s.team) : s.team;
+        const sub      = champMode === 'drivers' ? s.team : (s.driver || '');
+        const star     = s.is_player ? '★ ' : '';
         return (
             '<tr class="' + rowClass + '">' +
             '<td class="col-pos ' + posClass + '">' + s.position + '</td>' +
-            '<td class="col-team">' + (s.is_player ? '★ ' : '') + s.team + '</td>' +
-            '<td class="col-car">'  + fmtCar(s.car)   + '</td>' +
-            '<td class="col-pts">'  + s.points         + '</td>' +
-            '<td class="col-gap">'  + gap              + '</td>' +
+            '<td class="col-name">' + star + main +
+              (sub ? '<div class="sub-name">' + sub + '</div>' : '') +
+            '</td>' +
+            '<td class="col-pts">' + s.points + '</td>' +
+            '<td class="col-gap">' + gap      + '</td>' +
             '</tr>'
         );
     }).join('');
@@ -265,7 +297,7 @@ async function confirmSetup() {
         if (d.status === 'success') {
             document.getElementById('setup-overlay').classList.add('hidden');
             await Promise.all([loadCareer(), loadConfig()]);
-            await Promise.all([loadStandings(), loadCalendar()]);
+            await Promise.all([loadAllStandings(), loadCalendar()]);
             refresh();
             showToast('Assetto Corsa gevonden!');
         } else {
@@ -356,7 +388,7 @@ async function confirmNewCareer() {
         if (d.status === 'success') {
             closeModal('modal-new-career');
             await Promise.all([loadCareer(), loadConfig()]);
-            await Promise.all([loadStandings(), loadCalendar()]);
+            await Promise.all([loadAllStandings(), loadCalendar()]);
             refresh();
             showView('standings');
             showToast('Career started! Good luck, ' + name + '! 🏁');
@@ -526,7 +558,7 @@ async function _postFinishRace(pos, lapTime) {
         } else if (d.status === 'success') {
             const pts = d.result ? d.result.points : 0;
             showToast(fmtPos(pos) + ' — +' + pts + ' pts!');
-            await Promise.all([loadCareer(), loadStandings(), loadCalendar()]);
+            await Promise.all([loadCareer(), loadAllStandings(), loadCalendar()]);
             refresh();
             showView('standings');
         } else {
@@ -537,7 +569,7 @@ async function _postFinishRace(pos, lapTime) {
 
 // ── Season Complete ────────────────────────────────────────────────────────
 async function handleSeasonComplete(data) {
-    await Promise.all([loadCareer(), loadStandings(), loadCalendar()]);
+    await Promise.all([loadCareer(), loadAllStandings(), loadCalendar()]);
     refresh();
 
     const posEl = document.getElementById('final-pos-text');
@@ -566,11 +598,17 @@ function renderContracts(contracts) {
             'Congratulations! You have completed the full career! 🏆</p>';
         return;
     }
-    el.innerHTML = contracts.map(c =>
-        '<div class="contract-card">' +
+    const hasDegRisk = contracts.some(c => c.degradation_risk);
+    const banner = hasDegRisk
+        ? '<div class="deg-risk-banner">⚠ Poor season results — your seat is at risk. Limited offers available.</div>'
+        : '';
+
+    el.innerHTML = banner + contracts.map(c =>
+        '<div class="contract-card' + (c.degradation_risk ? ' contract-deg' : '') + '">' +
         '<div class="contract-team">'     + c.team_name   + '</div>' +
         '<div class="contract-tier-lbl">' + (c.tier_level || '') + ' · ' + (c.tier_name || '') + '</div>' +
         '<div class="contract-car-lbl">'  + fmtCar(c.car) + '</div>' +
+        '<p class="contract-desc">'       + (c.description || '') + '</p>' +
         '<button class="btn btn-race" onclick="acceptContract(\'' + c.id + '\')">Sign Contract</button>' +
         '</div>'
     ).join('');
@@ -587,7 +625,7 @@ async function acceptContract(contractId) {
         if (d.status === 'success') {
             showToast('Welcome to ' + d.new_team + '! 🏎');
             await Promise.all([loadCareer(), loadConfig()]);
-            await Promise.all([loadStandings(), loadCalendar()]);
+            await Promise.all([loadAllStandings(), loadCalendar()]);
             refresh();
             showView('standings');
         } else {
