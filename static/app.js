@@ -36,6 +36,16 @@ function fmtCar(id) {
     return id.replace(/^ks_/, '').replace(/_/g, ' ')
              .replace(/\b\w/g, c => c.toUpperCase());
 }
+function fmtWeather(preset) {
+    const map = {
+        '3_clear':        '☀ Clear',
+        '4_mid_clear':    '⛅ Partly Cloudy',
+        '6_light_clouds': '🌤 Light Cloud',
+        '7_heavy_clouds': '☁ Overcast',
+        'wet':            '🌧 Wet',
+    };
+    return map[preset] || preset || '☀ Clear';
+}
 function fmtPos(n) {
     return n === 1 ? 'P1 🥇' : n === 2 ? 'P2 🥈' : n === 3 ? 'P3 🥉' : 'P' + n;
 }
@@ -374,8 +384,8 @@ async function startRace() {
 
         // Populate modal
         const details = document.getElementById('race-details');
-        const pracMin = pendingRace.practice_minutes || 10;
-        const qualiMin = pendingRace.quali_minutes || 10;
+        const pracMin  = pendingRace.practice_minutes || 10;
+        const qualiMin = pendingRace.quali_minutes   || 10;
         details.innerHTML = [
             rdItem('Track',       fmtTrack(pendingRace.track)),
             rdItem('Car',         fmtCar(pendingRace.car)),
@@ -385,6 +395,7 @@ async function startRace() {
             rdItem('AI Level',    Math.round(pendingRace.ai_difficulty) + '%'),
             rdItem('Practice',    pracMin + ' min'),
             rdItem('Qualifying',  qualiMin + ' min'),
+            rdItem('Weather',     fmtWeather(pendingRace.weather)),
         ].join('');
 
         // Update AI level in calendar bar

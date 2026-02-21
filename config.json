@@ -58,7 +58,8 @@
         "time_limit_minutes": 90,
         "practice_minutes": 15,
         "quali_minutes": 15,
-        "weather": "variable"
+        "weather": "variable",
+        "weather_pool": [["3_clear", 42], ["4_mid_clear", 25], ["6_light_clouds", 10], ["7_heavy_clouds", 15], ["wet", 8]]
       },
       "teams": [
         {
@@ -201,7 +202,8 @@
         "time_limit_minutes": 60,
         "practice_minutes": 10,
         "quali_minutes": 10,
-        "weather": "variable"
+        "weather": "variable",
+        "weather_pool": [["3_clear", 50], ["4_mid_clear", 25], ["6_light_clouds", 10], ["7_heavy_clouds", 10], ["wet", 5]]
       },
       "teams": [
         {
@@ -319,7 +321,8 @@
         "time_limit_minutes": 45,
         "practice_minutes": 10,
         "quali_minutes": 10,
-        "weather": "clear"
+        "weather": "clear",
+        "weather_pool": [["3_clear", 80], ["4_mid_clear", 20]]
       },
       "teams": [
         {
@@ -425,7 +428,8 @@
         "time_limit_minutes": 180,
         "practice_minutes": 15,
         "quali_minutes": 15,
-        "weather": "variable"
+        "weather": "variable",
+        "weather_pool": [["3_clear", 40], ["4_mid_clear", 20], ["6_light_clouds", 10], ["7_heavy_clouds", 20], ["wet", 10]]
       },
       "teams": [
         {

@@ -1,7 +1,7 @@
 # AC CAREER MANAGER
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.2.0
+**Version:** 1.3.0
 **Platform:** Windows 10/11
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
@@ -17,7 +17,15 @@ AC Career Manager is a complete professional career mode system for Assetto Cors
 - **Intelligent AI Scaling:** Difficulty increases as you progress
 - **Native Desktop App:** Runs in its own window via pywebview (Edge WebView2)
 - **Full Race Weekend:** Practice + Qualifying + Race in one AC launch, or Race Only
+- **Weather Variety:** Weighted random weather per race (rain chance increases each tier)
 - **One-Click Launch:** Automatic AC integration
+
+---
+
+## SCREENSHOTS
+
+![Dashboard](docs/screenshots/dashboard.png)
+![Race Modal](docs/screenshots/race_modal.png)
 
 ---
 

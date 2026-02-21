@@ -45,18 +45,43 @@ class CareerManager:
         ai_difficulty = self._calculate_ai_difficulty(team_name, tier_info)
         opponents = self._generate_opponent_field(tier_info, race_num)
 
+        weather = self._pick_weather(tier_info['race_format'], track)
         return {
-            'race_num':        race_num,
-            'track':           track,
-            'car':             car,
-            'team':            team_name,
-            'ai_difficulty':   ai_difficulty,
-            'opponents':       opponents,
-            'laps':            tier_info['race_format'].get('laps', 20),
-            'time_limit':      tier_info['race_format'].get('time_limit_minutes', 45),
+            'race_num':         race_num,
+            'track':            track,
+            'car':              car,
+            'team':             team_name,
+            'ai_difficulty':    ai_difficulty,
+            'opponents':        opponents,
+            'laps':             tier_info['race_format'].get('laps', 20),
+            'time_limit':       tier_info['race_format'].get('time_limit_minutes', 45),
             'practice_minutes': tier_info['race_format'].get('practice_minutes', 10),
-            'quali_minutes':   tier_info['race_format'].get('quali_minutes', 10),
+            'quali_minutes':    tier_info['race_format'].get('quali_minutes', 10),
+            'weather':          weather,
         }
+
+    # Tracks that have wet weather support in vanilla AC
+    WET_TRACKS = {
+        'spa', 'monza', 'mugello', 'imola',
+        'ks_silverstone', 'ks_brands_hatch',
+        'ks_red_bull_ring', 'ks_vallelunga',
+    }
+
+    def _pick_weather(self, race_format, track):
+        """Pick a weather preset using weighted random from weather_pool.
+        Falls back to 7_heavy_clouds if wet is selected on an unsupported track.
+        """
+        pool = race_format.get('weather_pool', [['3_clear', 100]])
+        presets  = [p[0] for p in pool]
+        weights  = [p[1] for p in pool]
+        chosen   = random.choices(presets, weights=weights, k=1)[0]
+
+        if chosen == 'wet':
+            track_folder = track.split('/')[0]
+            if track_folder not in self.WET_TRACKS:
+                chosen = '7_heavy_clouds'  # fallback: overcast but no rain
+
+        return chosen
 
     def _calculate_ai_difficulty(self, team_name, tier_info):
         base = self.config['difficulty']['base_ai_level']
@@ -309,6 +334,7 @@ class CareerManager:
         opponents        = race_data.get('opponents', [])
         practice_minutes = race_data.get('practice_minutes', 10)
         quali_minutes    = race_data.get('quali_minutes', 10)
+        weather          = race_data.get('weather', '3_clear')
 
         # Limit to 19 AI cars (20 total including player)
         ai_cars = opponents[:19]
@@ -340,6 +366,7 @@ class CareerManager:
             f"CARS={total_cars}",
             f"AI_LEVEL={ai_lvl}",
             f"JUMP_START_PENALTY=0",
+            f"WEATHER_0={weather}",
             "",
         ]
 
