@@ -1,7 +1,7 @@
 # AC CAREER MANAGER
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.5.0
+**Version:** 1.6.0
 **Platform:** Windows 10/11
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
@@ -23,6 +23,7 @@ AC Career Manager is a complete professional career mode system for Assetto Cors
 - **Globally Unique Driver Names:** 120-name pool ensures no duplicate drivers across all 4 tiers
 - **Per-Team Liveries:** Each AI car gets a distinct skin in every race (especially visible in MX5 Cup)
 - **Promotion & Degradation:** Bottom finishers risk losing their seat; top-3 get scouted by higher-tier teams
+- **App Logo & Icon:** Custom AC logo in topbar, WebView2 favicon, and EXE/taskbar icon
 - **One-Click Launch:** Automatic AC integration
 
 ---

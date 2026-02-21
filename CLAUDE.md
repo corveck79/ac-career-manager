@@ -25,6 +25,9 @@ config.json                  # Master config (tracks, teams, difficulty, format)
 career_data.json             # Live save file (auto-created; not committed)
 build.bat                    # PyInstaller build script → dist/AC_Career_Manager.exe
 start.bat                    # Dev launcher: activates venv and runs app.py
+make_icon.py                 # Dev utility: generates static/logo.ico (run once, needs Pillow)
+static/logo.svg              # SVG logo — topbar + favicon in dashboard.html
+static/logo.ico              # Multi-res ICO (16–256px) — embedded in EXE via --icon
 ```
 
 Note: `dashboard.html`, `style.css`, and `app.js` also exist as duplicates in the project root — not used by Flask. Flask reads from `templates/` and `static/` only.
@@ -153,6 +156,7 @@ Delete to reset career. Backup before editing config.
 - `requests==2.31.0`
 - `pywebview==4.4.1` — native window via Edge WebView2 (requires Python 3.12)
 - `pyinstaller==6.19.0` (build only)
+- `Pillow>=10.0.0` (build only — needed to run `make_icon.py`; not required at runtime)
 
 ## Windows-Specific Notes
 

@@ -15,6 +15,7 @@ call venv\Scripts\activate.bat
 pyinstaller --onefile ^
     --windowed ^
     --name "AC_Career_Manager" ^
+    --icon "static\logo.ico" ^
     --add-data "templates;templates" ^
     --add-data "static;static" ^
     --add-data "config.json;." ^

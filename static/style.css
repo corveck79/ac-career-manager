@@ -16,6 +16,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14
 .topbar-inner{width:100%;max-width:var(--max-w);display:flex;align-items:center;gap:1rem;padding:0 1.5rem}
 .topbar-brand{display:flex;align-items:center;gap:.5rem;flex-shrink:0}
 .topbar-icon{font-size:1.3rem}
+.topbar-logo{width:28px;height:28px;display:inline-block;vertical-align:middle}
 .topbar-title{font-size:1rem;font-weight:800;letter-spacing:3px;background:linear-gradient(90deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .topbar-center{flex:1;text-align:center;font-size:.85rem;color:var(--text-dim);letter-spacing:1px;font-style:italic}
 .topbar-right{display:flex;gap:.5rem;flex-shrink:0}
