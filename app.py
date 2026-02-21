@@ -212,7 +212,8 @@ def start_race():
     race_num    = career_data['races_completed'] + 1
     race        = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'])
     race['driver_name'] = career_data.get('driver_name', 'Player')
-    success = career.launch_ac_race(race, cfg)
+    mode    = (request.json or {}).get('mode', 'race_only')
+    success = career.launch_ac_race(race, cfg, mode=mode)
     if success:
         career_data['race_started_at'] = datetime.now().isoformat()
         save_career_data(career_data)

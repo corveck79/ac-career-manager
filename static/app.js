@@ -374,13 +374,17 @@ async function startRace() {
 
         // Populate modal
         const details = document.getElementById('race-details');
+        const pracMin = pendingRace.practice_minutes || 10;
+        const qualiMin = pendingRace.quali_minutes || 10;
         details.innerHTML = [
-            rdItem('Track',    fmtTrack(pendingRace.track)),
-            rdItem('Car',      fmtCar(pendingRace.car)),
-            rdItem('Team',     pendingRace.team || '–'),
-            rdItem('Round',    'Race ' + pendingRace.race_num + ' / ' + total),
-            rdItem('Laps',     pendingRace.laps),
-            rdItem('AI Level', Math.round(pendingRace.ai_difficulty) + '%'),
+            rdItem('Track',       fmtTrack(pendingRace.track)),
+            rdItem('Car',         fmtCar(pendingRace.car)),
+            rdItem('Team',        pendingRace.team || '–'),
+            rdItem('Round',       'Race ' + pendingRace.race_num + ' / ' + total),
+            rdItem('Race',        pendingRace.laps + ' laps'),
+            rdItem('AI Level',    Math.round(pendingRace.ai_difficulty) + '%'),
+            rdItem('Practice',    pracMin + ' min'),
+            rdItem('Qualifying',  qualiMin + ' min'),
         ].join('');
 
         // Update AI level in calendar bar
@@ -400,18 +404,20 @@ function rdItem(label, value) {
     );
 }
 
-async function confirmStartRace() {
+async function confirmStartRace(mode) {
+    mode = mode || 'race_only';
     try {
         const r = await fetch('/api/start-race', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
+            body: JSON.stringify({ mode }),
         });
         const d = await r.json();
         closeModal('modal-race');
 
         if (d.status === 'success') {
-            showToast('AC launched! Go race! 🏁');
+            const modeLabel = mode === 'full_weekend' ? 'Full Weekend gestart! 🏁' : 'AC launched! Go race! 🏁';
+            showToast(modeLabel);
             // Set race label
             const lbl = document.getElementById('result-race-label');
             if (lbl && pendingRace) {

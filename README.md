@@ -1,7 +1,7 @@
 # AC CAREER MANAGER
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 **Platform:** Windows 10/11
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
@@ -16,7 +16,8 @@ AC Career Manager is a complete professional career mode system for Assetto Cors
 - **Contract System:** End-of-season team/car selection based on performance
 - **Intelligent AI Scaling:** Difficulty increases as you progress
 - **Native Desktop App:** Runs in its own window via pywebview (Edge WebView2)
-- **One-Click Race Launching:** Automatic AC integration
+- **Full Race Weekend:** Practice + Qualifying + Race in one AC launch, or Race Only
+- **One-Click Launch:** Automatic AC integration
 
 ---
 
@@ -120,9 +121,9 @@ For advanced changes, edit `config.json` while the app is **stopped**.
 ### Race Workflow
 1. Click **"START RACE"** button
 2. Review race details in modal
-3. Click **"LAUNCH AC"**
-4. Assetto Corsa opens with the race configured
-5. **Drive the race** in AC
+3. Choose **Full Weekend** (Practice + Qualifying + Race) or **Race Only**
+4. Assetto Corsa opens and runs all sessions automatically
+5. **Drive** in AC — AC handles session transitions
 6. Close AC when done, then return to the app
 7. Click **"Fetch Result from AC"** — position and best lap are read automatically
 8. Confirm the result (or enter manually if needed)

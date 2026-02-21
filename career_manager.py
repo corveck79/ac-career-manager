@@ -46,14 +46,16 @@ class CareerManager:
         opponents = self._generate_opponent_field(tier_info, race_num)
 
         return {
-            'race_num':     race_num,
-            'track':        track,
-            'car':          car,
-            'team':         team_name,
-            'ai_difficulty': ai_difficulty,
-            'opponents':    opponents,
-            'laps':         tier_info['race_format'].get('laps', 20),
-            'time_limit':   tier_info['race_format'].get('time_limit_minutes', 45),
+            'race_num':        race_num,
+            'track':           track,
+            'car':             car,
+            'team':            team_name,
+            'ai_difficulty':   ai_difficulty,
+            'opponents':       opponents,
+            'laps':            tier_info['race_format'].get('laps', 20),
+            'time_limit':      tier_info['race_format'].get('time_limit_minutes', 45),
+            'practice_minutes': tier_info['race_format'].get('practice_minutes', 10),
+            'quali_minutes':   tier_info['race_format'].get('quali_minutes', 10),
         }
 
     def _calculate_ai_difficulty(self, team_name, tier_info):
@@ -213,8 +215,10 @@ class CareerManager:
         docs = os.path.join(os.path.expanduser("~"), "Documents", "Assetto Corsa", "cfg")
         return docs
 
-    def launch_ac_race(self, race_config, config):
-        """Launch Assetto Corsa with race configuration"""
+    def launch_ac_race(self, race_config, config, mode='race_only'):
+        """Launch Assetto Corsa with race configuration.
+        mode: 'race_only' (default) or 'full_weekend' (practice + quali + race)
+        """
         ac_path = config['paths']['ac_install']
 
         if not os.path.exists(ac_path):
@@ -227,7 +231,7 @@ class CareerManager:
 
         # 1. Write race.ini to Documents (where AC actually reads it)
         race_cfg_path = os.path.join(docs_cfg, 'race.ini')
-        self._write_race_config(race_cfg_path, race_config, ac_path)
+        self._write_race_config(race_cfg_path, race_config, ac_path, mode=mode)
 
         # 2. Patch launcher.ini in Documents so AC starts in race mode
         launcher_path = os.path.join(docs_cfg, 'launcher.ini')
@@ -294,13 +298,17 @@ class CareerManager:
         except Exception:
             return ''
 
-    def _write_race_config(self, config_path, race_data, ac_path=''):
-        """Write AC race.ini in the format AC expects (Documents/Assetto Corsa/cfg/race.ini)."""
-        driver     = race_data.get('driver_name', 'Player')
-        car        = race_data['car']
-        laps       = race_data['laps']
-        ai_lvl     = int(race_data['ai_difficulty'])
-        opponents  = race_data.get('opponents', [])
+    def _write_race_config(self, config_path, race_data, ac_path='', mode='race_only'):
+        """Write AC race.ini in the format AC expects (Documents/Assetto Corsa/cfg/race.ini).
+        mode: 'race_only' → single race session; 'full_weekend' → practice + quali + race.
+        """
+        driver           = race_data.get('driver_name', 'Player')
+        car              = race_data['car']
+        laps             = race_data['laps']
+        ai_lvl           = int(race_data['ai_difficulty'])
+        opponents        = race_data.get('opponents', [])
+        practice_minutes = race_data.get('practice_minutes', 10)
+        quali_minutes    = race_data.get('quali_minutes', 10)
 
         # Limit to 19 AI cars (20 total including player)
         ai_cars = opponents[:19]
@@ -351,16 +359,41 @@ class CareerManager:
             "",
         ]
 
-        # [SESSION_0] — race session (TYPE=3 = Race)
-        lines += [
-            "[SESSION_0]",
-            "NAME=RACE",
-            f"LAPS={laps}",
-            "TYPE=3",
-            "SPAWN_SET=START",
-            "DURATION_MINUTES=0",
-            "",
-        ]
+        # Sessions — race only or full weekend (practice + qualifying + race)
+        if mode == 'full_weekend':
+            lines += [
+                "[SESSION_0]",
+                "NAME=PRACTICE",
+                "TYPE=1",
+                "SPAWN_SET=PIT",
+                f"DURATION_MINUTES={practice_minutes}",
+                "LAPS=0",
+                "",
+                "[SESSION_1]",
+                "NAME=QUALIFY",
+                "TYPE=2",
+                "SPAWN_SET=PIT",
+                f"DURATION_MINUTES={quali_minutes}",
+                "LAPS=0",
+                "",
+                "[SESSION_2]",
+                "NAME=RACE",
+                "TYPE=3",
+                "SPAWN_SET=START",
+                f"LAPS={laps}",
+                "DURATION_MINUTES=0",
+                "",
+            ]
+        else:
+            lines += [
+                "[SESSION_0]",
+                "NAME=RACE",
+                f"LAPS={laps}",
+                "TYPE=3",
+                "SPAWN_SET=START",
+                "DURATION_MINUTES=0",
+                "",
+            ]
 
         # [GROOVE]
         lines += [

@@ -76,7 +76,7 @@ build.bat              # Runs PyInstaller, outputs dist/AC_Career_Manager.exe (~
 | GET | `/api/standings` | Championship standings |
 | GET | `/api/season-calendar` | Full season race calendar |
 | GET | `/api/next-race` | Next race details |
-| POST | `/api/start-race` | Launch AC with race config (saves `race_started_at` timestamp) |
+| POST | `/api/start-race` | Launch AC with race config; body `{mode}` = `race_only` or `full_weekend`; saves `race_started_at` |
 | GET | `/api/read-race-result` | Auto-read result from AC results JSON |
 | POST | `/api/finish-race` | Submit result, calc points |
 | POST | `/api/end-season` | Trigger season end / contract offers |
