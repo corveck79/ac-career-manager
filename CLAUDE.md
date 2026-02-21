@@ -92,10 +92,11 @@ venv\Scripts\python.exe -c "import types,sys; sys.modules['webview']=types.Modul
 | POST | `/api/start-race` | Launch AC with race config; body `{mode}` = `race_only` or `full_weekend`; saves `race_started_at` |
 | GET | `/api/read-race-result` | Auto-read result from AC results JSON |
 | POST | `/api/finish-race` | Submit result, calc points |
-| POST | `/api/end-season` | Trigger season end / contract offers |
+| POST | `/api/end-season` | Trigger season end / contract offers; snapshots AI driver history |
 | POST | `/api/accept-contract` | Accept a contract offer |
 | POST | `/api/new-career` | Reset and start fresh |
 | GET/POST | `/api/config` | Read or update config |
+| GET | `/api/driver-profile` | Driver profile: `?name=<driver>` → `{name, profile, current, history}` |
 
 ## Career Tiers
 
@@ -116,12 +117,35 @@ F1-standard: 25-18-15-12-10-8-6-4-2-1. Fastest lap bonus removed.
 
 - `DRIVER_NAMES`: 120-name pool — enough for all 106 championship driver slots
 - `DRIVERS_PER_TEAM`: `{mx5_cup:1, gt4:2, gt3:2, wec:2}` — MX5 is single-driver
-- `TIER_SLOT_OFFSET`: `{mx5_cup:0, gt4:14, gt3:46, wec:86}` — global slot start per tier
+- `TIER_SLOT_OFFSET`: `{mx5_cup:0, gt4:14, gt3=46, wec:86}` — global slot start per tier
 - `_get_driver_name(global_slot, season)`: season-seeded global shuffle → each slot → unique name
 - `generate_standings()`: returns driver championship (1 or 2 entries per team)
 - `generate_team_standings_from_drivers()`: aggregates driver entries to team championship
 - `generate_all_standings()`: returns `{tier_key: {drivers:[...], teams:[...]}}` for all 4 tiers
 - `_get_car_skin(car, ac_path, index=0)`: index-based skin picker; player gets 0, AI cars get 1,2,3…
+
+## Driver Profiles & Personalities (v1.7.0, career_manager.py)
+
+- `DRIVER_PROFILES`: class-level dict — 120 entries matching `DRIVER_NAMES` exactly
+  - Each entry: `{"nationality": "GBR", "skill": 80, "aggression": 50}`
+  - `skill` range: 70–95 → maps to `AI_LEVEL` offset in race.ini (`skill_offset = int((skill-80)*0.2)`)
+  - `aggression` range: 0–100 → maps directly to `AI_AGGRESSION` in race.ini
+- `_get_style(skill, aggression)` → archetype string:
+  - skill≥85 + aggr≥60 = **"The Charger"**
+  - skill≥85 + aggr<60 = **"The Tactician"**
+  - skill<85 + aggr≥60 = **"The Wildcard"**
+  - else = **"The Journeyman"**
+- `get_driver_profile(name)` → `{nationality, skill, aggression, style}` (fallback: GBR/80/40)
+- `_generate_opponent_field()` stores `driver_name` + `global_slot` per opponent
+- `_write_race_config()` uses per-driver `AI_LEVEL` + `AI_AGGRESSION` (no longer global/hardcoded 0)
+- standings↔race name sync: both use `_get_driver_name(global_slot, season)` — names now match
+
+## Career History (v1.7.0)
+
+- `career_data.json` field: `"driver_history": {name: {seasons: [{season, tier, pos, pts}]}}`
+- Populated by `/api/end-season` before contract generation
+- `/api/driver-profile` returns `history` for the requested driver
+- Frontend: profile card shows history rows newest-first with tier label and trophy for P1
 
 ## Key Config Fields (`config.json`)
 
@@ -153,9 +177,12 @@ Auto-created next to the EXE. Key fields:
   "standings": [],
   "race_results": [],
   "contracts": null,
-  "race_started_at": "2025-01-01T12:00:00"
+  "race_started_at": "2025-01-01T12:00:00",
+  "driver_history": {}
 }
 ```
+`driver_history` format: `{name: {seasons: [{season:1, tier:"gt4", pos:3, pts:45}]}}`
+
 Delete to reset career. Backup before editing config.
 
 ## Logo & Icon

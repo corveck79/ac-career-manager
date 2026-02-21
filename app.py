@@ -210,9 +210,13 @@ def get_season_calendar():
 def get_next_race():
     career_data = load_career_data()
     cfg         = load_config()
-    tier_info   = career.get_tier_info(career_data['tier'])
+    tier_index  = career_data['tier']
+    tier_key    = career.tiers[tier_index]
+    tier_info   = career.get_tier_info(tier_index)
     race_num    = career_data['races_completed'] + 1
-    race = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'])
+    season      = career_data.get('season', 1)
+    race = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
+                                tier_key=tier_key, season=season)
     return jsonify(race)
 
 
@@ -220,9 +224,13 @@ def get_next_race():
 def start_race():
     career_data = load_career_data()
     cfg         = load_config()
-    tier_info   = career.get_tier_info(career_data['tier'])
+    tier_index  = career_data['tier']
+    tier_key    = career.tiers[tier_index]
+    tier_info   = career.get_tier_info(tier_index)
     race_num    = career_data['races_completed'] + 1
-    race        = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'])
+    season      = career_data.get('season', 1)
+    race        = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
+                                       tier_key=tier_key, season=season)
     race['driver_name'] = career_data.get('driver_name', 'Player')
     mode    = (request.json or {}).get('mode', 'race_only')
     success = career.launch_ac_race(race, cfg, mode=mode)
@@ -342,13 +350,33 @@ def end_season():
 def _do_end_season():
     career_data = load_career_data()
     cfg         = load_config()
-    tier_info   = career.get_tier_info(career_data['tier'])
-    standings   = career.generate_standings(tier_info, career_data)
+    tier_index  = career_data['tier']
+    tier_key    = career.tiers[tier_index]
+    tier_info   = career.get_tier_info(tier_index)
+    standings   = career.generate_standings(tier_info, career_data, tier_key=tier_key)
     position    = next((s['position'] for s in standings if s['is_player']), 1)
     team_count  = len(tier_info['teams'])
+
+    # Snapshot AI driver final positions into career history
+    driver_history = career_data.get('driver_history', {})
+    season         = career_data.get('season', 1)
+    for entry in standings:
+        if entry['is_player']:
+            continue
+        name = entry['driver']
+        if name not in driver_history:
+            driver_history[name] = {'seasons': []}
+        driver_history[name]['seasons'].append({
+            'season': season,
+            'tier':   tier_key,
+            'pos':    entry['position'],
+            'pts':    entry['points'],
+        })
+    career_data['driver_history'] = driver_history
+
     contracts   = career.generate_contract_offers(
-        position, career_data['tier'] + 1, cfg,
-        current_tier=career_data['tier'],
+        position, tier_index + 1, cfg,
+        current_tier=tier_index,
         team_count=team_count,
     )
     career_data['contracts']      = contracts
@@ -404,9 +432,29 @@ def new_career():
         'standings':       [],
         'race_results':    [],
         'contracts':       None,
+        'driver_history':  {},
     }
     save_career_data(initial)
     return jsonify({'status': 'success', 'message': 'New career started!', 'career_data': initial})
+
+
+@app.route('/api/driver-profile')
+def driver_profile():
+    name        = request.args.get('name', '')
+    career_data = load_career_data()
+    profile     = career.get_driver_profile(name)
+    history     = career_data.get('driver_history', {}).get(name, {'seasons': []})
+    # Find current standings entry for this driver across all tiers
+    all_s         = career.generate_all_standings(career_data)
+    current_entry = None
+    for tier_data in all_s.values():
+        for entry in tier_data['drivers']:
+            if entry.get('driver') == name:
+                current_entry = entry
+                break
+        if current_entry:
+            break
+    return jsonify({'name': name, 'profile': profile, 'current': current_entry, 'history': history})
 
 
 @app.route('/api/config', methods=['GET'])

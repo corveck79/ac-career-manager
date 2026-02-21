@@ -235,3 +235,22 @@ td.col-gap{text-align:right;color:var(--text-dim);font-size:.72rem}
 .deg-risk-banner{background:rgba(255,71,87,.12);border:1px solid rgba(255,71,87,.3);color:var(--danger);padding:.6rem .85rem;border-radius:var(--radius-sm);font-size:.78rem;font-weight:600;margin-bottom:1rem}
 .contract-deg{border-color:rgba(255,71,87,.3)!important}
 .contract-desc{font-size:.75rem;color:var(--text-dim);margin:.4rem 0}
+
+/* DRIVER PROFILE CARD */
+.modal-driver-box{max-width:400px}
+.driver-nationality{font-size:.72rem;color:var(--text-dim);letter-spacing:1px;display:block;margin-bottom:.15rem}
+.dp-style{font-size:.75rem;color:var(--accent);letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:1.1rem}
+.dp-stats{display:flex;flex-direction:column;gap:.65rem;margin-bottom:1.2rem}
+.dp-stat-row{display:flex;align-items:center;gap:.65rem}
+.dp-stat-label{font-size:.58rem;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;width:82px;flex-shrink:0}
+.dp-bar-wrap{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.dp-bar{height:100%;border-radius:3px;transition:width .5s ease;width:0}
+.dp-bar-skill{background:linear-gradient(90deg,var(--primary),var(--accent))}
+.dp-bar-aggr{background:linear-gradient(90deg,var(--accent),var(--danger))}
+.dp-stat-val{font-size:.8rem;font-weight:700;font-family:var(--mono);color:var(--text);width:26px;text-align:right;flex-shrink:0}
+.dp-section-label{font-size:.58rem;text-transform:uppercase;letter-spacing:2px;color:var(--text-faint);margin:.85rem 0 .35rem}
+.dp-current{font-size:.9rem;font-weight:700;font-family:var(--mono);color:var(--text)}
+.dp-history{display:flex;flex-direction:column;gap:.2rem;margin-top:.1rem}
+.dp-history-row{display:flex;justify-content:space-between;font-size:.76rem;font-family:var(--mono);color:var(--text-dim);padding:.22rem 0;border-bottom:1px solid var(--border)}
+.standings-table tbody tr[onclick]{cursor:pointer}
+.standings-table tbody tr[onclick]:hover td{background:rgba(232,74,10,.05)}

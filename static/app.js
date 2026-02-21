@@ -261,9 +261,12 @@ function renderStandings() {
         const sub  = isDriverMode
             ? s.team
             : (s.driver2 ? s.driver + ' / ' + s.driver2 : (s.driver || ''));
-        const star = s.is_player ? '★ ' : '';
+        const star      = s.is_player ? '★ ' : '';
+        const clickable = (!s.is_player && champMode === 'drivers')
+            ? ' onclick="showDriverProfile(\'' + (s.driver || '').replace(/'/g, "\\'") + '\')"'
+            : '';
         return (
-            '<tr class="' + rowClass + '">' +
+            '<tr class="' + rowClass + '"' + clickable + '>' +
             '<td class="col-pos ' + posClass + '">' + s.position + '</td>' +
             '<td class="col-name">' + star + main +
               (sub ? '<div class="sub-name">' + sub + '</div>' : '') +
@@ -373,6 +376,73 @@ function openConfig() {
 // ── Modal helpers ──────────────────────────────────────────────────────────
 function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// ── Driver profile card ─────────────────────────────────────────────────────
+const NATIONALITY_FLAGS = {
+    ITA:'🇮🇹', GBR:'🇬🇧', FRA:'🇫🇷', GER:'🇩🇪', ESP:'🇪🇸', NLD:'🇳🇱',
+    BRA:'🇧🇷', USA:'🇺🇸', JPN:'🇯🇵', CHN:'🇨🇳', RUS:'🇷🇺', IND:'🇮🇳',
+    SWE:'🇸🇪', MAR:'🇲🇦', KEN:'🇰🇪', CRO:'🇭🇷', IRL:'🇮🇪', TUR:'🇹🇷',
+    GHA:'🇬🇭', AUS:'🇦🇺', POL:'🇵🇱', CZE:'🇨🇿', ROU:'🇷🇴',
+};
+function nationalityFlag(code) { return NATIONALITY_FLAGS[code] || '🏁'; }
+
+const TIER_LABELS = {mx5_cup:'MX5 Cup', gt4:'GT4', gt3:'GT3', wec:'WEC'};
+
+async function showDriverProfile(name) {
+    try {
+        const r    = await fetch('/api/driver-profile?name=' + encodeURIComponent(name));
+        const data = await r.json();
+        const p    = data.profile  || {};
+        const cur  = data.current  || null;
+        const hist = (data.history && data.history.seasons) ? data.history.seasons : [];
+
+        document.getElementById('dp-nationality').textContent =
+            nationalityFlag(p.nationality) + '  ' + (p.nationality || '');
+        document.getElementById('dp-name').textContent  = data.name || name;
+        document.getElementById('dp-team').textContent  =
+            cur ? (cur.team || '') + (cur.car ? '  ·  ' + fmtCar(cur.car) : '') : '';
+        document.getElementById('dp-style').textContent = p.style || '';
+
+        // Stat bars — reset width to 0 first so CSS transition plays
+        const skillBar = document.getElementById('dp-skill-bar');
+        const aggrBar  = document.getElementById('dp-aggr-bar');
+        skillBar.style.width = '0';
+        aggrBar.style.width  = '0';
+        requestAnimationFrame(() => {
+            skillBar.style.width = (p.skill || 0) + '%';
+            aggrBar.style.width  = (p.aggression || 0) + '%';
+        });
+        document.getElementById('dp-skill-val').textContent = p.skill || '–';
+        document.getElementById('dp-aggr-val').textContent  = p.aggression || '–';
+
+        // Current season
+        document.getElementById('dp-current').innerHTML = cur
+            ? 'P' + cur.position + ' &nbsp;·&nbsp; ' + cur.points + ' pts' +
+              (cur.gap === 0 ? ' &nbsp;·&nbsp; <span style="color:var(--accent)">LEADER</span>'
+                             : ' &nbsp;·&nbsp; –' + cur.gap)
+            : '–';
+
+        // Career history
+        const histEl    = document.getElementById('dp-history');
+        const histLabel = document.getElementById('dp-history-label');
+        if (hist.length) {
+            histLabel.style.display = '';
+            histEl.innerHTML = hist.slice().reverse().map(s =>
+                '<div class="dp-history-row">' +
+                '<span>S' + s.season + ' ' + (TIER_LABELS[s.tier] || s.tier) + '</span>' +
+                '<span>P' + s.pos + ' · ' + s.pts + ' pts' + (s.pos === 1 ? ' 🏆' : '') + '</span>' +
+                '</div>'
+            ).join('');
+        } else {
+            histLabel.style.display = 'none';
+            histEl.innerHTML = '<span style="color:var(--text-faint);font-size:.75rem">No previous seasons</span>';
+        }
+
+        openModal('modal-driver');
+    } catch (e) {
+        showToast('Could not load driver profile', 'error');
+    }
+}
 
 // ── New Career ─────────────────────────────────────────────────────────────
 function openNewCareer() {
