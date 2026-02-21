@@ -109,6 +109,8 @@ F1-standard: 25-18-15-12-10-8-6-4-2-1. Fastest lap bonus removed.
 - `tracks.<tier>` — Track list per tier (AC track folder names)
 - `teams.<tier>.teams[]` — Team/car assignments per tier
 - `contracts` — How many offers based on championship finish
+- `tiers.<tier>.race_format.weather_pool` — `[[preset, weight], ...]` pairs for weighted random weather
+- `tiers.<tier>.race_format.practice_minutes` / `quali_minutes` — session lengths for Full Weekend mode
 
 **Edit `config.json` only while the app is stopped.**
 
