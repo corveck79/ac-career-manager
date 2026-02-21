@@ -73,7 +73,8 @@ build.bat              # Runs PyInstaller, outputs dist/AC_Career_Manager.exe (~
 | GET | `/api/setup-status` | Check if AC install path is valid |
 | POST | `/api/save-ac-path` | Save AC install path to config |
 | GET | `/api/career-status` | Full career state |
-| GET | `/api/standings` | Championship standings |
+| GET | `/api/standings` | Championship standings (player tier only, legacy) |
+| GET | `/api/all-standings` | All 4 tiers: `{tier_key: {drivers:[...], teams:[...]}}` |
 | GET | `/api/season-calendar` | Full season race calendar |
 | GET | `/api/next-race` | Next race details |
 | POST | `/api/start-race` | Launch AC with race config; body `{mode}` = `race_only` or `full_weekend`; saves `race_started_at` |
@@ -98,6 +99,17 @@ Base AI level: 85 (0–100 scale), with ±1.5 variance per race.
 ## Points System
 
 F1-standard: 25-18-15-12-10-8-6-4-2-1. Fastest lap bonus removed.
+
+## Driver Name Architecture (career_manager.py)
+
+- `DRIVER_NAMES`: 120-name pool — enough for all 106 championship driver slots
+- `DRIVERS_PER_TEAM`: `{mx5_cup:1, gt4:2, gt3:2, wec:2}` — MX5 is single-driver
+- `TIER_SLOT_OFFSET`: `{mx5_cup:0, gt4:14, gt3:46, wec:86}` — global slot start per tier
+- `_get_driver_name(global_slot, season)`: season-seeded global shuffle → each slot → unique name
+- `generate_standings()`: returns driver championship (1 or 2 entries per team)
+- `generate_team_standings_from_drivers()`: aggregates driver entries to team championship
+- `generate_all_standings()`: returns `{tier_key: {drivers:[...], teams:[...]}}` for all 4 tiers
+- `_get_car_skin(car, ac_path, index=0)`: index-based skin picker; player gets 0, AI cars get 1,2,3…
 
 ## Key Config Fields (`config.json`)
 

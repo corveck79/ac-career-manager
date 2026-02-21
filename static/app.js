@@ -89,11 +89,12 @@ async function loadConfig() {
 }
 async function loadAllStandings() {
     try {
-        const r      = await fetch('/api/all-standings');
-        const d      = await r.json();
-        allStandings = d.all_standings || {};
+        const r       = await fetch('/api/all-standings');
+        const d       = await r.json();
+        // allStandings[tier_key] = { drivers: [...], teams: [...] }
+        allStandings  = d.all_standings || {};
         standingsTier = career ? (career.tier || 0) : 0;
-        standings    = allStandings[tierKey(standingsTier)] || [];
+        standings     = (allStandings[tierKey(standingsTier)] || {}).drivers || [];
     } catch (e) { console.error('loadAllStandings', e); }
 }
 async function loadCalendar() {
@@ -131,8 +132,10 @@ function updateDriverCard() {
     document.getElementById('driver-points').textContent   = career.points || 0;
     document.getElementById('races-done').textContent      = done + '/' + total;
 
-    // Position from standings
-    const me = standings.find(s => s.is_player);
+    // Position from player's own tier driver standings (independent of currently viewed tab)
+    const playerTierK       = tierKey(career.tier || 0);
+    const playerTierDrivers = (allStandings[playerTierK] || {}).drivers || standings;
+    const me = playerTierDrivers.find(s => s.is_player);
     document.getElementById('driver-pos').textContent = me ? 'P' + me.position : '–';
 }
 
@@ -207,7 +210,7 @@ function renderCalendar() {
 // ── Standings tier / mode switching ────────────────────────────────────────
 function switchStandingsTier(idx) {
     standingsTier = idx;
-    standings     = allStandings[tierKey(idx)] || [];
+    standings     = (allStandings[tierKey(idx)] || {}).drivers || [];
     const playerTier = career ? (career.tier || 0) : 0;
     document.querySelectorAll('.tier-tab').forEach(t => {
         const ti = parseInt(t.dataset.tier);
@@ -234,8 +237,11 @@ function renderStandings() {
     if (!tbody) return;
 
     const hasCareer = career && career.team;
+    const tierK     = tierKey(standingsTier);
+    const tierData  = allStandings[tierK] || { drivers: [], teams: [] };
+    const data      = champMode === 'drivers' ? (tierData.drivers || []) : (tierData.teams || []);
 
-    if (!hasCareer || !standings.length) {
+    if (!hasCareer || !data.length) {
         if (empty) empty.style.display = '';
         if (table) table.style.display = 'none';
         return;
@@ -243,15 +249,19 @@ function renderStandings() {
     if (empty) empty.style.display = 'none';
     if (table) table.style.display = '';
 
-    tbody.innerHTML = standings.map(s => {
+    tbody.innerHTML = data.map(s => {
         const posClass = s.position === 1 ? 'pos-1' :
                          s.position === 2 ? 'pos-2' :
                          s.position === 3 ? 'pos-3' : '';
         const rowClass = s.is_player ? 'player-row' : '';
         const gap      = s.gap === 0 ? '–' : '–' + s.gap;
-        const main     = champMode === 'drivers' ? (s.driver || s.team) : s.team;
-        const sub      = champMode === 'drivers' ? s.team : (s.driver || '');
-        const star     = s.is_player ? '★ ' : '';
+        const isDriverMode = champMode === 'drivers';
+        const main = isDriverMode ? (s.driver || s.team) : s.team;
+        // Teams mode: show both drivers as sub ("Driver1 / Driver2")
+        const sub  = isDriverMode
+            ? s.team
+            : (s.driver2 ? s.driver + ' / ' + s.driver2 : (s.driver || ''));
+        const star = s.is_player ? '★ ' : '';
         return (
             '<tr class="' + rowClass + '">' +
             '<td class="col-pos ' + posClass + '">' + s.position + '</td>' +
@@ -259,7 +269,7 @@ function renderStandings() {
               (sub ? '<div class="sub-name">' + sub + '</div>' : '') +
             '</td>' +
             '<td class="col-pts">' + s.points + '</td>' +
-            '<td class="col-gap">' + gap      + '</td>' +
+            '<td class="col-gap">' + gap + '</td>' +
             '</tr>'
         );
     }).join('');

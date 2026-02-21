@@ -14,13 +14,67 @@ import os
 class CareerManager:
     """Main career management system"""
 
+    # 120 globally unique driver names (covers all 106 driver slots across all tiers)
     DRIVER_NAMES = [
-        "Marco Rossi",    "James Hunt",     "Pierre Dupont",  "Hans Mueller",
-        "Carlos Rivera",  "Tom Bradley",    "Luca Ferrari",   "Alex Chen",
-        "David Williams", "Raj Patel",      "Sven Johansson", "Omar Hassan",
-        "Kenji Tanaka",   "Igor Petrov",    "Fabio Romano",   "Ethan Clark",
-        "Nina Kovac",     "Lucas Petit",    "Aiden Burke",    "Zara Osman",
+        # 0-9
+        "Marco Rossi",       "James Hunt",        "Pierre Dupont",     "Hans Mueller",
+        "Carlos Rivera",     "Tom Bradley",       "Luca Ferrari",      "Alex Chen",
+        "David Williams",    "Raj Patel",
+        # 10-19
+        "Sven Johansson",    "Omar Hassan",       "Kenji Tanaka",      "Igor Petrov",
+        "Fabio Romano",      "Ethan Clark",       "Nina Kovac",        "Lucas Petit",
+        "Aiden Burke",       "Zara Osman",
+        # 20-29
+        "Felipe Rodrigues",  "Jan van der Berg",  "Mikael Lindqvist",  "Antoine Moreau",
+        "Sebastian Richter", "Takumi Nakamura",   "Ryan O'Connor",     "Dimitri Volkov",
+        "Wei Zhang",         "Emre Yilmaz",
+        # 30-39
+        "Stefan Baumann",    "Liam Fitzgerald",   "Pablo Sanchez",     "Yuki Hashimoto",
+        "Cristian Popescu",  "Max Hartmann",      "Nico Berger",       "Andre Hoffmann",
+        "Kofi Mensah",       "Ravi Sharma",
+        # 40-49
+        "Jake Morrison",     "Thomas Leclerc",    "Giulio Conti",      "Magnus Eriksson",
+        "Aleksei Nikitin",   "Hiro Matsuda",      "Kevin Walsh",       "Leon Braun",
+        "Samir Khalil",      "Dante Moraes",
+        # 50-59
+        "Felix Bauer",       "Connor MacLeod",    "Victor Blanc",      "Matteo Gallo",
+        "Oskar Wiklund",     "Tariq Nasser",      "Samuel Obi",        "Dario Conti",
+        "Erik Larsen",       "Julian Richter",
+        # 60-69
+        "Baptiste Renard",   "Kai Nakamura",      "Tobias Schreiber",  "Lorenzo Marini",
+        "Jack Thornton",     "Vladimir Kozlov",   "Yasuhiro Ito",      "Patrick Brennan",
+        "Roberto Mancini",   "Hugo Lefevre",
+        # 70-79
+        "Christoph Weber",   "Nils Gunnarsson",   "Mehmet Ozkan",      "Benedikt Fischer",
+        "Alvaro Delgado",    "Finn Andersen",     "Artem Sokolov",     "Raul Jimenez",
+        "Enzo Palermo",      "Timothy Hooper",
+        # 80-89
+        "Francois Girard",   "Kazuki Yamamoto",   "Benjamin Koch",     "Cian Murphy",
+        "Mateus Costa",      "Tomas Novak",       "Rafael Torres",     "Pieter de Vries",
+        "Duncan Fraser",     "Alexei Morozov",
+        # 90-99
+        "Simon Bertrand",    "Stephan Kramer",    "Mattias Svensson",  "Davide Russo",
+        "Callum Stewart",    "Timur Bakirov",     "Marco Bianchi",     "Arnaud Leblanc",
+        "Hiroshi Watanabe",  "Edward Collins",
+        # 100-109
+        "Gerhard Mayer",     "Luca Gentile",      "Frederick Larsson", "Alistair Young",
+        "Marco Colombo",     "Jean-Paul Tissot",  "Adriano Ferretti",  "Sebastian Vallet",
+        "Diego Morales",     "Andrei Popov",
+        # 110-119
+        "Josef Novotny",     "Henryk Kowalski",   "Kwame Asante",      "Taiki Oshima",
+        "Brenden Walsh",     "Giacomo Vietti",    "Emilio Fernandez",  "Lars Petersen",
+        "Nikolai Volkov",    "Kim Andersen",
     ]
+
+    # How many championship drivers per team entry (MX5 is single-driver; GT3/GT4/WEC are 2)
+    DRIVERS_PER_TEAM = {'mx5_cup': 1, 'gt4': 2, 'gt3': 2, 'wec': 2}
+
+    # Global driver slot offset per tier:
+    #   MX5:  14 teams × 1 = 14 drivers  → slots  0-13
+    #   GT4:  16 teams × 2 = 32 drivers  → slots 14-45
+    #   GT3:  20 teams × 2 = 40 drivers  → slots 46-85
+    #   WEC:  10 teams × 2 = 20 drivers  → slots 86-105
+    TIER_SLOT_OFFSET = {'mx5_cup': 0, 'gt4': 14, 'gt3': 46, 'wec': 86}
 
     def __init__(self, config):
         self.config = config
@@ -117,69 +171,157 @@ class CareerManager:
     # Standings — deterministic AI, real player points
     # ------------------------------------------------------------------
 
-    def _get_driver_name(self, team_index, tier_key, season):
-        """Return a unique driver name for an AI team slot.
-        Shuffles the name pool per tier+season so names are unique within each tier."""
+    def _get_driver_name(self, global_slot, season):
+        """Return a globally unique driver name for the given slot and season.
+        Uses a single season-seeded shuffle of the full name pool so that each
+        slot index maps to a distinct name across all tiers simultaneously."""
         seed = int(hashlib.md5(
-            f"{tier_key}|{season}".encode()
+            f"global_drivers|{season}".encode()
         ).hexdigest()[:8], 16)
         rng  = random.Random(seed)
         pool = list(self.DRIVER_NAMES)
         rng.shuffle(pool)
-        return pool[team_index % len(pool)]
+        return pool[global_slot % len(pool)]
+
+    def _get_driver_split(self, team_name, tier_key, season):
+        """Deterministic primary-driver share of team points (0.50–0.65)."""
+        seed = int(hashlib.md5(
+            f"split|{team_name}|{tier_key}|{season}".encode()
+        ).hexdigest()[:8], 16)
+        rng = random.Random(seed)
+        return 0.50 + rng.random() * 0.15
 
     def generate_standings(self, tier_info, career_data, tier_key=None):
+        """Build driver championship standings.
+
+        MX5 Cup is a single-driver series (1 entry per team).
+        GT4 / GT3 / WEC have 2 championship drivers per team.
+        Names are globally unique across all 4 tiers (season-seeded global shuffle).
         """
-        Build championship standings.
-        AI points are deterministic per race so they are consistent
-        between page loads. Player points come from actual results.
-        """
-        races_done   = career_data.get('races_completed', 0)
-        player_pts   = career_data.get('points', 0)
-        player_team  = career_data.get('team')
-        season       = career_data.get('season', 1)
-        tier_index   = career_data.get('tier', 0)
-        team_count   = len(tier_info['teams'])
+        races_done  = career_data.get('races_completed', 0)
+        player_pts  = career_data.get('points', 0)
+        player_team = career_data.get('team')
+        season      = career_data.get('season', 1)
+        tier_index  = career_data.get('tier', 0)
+        team_count  = len(tier_info['teams'])
 
         if tier_key is None:
             tier_key = self.tiers[tier_index]
 
-        standings = []
+        dpt    = self.DRIVERS_PER_TEAM.get(tier_key, 1)   # drivers per team
+        offset = self.TIER_SLOT_OFFSET.get(tier_key, 0)   # global slot start
+
+        entries = []
         for i, team in enumerate(tier_info['teams']):
-            is_player = (team['name'] == player_team)
+            is_player_team = (team['name'] == player_team)
+            slot1 = offset + i * dpt
 
-            if is_player:
-                pts    = player_pts
-                driver = career_data.get('driver_name') or 'Player'
+            if is_player_team:
+                pts1  = player_pts
+                name1 = career_data.get('driver_name') or 'Player'
             else:
-                pts    = self._calc_ai_points(
-                    team, season, tier_index, races_done, team_count
+                pts1  = self._calc_ai_points(team, season, tier_index, races_done, team_count)
+                name1 = self._get_driver_name(slot1, season)
+
+            if dpt == 1:
+                # Single-driver entry (MX5 Cup)
+                entries.append({
+                    'team':       team['name'],
+                    'driver':     name1,
+                    'driver2':    None,
+                    'car':        team['car'],
+                    'points':     pts1,
+                    'races':      races_done,
+                    'is_player':  is_player_team,
+                    'is_primary': True,
+                    'tier_level': team.get('tier', 'customer'),
+                })
+            else:
+                # Two drivers per team (GT4 / GT3 / WEC)
+                slot2 = slot1 + 1
+                name2 = self._get_driver_name(slot2, season)
+
+                # Co-driver uses the same team performance but a slightly different seed
+                codriver_team = dict(team)
+                codriver_team['name'] = team['name'] + '_codriver'
+                pts2 = self._calc_ai_points(
+                    codriver_team, season, tier_index, races_done, team_count
                 )
-                driver = self._get_driver_name(i, tier_key, season)
 
-            standings.append({
-                'team':       team['name'],
-                'driver':     driver,
-                'car':        team['car'],
-                'points':     pts,
-                'races':      races_done,
-                'is_player':  is_player,
-                'tier_level': team.get('tier', 'customer'),
-            })
+                # Primary driver entry
+                entries.append({
+                    'team':       team['name'],
+                    'driver':     name1,
+                    'driver2':    name2,
+                    'car':        team['car'],
+                    'points':     pts1,
+                    'races':      races_done,
+                    'is_player':  is_player_team,
+                    'is_primary': True,
+                    'tier_level': team.get('tier', 'customer'),
+                })
+                # Co-driver entry
+                entries.append({
+                    'team':       team['name'],
+                    'driver':     name2,
+                    'driver2':    name1,
+                    'car':        team['car'],
+                    'points':     pts2,
+                    'races':      races_done,
+                    'is_player':  False,
+                    'is_primary': False,
+                    'tier_level': team.get('tier', 'customer'),
+                })
 
-        # Sort descending
-        standings.sort(key=lambda x: x['points'], reverse=True)
-
-        # Add position + gap to leader
-        leader = standings[0]['points'] if standings else 0
-        for i, s in enumerate(standings):
+        entries.sort(key=lambda x: x['points'], reverse=True)
+        leader = entries[0]['points'] if entries else 0
+        for i, s in enumerate(entries):
             s['position'] = i + 1
             s['gap']      = leader - s['points']
 
-        return standings
+        return entries
+
+    def generate_team_standings_from_drivers(self, driver_entries):
+        """Aggregate driver entries into team championship (1 row per team, summed points)."""
+        teams_order = []
+        seen = {}
+        for entry in driver_entries:
+            tn = entry['team']
+            if tn not in seen:
+                teams_order.append(tn)
+                seen[tn] = {
+                    'team':       tn,
+                    'car':        entry['car'],
+                    'points':     0,
+                    'races':      entry['races'],
+                    'is_player':  False,
+                    'tier_level': entry['tier_level'],
+                    '_drivers':   [],
+                }
+            seen[tn]['points'] += entry['points']
+            seen[tn]['_drivers'].append((entry.get('is_primary', True), entry['driver']))
+            if entry.get('is_player'):
+                seen[tn]['is_player'] = True
+
+        team_list = []
+        for tn in teams_order:
+            t = seen[tn]
+            # Sort so primary driver (is_primary=True) is first
+            drivers = sorted(t.pop('_drivers'), key=lambda x: (0 if x[0] else 1))
+            t['driver']  = drivers[0][1] if drivers else ''
+            t['driver2'] = drivers[1][1] if len(drivers) > 1 else None
+            team_list.append(t)
+
+        team_list.sort(key=lambda x: x['points'], reverse=True)
+        leader = team_list[0]['points'] if team_list else 0
+        for i, t in enumerate(team_list):
+            t['position'] = i + 1
+            t['gap']      = leader - t['points']
+        return team_list
 
     def generate_all_standings(self, career_data):
         """Return standings for all 4 tiers simultaneously.
+        Each tier returns {'drivers': [...], 'teams': [...]}.
         Player appears only in their own tier; other tiers show pure AI."""
         result      = {}
         player_tier = career_data.get('tier', 0)
@@ -196,7 +338,9 @@ class CareerManager:
                     'points':          0,
                     'driver_name':     '',
                 }
-            result[tk] = self.generate_standings(tier_info, sim, tier_key=tk)
+            drivers = self.generate_standings(tier_info, sim, tier_key=tk)
+            teams   = self.generate_team_standings_from_drivers(drivers)
+            result[tk] = {'drivers': drivers, 'teams': teams}
         return result
 
     def _calc_ai_points(self, team, season, tier_index, races_done, team_count):
@@ -421,12 +565,13 @@ class CareerManager:
         except Exception as e:
             print(f"Warning: could not patch launcher.ini: {e}")
 
-    def _get_car_skin(self, car, ac_path):
-        """Return first available skin for a car, or empty string."""
+    def _get_car_skin(self, car, ac_path, index=0):
+        """Return skin at the given index for a car (wraps around if fewer skins).
+        Use index=0 for player, index=1..N for AI cars so each gets a distinct livery."""
         skins_dir = os.path.join(ac_path, 'content', 'cars', car, 'skins')
         try:
             skins = sorted(os.listdir(skins_dir))
-            return skins[0] if skins else ''
+            return skins[index % len(skins)] if skins else ''
         except Exception:
             return ''
 
@@ -453,8 +598,8 @@ class CareerManager:
         track_folder = parts[0]
         config_track = parts[1] if len(parts) > 1 else ''
 
-        # Find first skin for this car
-        skin = self._get_car_skin(car, ac_path) if ac_path else ''
+        # Player gets skin index 0; AI cars get 1, 2, 3… so each has a distinct livery
+        skin = self._get_car_skin(car, ac_path, index=0) if ac_path else ''
 
         lines = []
 
@@ -554,23 +699,19 @@ class CareerManager:
             "",
         ]
 
-        # [CAR_N] — AI cars
-        ai_names = [
-            "Marco Rossi", "James Hunt", "Pierre Dupont", "Hans Mueller",
-            "Carlos Rivera", "Tom Bradley", "Luca Ferrari", "Alex Chen",
-            "David Williams", "Raj Patel", "Sven Johansson", "Omar Hassan",
-            "Kenji Tanaka", "Igor Petrov", "Fabio Romano", "Ethan Clark",
-            "Nina Kovac", "Lucas Petit", "Aiden Burke", "Zara Osman",
+        # [CAR_N] — AI cars (use class DRIVER_NAMES for consistency with championship display)
+        nations = [
+            "ITA", "GBR", "FRA", "GER", "ESP", "USA", "ITA", "CHN",
+            "GBR", "IND", "SWE", "MAR", "JPN", "RUS", "ITA", "USA",
+            "CRO", "FRA", "IRL", "KEN", "BRA", "NLD", "SWE", "FRA",
+            "GER", "JPN", "IRL", "RUS", "CHN", "TUR",
         ]
-        nations = ["ITA", "GBR", "FRA", "GER", "ESP", "USA", "ITA", "CHN",
-                   "GBR", "IND", "SWE", "MAR", "JPN", "RUS", "ITA", "USA",
-                   "CRO", "FRA", "IRL", "KEN"]
 
         for i, opp in enumerate(ai_cars, start=1):
             opp_car  = opp.get('car', car)
-            opp_skin = self._get_car_skin(opp_car, ac_path) if ac_path else ''
-            name     = ai_names[i - 1] if i - 1 < len(ai_names) else f"Driver {i}"
-            nation   = nations[i - 1] if i - 1 < len(nations) else "INT"
+            opp_skin = self._get_car_skin(opp_car, ac_path, index=i) if ac_path else ''
+            name     = self.DRIVER_NAMES[(i - 1) % len(self.DRIVER_NAMES)]
+            nation   = nations[(i - 1) % len(nations)]
             lines += [
                 f"[CAR_{i}]",
                 f"MODEL={opp_car}",
