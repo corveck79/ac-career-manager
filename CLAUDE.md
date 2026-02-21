@@ -28,6 +28,7 @@ start.bat                    # Dev launcher: activates venv and runs app.py
 make_icon.py                 # Dev utility: generates static/logo.ico (run once, needs Pillow)
 static/logo.svg              # SVG logo — topbar + favicon in dashboard.html
 static/logo.ico              # Multi-res ICO (16–256px) — embedded in EXE via --icon
+docs/screenshots/            # README screenshots (dashboard, race_modal, standings_*)
 ```
 
 Note: `dashboard.html`, `style.css`, and `app.js` also exist as duplicates in the project root — not used by Flask. Flask reads from `templates/` and `static/` only.
@@ -66,7 +67,15 @@ python -m venv venv
 venv\Scripts\activate   # Windows
 
 # Build standalone EXE
-build.bat              # Runs PyInstaller, outputs dist/AC_Career_Manager.exe (~17 MB)
+build.bat              # Runs PyInstaller, outputs dist/AC_Career_Manager.exe (~13 MB)
+
+# Generate logo ICO (run once after cloning, needs Pillow)
+venv\Scripts\python.exe make_icon.py
+
+# Take/update README screenshots (headless — no pywebview window needed)
+# 1. Start Flask without webview:
+venv\Scripts\python.exe -c "import types,sys; sys.modules['webview']=types.ModuleType('webview'); from app import app; app.run(host='127.0.0.1',port=5000,debug=False,use_reloader=False)"
+# 2. In another terminal, run Playwright screenshot script (pip install playwright + playwright install chromium)
 ```
 
 ## API Endpoints
@@ -148,6 +157,37 @@ Auto-created next to the EXE. Key fields:
 }
 ```
 Delete to reset career. Backup before editing config.
+
+## Logo & Icon
+
+Design: dark navy `#07091A` rounded square, orange `#E84A0A` top-right triangle, gold `#F7B801`
+bottom-left triangle, white "AC" bold text, gold underline.
+
+- `static/logo.svg` — 40×40 SVG, used in `dashboard.html` topbar (`<img class="topbar-logo">`) and as favicon (`<link rel="icon" type="image/svg+xml">`)
+- `static/logo.ico` — multi-resolution ICO (16/32/48/64/128/256px), embedded in EXE via `--icon`
+- `make_icon.py` — regenerate ICO if design changes: `venv\Scripts\python.exe make_icon.py`
+- `.topbar-logo { width:28px; height:28px }` in `static/style.css`
+
+## Screenshots (docs/screenshots/)
+
+Taken headlessly with Playwright (chromium). Flask runs without pywebview, Playwright renders at 1440×920.
+
+```python
+# Pattern used to take screenshots:
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_context(viewport={'width':1440,'height':920}).new_page()
+    page.goto('http://127.0.0.1:5000', wait_until='networkidle')
+    page.screenshot(path='docs/screenshots/dashboard.png')
+    page.evaluate("switchStandingsTier(1)")   # GT4 tab
+    page.screenshot(path='docs/screenshots/standings_gt4.png')
+    browser.close()
+```
+
+Current screenshots: `dashboard.png`, `race_modal.png`, `standings_gt4.png`, `standings_wec.png`, `standings_teams.png`
+
+**To update screenshots:** start Flask headless (see Common Commands), run the Playwright script, then commit `docs/screenshots/`.
 
 ## Dependencies
 
