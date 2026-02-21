@@ -91,28 +91,58 @@
       </div>
     </div>
     <div id="view-result" class="card view-card hidden">
-      <h2 class="section-title">Enter Race Result</h2>
+      <h2 class="section-title">Race Result</h2>
       <p class="view-subtitle" id="result-race-label">-</p>
-      <form onsubmit="submitResult(event)" class="result-form">
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Finishing Position</label>
-            <input type="number" id="finish-position" class="form-input input-pos" min="1" max="30" value="1" required>
+
+      <!-- Auto-read section -->
+      <div id="result-auto">
+        <p class="result-auto-hint">Sluit Assetto Corsa en klik op de knop om het resultaat automatisch op te halen.</p>
+        <button class="btn btn-race result-fetch-btn" onclick="fetchRaceResult()">&#128269; Resultaat ophalen uit AC</button>
+        <div id="result-auto-status" class="result-auto-status"></div>
+      </div>
+
+      <!-- Auto-result display (shown when AC result is found) -->
+      <div id="result-found" class="result-found hidden">
+        <div class="result-found-grid">
+          <div class="rf-item">
+            <div class="rf-label">Positie</div>
+            <div class="rf-value rf-pos" id="rf-position">-</div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Best Lap (mm:ss.sss)</label>
-            <input type="text" id="best-lap" class="form-input" placeholder="02:15.345">
+          <div class="rf-item">
+            <div class="rf-label">Beste ronde</div>
+            <div class="rf-value" id="rf-best-lap">-</div>
+          </div>
+          <div class="rf-item">
+            <div class="rf-label">Ronden</div>
+            <div class="rf-value" id="rf-laps">-</div>
           </div>
         </div>
-        <div class="form-check-row">
-          <input type="checkbox" id="fastest-lap" class="form-check">
-          <label for="fastest-lap" class="form-check-label">Fastest Lap <span class="fl-tag">+1 pt</span></label>
+        <div class="form-actions" style="margin-top:1.25rem">
+          <button class="btn btn-race" onclick="submitAutoResult()">&#9989; Resultaat opslaan</button>
+          <button class="btn btn-secondary" onclick="showManualForm('')">Handmatig invoeren</button>
         </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-race">Submit Result</button>
-          <button type="button" class="btn btn-secondary" onclick="showView('standings')">Cancel</button>
-        </div>
-      </form>
+      </div>
+
+      <!-- Manual fallback form -->
+      <div id="result-manual" class="result-manual hidden">
+        <p class="result-manual-hint" id="result-manual-hint"></p>
+        <form onsubmit="submitResult(event)" class="result-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Eindpositie</label>
+              <input type="number" id="finish-position" class="form-input input-pos" min="1" max="30" value="1" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Beste ronde (mm:ss.sss)</label>
+              <input type="text" id="best-lap" class="form-input" placeholder="02:15.345">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-race">Opslaan</button>
+            <button type="button" class="btn btn-secondary" onclick="showView('standings')">Annuleren</button>
+          </div>
+        </form>
+      </div>
     </div>
     <div id="view-contracts" class="card view-card hidden">
       <h2 class="section-title">&#127942; Season Complete!</h2>

@@ -214,9 +214,89 @@ def start_race():
     race['driver_name'] = career_data.get('driver_name', 'Player')
     success = career.launch_ac_race(race, cfg)
     if success:
+        career_data['race_started_at'] = datetime.now().isoformat()
+        save_career_data(career_data)
         return jsonify({'status': 'success', 'message': 'AC launched!', 'race': race})
     else:
         return jsonify({'status': 'error', 'message': 'Failed to launch AC'}), 500
+
+
+@app.route('/api/read-race-result')
+def read_race_result():
+    """Auto-read the latest AC race result from Documents/Assetto Corsa/results/."""
+    career_data = load_career_data()
+    driver_name = career_data.get('driver_name', 'Player')
+
+    race_started_at = career_data.get('race_started_at')
+    if not race_started_at:
+        return jsonify({'status': 'not_found', 'message': 'No race started'})
+
+    start_time = datetime.fromisoformat(race_started_at)
+
+    tier_info     = career.get_tier_info(career_data['tier'])
+    expected_laps = tier_info.get('race_format', {}).get('laps', 20)
+
+    results_dir = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'results')
+    if not os.path.exists(results_dir):
+        return jsonify({'status': 'not_found', 'message': 'Results folder not found'})
+
+    candidates = []
+    for fname in os.listdir(results_dir):
+        if not fname.endswith('.json'):
+            continue
+        fpath = os.path.join(results_dir, fname)
+        mtime = datetime.fromtimestamp(os.path.getmtime(fpath))
+        if mtime > start_time:
+            candidates.append((mtime, fpath))
+
+    if not candidates:
+        return jsonify({'status': 'not_found', 'message': 'No result file found yet'})
+
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    result_file = candidates[0][1]
+
+    try:
+        with open(result_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+    if data.get('Type', '').upper() != 'RACE':
+        return jsonify({'status': 'not_found', 'message': 'Latest result is not a race session'})
+
+    results = data.get('Result', [])
+
+    player_result   = None
+    player_position = None
+    for i, r in enumerate(results):
+        if r.get('DriverName', '').lower() == driver_name.lower():
+            player_result   = r
+            player_position = i + 1
+            break
+
+    if player_result is None:
+        return jsonify({'status': 'not_found', 'message': 'Driver not found in results'})
+
+    laps_completed = player_result.get('Laps', 0)
+    total_time     = player_result.get('TotalTime', 0)
+    best_lap_ms    = player_result.get('BestLap', 0)
+
+    incomplete = (laps_completed < max(1, expected_laps // 2)) or (total_time == 0 and laps_completed == 0)
+
+    best_lap_fmt = ''
+    if best_lap_ms and best_lap_ms > 0:
+        mins         = best_lap_ms // 60000
+        secs         = (best_lap_ms % 60000) / 1000
+        best_lap_fmt = f'{mins:02d}:{secs:06.3f}'
+
+    return jsonify({
+        'status':         'incomplete' if incomplete else 'found',
+        'position':       player_position,
+        'best_lap':       best_lap_fmt,
+        'laps_completed': laps_completed,
+        'expected_laps':  expected_laps,
+        'driver_name':    driver_name,
+    })
 
 
 @app.route('/api/finish-race', methods=['POST'])
@@ -224,17 +304,13 @@ def finish_race():
     data        = request.json
     career_data = load_career_data()
     position    = data.get('position', 1)
-    fastest_lap = data.get('fastest_lap', False)
     pts_table   = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
     pts         = pts_table[min(position - 1, 9)] if position <= 10 else 0
-    if fastest_lap and position <= 10:
-        pts += 1
     result = {
-        'race_num':    career_data['races_completed'] + 1,
-        'position':    position,
-        'points':      pts,
-        'lap_time':    data.get('lap_time', ''),
-        'fastest_lap': fastest_lap,
+        'race_num': career_data['races_completed'] + 1,
+        'position': position,
+        'points':   pts,
+        'lap_time': data.get('lap_time', ''),
     }
     career_data['races_completed'] += 1
     career_data['points']          += pts

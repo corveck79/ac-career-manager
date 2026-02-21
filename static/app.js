@@ -412,16 +412,22 @@ async function confirmStartRace() {
 
         if (d.status === 'success') {
             showToast('AC launched! Go race! 🏁');
-            // Pre-fill result label and switch view after a moment
+            // Set race label
             const lbl = document.getElementById('result-race-label');
             if (lbl && pendingRace) {
                 lbl.textContent =
                     'Race ' + pendingRace.race_num +
                     ' · ' + fmtTrack(pendingRace.track);
             }
+            // Reset result view to auto-read state
+            document.getElementById('result-auto').style.display     = '';
+            document.getElementById('result-auto-status').textContent = '';
+            document.getElementById('result-auto-status').className   = 'result-auto-status';
+            document.getElementById('result-found').classList.add('hidden');
+            document.getElementById('result-manual').classList.add('hidden');
             document.getElementById('finish-position').value = 1;
             document.getElementById('best-lap').value        = '';
-            document.getElementById('fastest-lap').checked   = false;
+            if (pendingRace) pendingRace._autoResult = null;
             setTimeout(() => showView('result'), 1200);
         } else {
             showToast(d.message || 'Failed to launch AC', 'error');
@@ -429,18 +435,72 @@ async function confirmStartRace() {
     } catch (e) { showToast('Error: ' + e.message, 'error'); }
 }
 
-// ── Submit Race Result ─────────────────────────────────────────────────────
+// ── Auto-read AC result ────────────────────────────────────────────────────
+async function fetchRaceResult() {
+    const statusEl = document.getElementById('result-auto-status');
+    statusEl.textContent = 'Zoeken naar resultaat...';
+    statusEl.className   = 'result-auto-status loading';
+
+    try {
+        const r = await fetch('/api/read-race-result');
+        const d = await r.json();
+
+        if (d.status === 'found') {
+            document.getElementById('rf-position').textContent = 'P' + d.position;
+            document.getElementById('rf-best-lap').textContent = d.best_lap || '–';
+            document.getElementById('rf-laps').textContent     = d.laps_completed + ' / ' + d.expected_laps;
+            document.getElementById('result-found').classList.remove('hidden');
+            document.getElementById('result-auto').style.display = 'none';
+            statusEl.textContent = '';
+            if (pendingRace) pendingRace._autoResult = d;
+
+        } else if (d.status === 'incomplete') {
+            statusEl.textContent = 'Race niet voltooid (' + d.laps_completed + '/' + d.expected_laps +
+                ' ronden). Voer het resultaat handmatig in.';
+            statusEl.className = 'result-auto-status warning';
+            showManualForm('Race vroegtijdig gestopt — voer resultaat handmatig in.');
+            if (d.position) document.getElementById('finish-position').value = d.position;
+            if (d.best_lap) document.getElementById('best-lap').value         = d.best_lap;
+
+        } else {
+            statusEl.textContent = d.message || 'Geen resultaat gevonden. Sluit AC en probeer opnieuw.';
+            statusEl.className   = 'result-auto-status warning';
+        }
+    } catch (e) {
+        statusEl.textContent = 'Fout: ' + e.message;
+        statusEl.className   = 'result-auto-status error';
+    }
+}
+
+function showManualForm(hint) {
+    const manualEl = document.getElementById('result-manual');
+    const hintEl   = document.getElementById('result-manual-hint');
+    if (hintEl) hintEl.textContent = hint || '';
+    manualEl.classList.remove('hidden');
+}
+
+async function submitAutoResult() {
+    if (!pendingRace || !pendingRace._autoResult) return;
+    const d       = pendingRace._autoResult;
+    const pos     = d.position;
+    const lapTime = d.best_lap || '';
+    await _postFinishRace(pos, lapTime);
+}
+
+// ── Submit Race Result (manual form) ──────────────────────────────────────
 async function submitResult(e) {
     e.preventDefault();
     const pos     = parseInt(document.getElementById('finish-position').value);
     const lapTime = document.getElementById('best-lap').value;
-    const fl      = document.getElementById('fastest-lap').checked;
+    await _postFinishRace(pos, lapTime);
+}
 
+async function _postFinishRace(pos, lapTime) {
     try {
         const r = await fetch('/api/finish-race', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ position: pos, lap_time: lapTime, fastest_lap: fl }),
+            body: JSON.stringify({ position: pos, lap_time: lapTime }),
         });
         const d = await r.json();
 
@@ -448,7 +508,7 @@ async function submitResult(e) {
             await handleSeasonComplete(d);
         } else if (d.status === 'success') {
             const pts = d.result ? d.result.points : 0;
-            showToast(fmtPos(pos) + ' — +' + pts + ' pts' + (fl ? ' (+FL)' : '') + '!');
+            showToast(fmtPos(pos) + ' — +' + pts + ' pts!');
             await Promise.all([loadCareer(), loadStandings(), loadCalendar()]);
             refresh();
             showView('standings');

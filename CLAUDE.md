@@ -76,7 +76,8 @@ build.bat              # Runs PyInstaller, outputs dist/AC_Career_Manager.exe (~
 | GET | `/api/standings` | Championship standings |
 | GET | `/api/season-calendar` | Full season race calendar |
 | GET | `/api/next-race` | Next race details |
-| POST | `/api/start-race` | Launch AC with race config |
+| POST | `/api/start-race` | Launch AC with race config (saves `race_started_at` timestamp) |
+| GET | `/api/read-race-result` | Auto-read result from AC results JSON |
 | POST | `/api/finish-race` | Submit result, calc points |
 | POST | `/api/end-season` | Trigger season end / contract offers |
 | POST | `/api/accept-contract` | Accept a contract offer |
@@ -96,7 +97,7 @@ Base AI level: 85 (0–100 scale), with ±1.5 variance per race.
 
 ## Points System
 
-F1-standard: 25-18-15-12-10-8-6-4-2-1, +1 fastest lap (if top 10).
+F1-standard: 25-18-15-12-10-8-6-4-2-1. Fastest lap bonus removed.
 
 ## Key Config Fields (`config.json`)
 
@@ -125,7 +126,8 @@ Auto-created next to the EXE. Key fields:
   "points": 0,
   "standings": [],
   "race_results": [],
-  "contracts": null
+  "contracts": null,
+  "race_started_at": "2025-01-01T12:00:00"
 }
 ```
 Delete to reset career. Backup before editing config.
@@ -141,6 +143,7 @@ Delete to reset career. Backup before editing config.
 ## Windows-Specific Notes
 
 - AC is launched via `subprocess` writing `race.ini` to `Documents\Assetto Corsa\cfg\`
+- AC writes race results to `Documents\Assetto Corsa\results\YYYY_MM_DD_HH_MM_SS.json`; `/api/read-race-result` scans for the newest file after `race_started_at`
 - AC install path must contain `acs.exe`
 - Default AC path: `C:\Program Files (x86)\Steam\steamapps\common\assettocorsa`
 - Port 5000 is the default; change in `app.py` if it conflicts

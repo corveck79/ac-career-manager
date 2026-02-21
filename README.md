@@ -1,7 +1,7 @@
 # AC CAREER MANAGER
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Platform:** Windows 10/11
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
@@ -123,8 +123,9 @@ For advanced changes, edit `config.json` while the app is **stopped**.
 3. Click **"LAUNCH AC"**
 4. Assetto Corsa opens with the race configured
 5. **Drive the race** in AC
-6. Return to app and enter your **finishing position**
-7. Points calculated automatically
+6. Close AC when done, then return to the app
+7. Click **"Fetch Result from AC"** — position and best lap are read automatically
+8. Confirm the result (or enter manually if needed)
 
 ### End of Season
 After completing all races:
@@ -135,7 +136,6 @@ After completing all races:
 
 ### Championship Points (F1 standard)
 P1: 25 · P2: 18 · P3: 15 · P4: 12 · P5: 10 · P6: 8 · P7: 6 · P8: 4 · P9: 2 · P10: 1
-**Fastest Lap:** +1 point (if you finish top 10)
 
 ---
 
