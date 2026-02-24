@@ -470,6 +470,58 @@ def update_config():
     return jsonify({'status': 'success', 'message': 'Configuration updated'})
 
 
+@app.route('/api/preflight-check')
+def preflight_check():
+    """Check if the next race's track and car exist in the AC installation."""
+    cfg     = load_config()
+    ac_path = cfg.get('paths', {}).get('ac_install', '')
+    track   = request.args.get('track', '')
+    car     = request.args.get('car', '')
+    result  = _check_preflight(ac_path, track, car)
+    return jsonify(result)
+
+
+def _check_preflight(ac_path, track, car):
+    """Validate that track and car exist in the AC content folder.
+
+    Returns {'ok': bool, 'issues': [{'type': 'error'|'warning', 'msg': str}]}
+    """
+    issues = []
+
+    if not os.path.exists(os.path.join(ac_path, 'acs.exe')):
+        issues.append({
+            'type': 'error',
+            'msg':  'AC installation not found. Check your AC path in Settings.',
+        })
+        return {'ok': False, 'issues': issues}
+
+    # Track: strip layout suffix (e.g. "ks_silverstone/gp" → "ks_silverstone")
+    track_folder = track.split('/')[0]
+    track_path   = os.path.join(ac_path, 'content', 'tracks', track_folder)
+    if not os.path.isdir(track_path):
+        issues.append({
+            'type': 'error',
+            'msg':  f'Track not found: {track_folder}. Install this track mod before racing.',
+        })
+
+    # Car: needs both the car folder and a data/ subfolder
+    if car:
+        car_path      = os.path.join(ac_path, 'content', 'cars', car)
+        car_data_path = os.path.join(car_path, 'data')
+        if not os.path.isdir(car_path):
+            issues.append({
+                'type': 'error',
+                'msg':  f'Car not found: {car}. Install this car mod before racing.',
+            })
+        elif not os.path.isdir(car_data_path):
+            issues.append({
+                'type': 'warning',
+                'msg':  f'Car "{car}" may be incomplete (missing data folder).',
+            })
+
+    return {'ok': len(issues) == 0, 'issues': issues}
+
+
 @app.errorhandler(404)
 def not_found(e):
     return jsonify({'error': 'Not found'}), 404

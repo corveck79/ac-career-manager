@@ -28,6 +28,7 @@ AC Career Manager is a complete professional career mode system for Assetto Cors
 - **Per-Driver AI:** AC race.ini uses individual `AI_LEVEL` and `AI_AGGRESSION` per car — aggressive drivers push harder, skilled drivers are faster
 - **Driver Profile Cards:** Click any AI driver in standings to see a full profile popup (nationality flag, skill/aggression bars, archetype, current season stats)
 - **Career History:** Season-end results stored per driver; profile card shows multi-season career record
+- **Pre-Flight Checks:** Race modal warns you if a track or car mod is missing before launching AC
 - **One-Click Launch:** Automatic AC integration
 
 ---
@@ -43,7 +44,7 @@ AC Career Manager is a complete professional career mode system for Assetto Cors
 
 ## DOWNLOAD
 
-**[⬇ Download AC_Career_Manager.exe (v1.7.0)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_Manager.exe)**
+**[⬇ Download AC_Career_Manager.exe (v1.8.0)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_Manager.exe)**
 
 - Windows 10/11 only
 - No Python installation needed

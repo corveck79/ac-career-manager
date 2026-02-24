@@ -201,6 +201,10 @@ td.col-gap{text-align:right;color:var(--text-dim);font-size:.72rem}
 .modal-subtitle{font-size:.83rem;color:var(--text-dim);margin-bottom:1.25rem}
 .modal-actions{display:flex;gap:.75rem;margin-top:1.5rem}
 .modal-actions .btn{flex:1}
+.preflight-warnings{display:flex;flex-direction:column;gap:.4rem;margin-top:.75rem}
+.preflight-issue{font-size:.8rem;padding:.45rem .7rem;border-radius:var(--radius-sm);font-family:var(--mono);line-height:1.4}
+.preflight-error{background:rgba(255,71,87,.12);border:1px solid rgba(255,71,87,.35);color:#FF8C96}
+.preflight-warning{background:rgba(247,184,1,.1);border:1px solid rgba(247,184,1,.3);color:var(--accent)}
 .race-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;background:rgba(232,74,10,.06);border:1px solid rgba(232,74,10,.15);border-radius:var(--radius-sm);padding:1rem;margin-top:.5rem}
 .rd-item{display:flex;flex-direction:column;gap:.15rem}
 .rd-label{font-size:.58rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)}

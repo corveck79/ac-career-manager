@@ -97,6 +97,7 @@ venv\Scripts\python.exe -c "import types,sys; sys.modules['webview']=types.Modul
 | POST | `/api/new-career` | Reset and start fresh |
 | GET/POST | `/api/config` | Read or update config |
 | GET | `/api/driver-profile` | Driver profile: `?name=<driver>` → `{name, profile, current, history}` |
+| GET | `/api/preflight-check` | Validate track & car exist: `?track=<id>&car=<id>` → `{ok, issues:[{type,msg}]}` |
 
 ## Career Tiers
 

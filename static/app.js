@@ -514,6 +514,25 @@ async function startRace() {
         document.getElementById('nrb-ai').textContent =
             Math.round(pendingRace.ai_difficulty);
 
+        // Pre-flight check: verify track and car exist in AC
+        const pfRes = await fetch(
+            '/api/preflight-check?track=' + encodeURIComponent(pendingRace.track) +
+            '&car=' + encodeURIComponent(pendingRace.car || '')
+        );
+        const pf    = await pfRes.json();
+        const pfDiv = document.getElementById('preflight-warnings');
+        if (pf.issues && pf.issues.length > 0) {
+            pfDiv.innerHTML = pf.issues.map(i =>
+                '<div class="preflight-issue preflight-' + i.type + '">' +
+                (i.type === 'error' ? '&#10060; ' : '&#9888; ') + i.msg +
+                '</div>'
+            ).join('');
+            pfDiv.classList.remove('hidden');
+        } else {
+            pfDiv.innerHTML = '';
+            pfDiv.classList.add('hidden');
+        }
+
         openModal('modal-race');
     } catch (e) { showToast('Error loading race details', 'error'); }
 }
