@@ -1,5 +1,14 @@
 # AC Career Manager - Claude Code Guide
 
+## Versioning Convention
+
+| Type | When | Example |
+|------|------|---------|
+| `x.y.0` | New feature(s), multi-file changes | v1.8.0 — Career Wizard, Debrief, Relegation |
+| `x.y.z` | Single fix, tweak, or small addition | v1.8.1 — trim README overview |
+
+Current version: **1.8.1** (bump in `README.md` header on every release commit).
+
 ## Project Overview
 
 AC Career Manager is a desktop app (pywebview + Flask) that adds a career mode to Assetto Corsa (AC). It runs a local Flask server on `http://127.0.0.1:5000` and displays the UI in a native Edge WebView2 window — no browser needed.

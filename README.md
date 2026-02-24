@@ -1,7 +1,7 @@
 # AC CAREER MANAGER
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.8.0
+**Version:** 1.8.1
 **Platform:** Windows 10/11
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
@@ -9,30 +9,22 @@
 
 ## OVERVIEW
 
-AC Career Manager is a complete professional career mode system for Assetto Corsa. It opens in its own native window (no browser needed) and provides:
+AC Career Manager adds a full career mode to Assetto Corsa. It runs in its own native window (no browser needed).
 
-- **4-Tier Career Progression:** MX5 Cup → GT4 → GT3 → WEC
-- **10 Races Per Tier** with dynamic team assignments
-- **Contract System:** End-of-season team/car selection based on performance
-- **Intelligent AI Scaling:** Difficulty increases as you progress
-- **Native Desktop App:** Runs in its own window via pywebview (Edge WebView2)
-- **Full Race Weekend:** Practice + Qualifying + Race in one AC launch, or Race Only
-- **Weather Variety:** Weighted random weather per race (rain chance increases each tier)
-- **Championship Tabs:** Browse all 4 championships simultaneously; switch between Driver and Team standings
-- **2 Drivers Per Team:** GT4/GT3/WEC show both championship drivers per team; MX5 Cup is single-driver
-- **Globally Unique Driver Names:** 120-name pool ensures no duplicate drivers across all 4 tiers
-- **Per-Team Liveries:** Each AI car gets a distinct skin in every race (especially visible in MX5 Cup)
-- **Real Promotion & Relegation:** Bottom 3 finishers receive relegation offers (drop a tier); champion and top finishers get promoted — driven by `target_tier` field on every contract object
-- **App Logo & Icon:** Custom AC logo in topbar, WebView2 favicon, and EXE/taskbar icon
-- **Driver Personalities:** 120 unique drivers each with nationality, skill, aggression, and archetype (Charger / Tactician / Wildcard / Journeyman)
-- **Per-Driver AI:** AC race.ini uses individual `AI_LEVEL` and `AI_AGGRESSION` per car — aggressive drivers push harder, skilled drivers are faster
-- **Driver Profile Cards:** Click any AI driver in standings to see a full profile popup (nationality flag, skill/aggression bars, archetype, current season stats)
-- **Career History:** Season-end results stored per driver; profile card shows multi-season career record
-- **Pre-Flight Checks:** Race modal warns you if a track or car mod is missing before launching AC
-- **Career Wizard:** 4-step setup flow — driver name, difficulty preset (Rookie/Amateur/Pro/Legend), weather mode (Always Clear/Realistic/Wet Challenge), optional track library scan
-- **Content Scanner:** Scan your AC install folder for valid GT3/GT4 mods and tracks; custom track pools saved per career in `career_data.json`
-- **Post-Race Debrief:** After every race, an engineer report shows your consistency score (0–100), lap time sparkline, and pace trend analysis
-- **One-Click Launch:** Automatic AC integration
+**Career & Progression**
+- 4-tier ladder: MX5 Cup → GT4 → GT3 → WEC, 10 races each
+- End-of-season contracts based on championship finish; real promotion and relegation
+- Career Wizard: choose difficulty (Rookie/Amateur/Pro/Legend), weather mode, and scan your AC library for custom track pools
+
+**On Track**
+- Full Race Weekend (Practice + Qualifying + Race) or Race Only, one AC launch
+- 120 unique AI drivers with individual skill, aggression, and personality archetypes
+- Post-race engineer debrief: consistency score, lap sparkline, pace trend analysis
+- Pre-flight check warns if a track/car mod is missing before launch
+
+**Championships**
+- Live Driver and Team standings across all 4 tiers simultaneously
+- Click any AI driver for a profile card (nationality, stats, career history)
 
 ---
 
