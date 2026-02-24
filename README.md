@@ -1,7 +1,7 @@
 # AC CAREER MANAGER
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.7.0
+**Version:** 1.8.0
 **Platform:** Windows 10/11
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
@@ -22,7 +22,7 @@ AC Career Manager is a complete professional career mode system for Assetto Cors
 - **2 Drivers Per Team:** GT4/GT3/WEC show both championship drivers per team; MX5 Cup is single-driver
 - **Globally Unique Driver Names:** 120-name pool ensures no duplicate drivers across all 4 tiers
 - **Per-Team Liveries:** Each AI car gets a distinct skin in every race (especially visible in MX5 Cup)
-- **Promotion & Degradation:** Bottom finishers risk losing their seat; top-3 get scouted by higher-tier teams
+- **Real Promotion & Relegation:** Bottom 3 finishers receive relegation offers (drop a tier); champion and top finishers get promoted — driven by `target_tier` field on every contract object
 - **App Logo & Icon:** Custom AC logo in topbar, WebView2 favicon, and EXE/taskbar icon
 - **Driver Personalities:** 120 unique drivers each with nationality, skill, aggression, and archetype (Charger / Tactician / Wildcard / Journeyman)
 - **Per-Driver AI:** AC race.ini uses individual `AI_LEVEL` and `AI_AGGRESSION` per car — aggressive drivers push harder, skilled drivers are faster
@@ -126,10 +126,11 @@ For advanced changes, edit `config.json` while the app is **stopped**.
 ### AI difficulty:
 ```json
 "difficulty": {
-  "base_ai_level": 85,
+  "base_ai_level": 95,
   "ai_variance": 1.5
 }
 ```
+Career Wizard difficulty presets apply an offset: Rookie −10 (AI 85), Amateur −5 (AI 90), Pro ±0 (AI 95), Legend +5 (AI 100).
 
 ---
 
@@ -154,9 +155,11 @@ For advanced changes, edit `config.json` while the app is **stopped**.
 ### End of Season
 After completing all races:
 1. Season completes automatically
-2. You receive contract offers based on your championship position
+2. You receive contract offers based on your championship position:
+   - **Top finishers** → promotion offers from higher-tier teams
+   - **Bottom 3 finishers** → stay offers (worst seat in current tier) and/or relegation offers (top teams in tier below)
 3. Choose which team/car you want next season
-4. Progress to next tier
+4. Your difficulty/weather settings carry over automatically
 
 ### Championship Points (F1 standard)
 P1: 25 · P2: 18 · P3: 15 · P4: 12 · P5: 10 · P6: 8 · P7: 6 · P8: 4 · P9: 2 · P10: 1

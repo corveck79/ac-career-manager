@@ -442,7 +442,17 @@ def accept_contract():
     selected    = next((c for c in career_data['contracts'] if c.get('id') == contract_id), None)
     if not selected:
         return jsonify({'status': 'error', 'message': 'Contract not found'}), 400
-    career_data['tier']            += 1
+
+    # Use target_tier from the contract — supports promotion, stay, AND relegation.
+    # Fall back to tier+1 for contracts created before v1.8.0 (backwards compat).
+    new_tier = selected.get('target_tier')
+    if new_tier is None:
+        new_tier = career_data['tier'] + 1
+    new_tier = max(0, min(len(career.tiers) - 1, new_tier))  # clamp to valid range
+
+    move = selected.get('move', 'promotion')
+
+    career_data['tier']            = new_tier
     career_data['season']          += 1
     career_data['team']             = selected['team_name']
     career_data['car']              = selected['car']
@@ -451,11 +461,25 @@ def accept_contract():
     career_data['race_results']     = []
     career_data['contracts']        = None
     career_data['standings']        = []
+    career_data['final_position']   = None
+    # Preserve career_settings (difficulty, weather, custom tracks) across seasons
+    # career_settings is intentionally NOT reset here
+
     save_career_data(career_data)
+
+    move_labels = {
+        'promotion': 'Promoted to',
+        'stay':      'Staying in',
+        'relegation': 'Relegated to',
+    }
+    tier_label = career.tier_names.get(career.tiers[new_tier], '')
+    msg = f"{move_labels.get(move, 'Welcome to')} {tier_label} — {selected['team_name']}!"
+
     return jsonify({
         'status':   'success',
-        'message':  f"Welcome to {selected['team_name']}!",
-        'new_tier': career_data['tier'],
+        'message':  msg,
+        'move':     move,
+        'new_tier': new_tier,
         'new_team': career_data['team'],
         'new_car':  career_data['car'],
     })

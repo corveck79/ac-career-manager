@@ -558,7 +558,7 @@ class CareerManager:
             offers = []
             current_tier_info = config['tiers'][self.tiers[current_tier]]
 
-            # Worst customer seat in current tier (same level)
+            # Worst customer seat in current tier (stay / same level)
             customers = [t for t in current_tier_info['teams']
                          if t.get('tier', 'customer') == 'customer']
             customers.sort(key=lambda t: t.get('performance', 0))
@@ -570,6 +570,8 @@ class CareerManager:
                     'car':              team['car'],
                     'tier_name':        self.tier_names[self.tiers[current_tier]],
                     'tier_level':       'customer',
+                    'target_tier':      current_tier,          # stay in same tier
+                    'move':             'stay',
                     'degradation_risk': True,
                     'description':      (
                         f"Your season results were poor. "
@@ -578,7 +580,7 @@ class CareerManager:
                     ),
                 })
 
-            # Offer from lower tier (if not already in the bottom tier)
+            # Offer(s) from lower tier (relegation — only if not already at bottom)
             if current_tier > 0:
                 lower_tier_key  = self.tiers[current_tier - 1]
                 lower_tier_info = config['tiers'][lower_tier_key]
@@ -592,6 +594,8 @@ class CareerManager:
                         'car':              team['car'],
                         'tier_name':        self.tier_names[lower_tier_key],
                         'tier_level':       team.get('tier', 'semi'),
+                        'target_tier':      current_tier - 1,  # drop one tier
+                        'move':             'relegation',
                         'degradation_risk': True,
                         'description':      (
                             f"{team['name']} in {self.tier_names[lower_tier_key]} "
@@ -634,6 +638,8 @@ class CareerManager:
                 'car':              team['car'],
                 'tier_name':        self.tier_names[self.tiers[next_tier]],
                 'tier_level':       team.get('tier', 'customer'),
+                'target_tier':      next_tier,                 # promote to next tier
+                'move':             'promotion',
                 'degradation_risk': False,
                 'description':      (
                     f"Join {team['name']} for the "

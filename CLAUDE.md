@@ -93,7 +93,7 @@ venv\Scripts\python.exe -c "import types,sys; sys.modules['webview']=types.Modul
 | GET | `/api/read-race-result` | Auto-read result from AC results JSON |
 | POST | `/api/finish-race` | Submit result, calc points |
 | POST | `/api/end-season` | Trigger season end / contract offers; snapshots AI driver history |
-| POST | `/api/accept-contract` | Accept a contract offer |
+| POST | `/api/accept-contract` | Accept a contract offer; reads `target_tier` + `move` from contract → real promotion/stay/relegation |
 | POST | `/api/new-career` | Reset and start fresh; body `{driver_name, difficulty, weather_mode, custom_tracks}` |
 | GET/POST | `/api/config` | Read or update config |
 | GET | `/api/driver-profile` | Driver profile: `?name=<driver>` → `{name, profile, current, history}` |
@@ -109,7 +109,15 @@ venv\Scripts\python.exe -c "import types,sys; sys.modules['webview']=types.Modul
 | 2 | `gt3` | British GT GT3 | 0 |
 | 3 | `wec` | WEC / Elite | +1.5 |
 
-Base AI level: 85 (0–100 scale), with ±1.5 variance per race.
+Base AI level: 95 (0–100 scale), with ±1.5 variance per race.
+
+**Difficulty presets** (applied as `ai_offset` to `base_ai_level`, stored in `career_settings`):
+| Preset | Offset | Effective base at GT3 |
+|--------|--------|-----------------------|
+| Rookie | −10    | 85                    |
+| Amateur| −5     | 90                    |
+| Pro    | 0      | 95                    |
+| Legend | +5     | 100                   |
 
 ## Points System
 
@@ -141,6 +149,32 @@ F1-standard: 25-18-15-12-10-8-6-4-2-1. Fastest lap bonus removed.
 - `_generate_opponent_field()` stores `driver_name` + `global_slot` per opponent
 - `_write_race_config()` uses per-driver `AI_LEVEL` + `AI_AGGRESSION` (no longer global/hardcoded 0)
 - standings↔race name sync: both use `_get_driver_name(global_slot, season)` — names now match
+
+## Contracts & Promotion/Relegation (v1.8.0)
+
+Every contract object in `career_data.json['contracts']` carries two new fields:
+
+| Field | Values | Meaning |
+|-------|--------|---------|
+| `target_tier` | int 0–3 | Tier index the player moves to on acceptance |
+| `move` | `'promotion'` / `'stay'` / `'relegation'` | How to label the transition |
+
+**`generate_contract_offers()` logic (career_manager.py):**
+- `player_position >= team_count − 2` → **degradation risk path**:
+  - Worst customer seat in current tier (`move='stay'`, `target_tier=current_tier`)
+  - Up to 2 best semi/factory seats from the tier below (`move='relegation'`, `target_tier=current_tier−1`)
+  - No offers if already in tier 0 (MX5 Cup, can't go lower)
+- Otherwise → **normal promotion path**: all offers have `move='promotion'`, `target_tier=current_tier+1`
+
+**`accept_contract()` fix (app.py):**
+- Reads `target_tier` from the selected contract (falls back to `tier+1` for pre-v1.8 saves)
+- Clamps to `[0, len(tiers)−1]`
+- Sets `career_data['tier'] = new_tier` — NOT `+= 1`
+- **`career_settings` (difficulty, weather, custom tracks) is preserved** — not reset
+- Returns `{status, message, move, new_tier, new_team, new_car}`
+- Move message examples: "Promoted to British GT GT3 — Ferrari GT3 Team!", "Relegated to GT4 SuperCup — GT4 Privateer!"
+
+**Backwards compatibility:** Old contracts without `target_tier` fall back to `tier+1` (promotion assumed).
 
 ## Career History (v1.7.0)
 
@@ -179,11 +213,20 @@ Auto-created next to the EXE. Key fields:
   "standings": [],
   "race_results": [],
   "contracts": null,
+  "final_position": null,
   "race_started_at": "2025-01-01T12:00:00",
-  "driver_history": {}
+  "driver_history": {},
+  "career_settings": {
+    "difficulty": "pro",
+    "ai_offset": 0,
+    "weather_mode": "realistic",
+    "custom_tracks": null
+  }
 }
 ```
-`driver_history` format: `{name: {seasons: [{season:1, tier:"gt4", pos:3, pts:45}]}}`
+- `final_position` — set by `_do_end_season()`, cleared to `null` on contract acceptance
+- `career_settings` — persists across seasons; stores difficulty, weather mode, and optional custom track lists
+- `driver_history` format: `{name: {seasons: [{season:1, tier:"gt4", pos:3, pts:45}]}}`
 
 Delete to reset career. Backup before editing config.
 
