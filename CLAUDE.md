@@ -7,7 +7,7 @@
 | `x.y.0` | New feature(s), multi-file changes | v1.8.0 — Career Wizard, Debrief, Relegation |
 | `x.y.z` | Single fix, tweak, or small addition | v1.8.1 — trim README overview |
 
-Current version: **1.8.1** (bump in `README.md` header on every release commit).
+Current version: **1.8.2** (bump in `README.md` header on every release commit).
 
 ## Project Overview
 
