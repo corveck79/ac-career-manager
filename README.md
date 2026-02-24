@@ -31,6 +31,7 @@ AC Career Manager is a complete professional career mode system for Assetto Cors
 - **Pre-Flight Checks:** Race modal warns you if a track or car mod is missing before launching AC
 - **Career Wizard:** 4-step setup flow — driver name, difficulty preset (Rookie/Amateur/Pro/Legend), weather mode (Always Clear/Realistic/Wet Challenge), optional track library scan
 - **Content Scanner:** Scan your AC install folder for valid GT3/GT4 mods and tracks; custom track pools saved per career in `career_data.json`
+- **Post-Race Debrief:** After every race, an engineer report shows your consistency score (0–100), lap time sparkline, and pace trend analysis
 - **One-Click Launch:** Automatic AC integration
 
 ---

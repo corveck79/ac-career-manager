@@ -90,7 +90,7 @@ venv\Scripts\python.exe -c "import types,sys; sys.modules['webview']=types.Modul
 | GET | `/api/season-calendar` | Full season race calendar |
 | GET | `/api/next-race` | Next race details |
 | POST | `/api/start-race` | Launch AC with race config; body `{mode}` = `race_only` or `full_weekend`; saves `race_started_at` |
-| GET | `/api/read-race-result` | Auto-read result from AC results JSON |
+| GET | `/api/read-race-result` | Auto-read result from AC results JSON; returns `lap_analysis` `{lap_times, consistency, engineer_report, …}` |
 | POST | `/api/finish-race` | Submit result, calc points |
 | POST | `/api/end-season` | Trigger season end / contract offers; snapshots AI driver history |
 | POST | `/api/accept-contract` | Accept a contract offer; reads `target_tier` + `move` from contract → real promotion/stay/relegation |
@@ -175,6 +175,36 @@ Every contract object in `career_data.json['contracts']` carries two new fields:
 - Move message examples: "Promoted to British GT GT3 — Ferrari GT3 Team!", "Relegated to GT4 SuperCup — GT4 Privateer!"
 
 **Backwards compatibility:** Old contracts without `target_tier` fall back to `tier+1` (promotion assumed).
+
+## Post-Race Debrief (v1.8.0)
+
+`/api/read-race-result` now reads the top-level `Laps` array from the AC results JSON and returns:
+
+```json
+"lap_analysis": {
+  "lap_times":       [106000, 105200, …],   // ms, valid laps only
+  "lap_count":       10,
+  "best_lap_ms":     105200,
+  "avg_lap_ms":      106800,
+  "std_ms":          420,
+  "consistency":     86,                    // 0–100 (100=perfect)
+  "engineer_report": "Solid podium, P2. Good consistency …"
+}
+```
+
+**Lap filtering:** laps with `LapTime == 0` are dropped; laps > 150% of the best lap (in/out laps) are excluded from statistics.
+
+**Consistency score:** `max(0, min(100, 100 − std_ms / 30))` — drops ~1pt per 30ms of std deviation.
+
+**Engineer report** has three parts:
+1. **Position feedback** — ecstatic (P1), podium (P2-3), points (P4-5), midfield, tough race
+2. **Consistency feedback** — based on std dev thresholds: <500ms/1000ms/2000ms
+3. **Pace trend** — compares first vs last third of laps (only when ≥6 valid laps)
+
+**Frontend helpers (`app.js`):**
+- `fmtMs(ms)` — format milliseconds as `M:SS.mmm`
+- `renderDebrief(analysis, position)` — fills `#debrief-panel` with consistency badge, report text, and lap sparkline bar chart; called from `fetchRaceResult()` when status is `'found'`
+- Debrief panel is hidden on race start (reset in `confirmStartRace()`)
 
 ## Career History (v1.7.0)
 

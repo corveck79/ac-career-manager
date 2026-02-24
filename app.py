@@ -8,6 +8,7 @@ from flask_cors import CORS
 import json
 import os
 import sys
+import statistics
 import threading
 from datetime import datetime
 
@@ -127,6 +128,65 @@ def _parse_length(raw):
         return int(val * 1000 if val < 100 else val)
     except ValueError:
         return 0
+
+
+def _fmt_lap_ms(ms):
+    """Format a lap time from milliseconds → MM:SS.mmm string."""
+    if not ms or ms <= 0:
+        return '–'
+    mins = int(ms) // 60000
+    secs = (int(ms) % 60000) / 1000
+    return f'{mins}:{secs:06.3f}'
+
+
+def _generate_engineer_report(position, total_drivers, valid_laps):
+    """Generate a short engineer debrief text from race result + individual lap times."""
+    if not valid_laps or len(valid_laps) < 2:
+        return 'Not enough lap data for analysis.'
+
+    std_ms = statistics.stdev(valid_laps)
+
+    # Position comment
+    if position == 1:
+        pos_msg = 'Excellent race – P1! The team is ecstatic.'
+    elif position <= 3:
+        pos_msg = f'Solid podium, P{position}. Good result for the team.'
+    elif position <= 5:
+        pos_msg = f'P{position}, in the points. A decent afternoon.'
+    elif position <= max(1, total_drivers // 2):
+        pos_msg = f'P{position}, midfield finish. There\'s more pace in the car.'
+    else:
+        pos_msg = f'P{position}, a tough race. We\'ll debrief and come back stronger.'
+
+    # Consistency comment
+    if std_ms < 500:
+        cons_msg = 'Incredibly consistent lap times – near-perfect rhythm.'
+    elif std_ms < 1000:
+        cons_msg = 'Good consistency throughout the stint.'
+    elif std_ms < 2000:
+        cons_msg = 'Some variation in lap times – tyre deg or traffic?'
+    else:
+        cons_msg = 'Significant lap time variation. Focus on a more consistent rhythm.'
+
+    # Pace trend: compare first third vs last third (only if enough laps)
+    n = len(valid_laps)
+    trend_msg = ''
+    if n >= 6:
+        third     = n // 3
+        early_avg = sum(valid_laps[:third]) / third
+        late_avg  = sum(valid_laps[-third:]) / third
+        diff_ms   = late_avg - early_avg
+        if diff_ms < -300:
+            trend_msg = 'You found more pace as the race progressed – great tyre management.'
+        elif diff_ms > 300:
+            trend_msg = 'Pace dropped in the closing laps – possible tyre wear.'
+        else:
+            trend_msg = 'Pace was stable throughout – solid race management.'
+
+    parts = [pos_msg, cons_msg]
+    if trend_msg:
+        parts.append(trend_msg)
+    return ' '.join(parts)
 
 
 def _effective_tier_info(tier_key, tier_info, career_data):
@@ -354,6 +414,39 @@ def read_race_result():
         secs         = (best_lap_ms % 60000) / 1000
         best_lap_fmt = f'{mins:02d}:{secs:06.3f}'
 
+    # ── Lap-by-lap debrief analysis ──────────────────────────────────────────
+    # AC results JSON has a top-level 'Laps' array with per-lap times per driver.
+    raw_laps        = data.get('Laps', [])
+    all_player_laps = [
+        l['LapTime'] for l in raw_laps
+        if isinstance(l, dict)
+        and l.get('DriverName', '').lower() == driver_name.lower()
+        and isinstance(l.get('LapTime'), (int, float))
+        and l['LapTime'] > 0
+    ]
+    lap_analysis = {}
+    if all_player_laps:
+        lap_best_ms = min(all_player_laps)
+        # Exclude in/out-lap style outliers (> 150% of the best lap)
+        valid_laps  = [lt for lt in all_player_laps if lt <= lap_best_ms * 1.5]
+        if len(valid_laps) >= 2:
+            avg_ms      = sum(valid_laps) / len(valid_laps)
+            std_ms      = statistics.stdev(valid_laps)
+            # consistency: 100 = perfect, drops ~1pt per 30ms of std dev
+            consistency = max(0, min(100, int(100 - std_ms / 30)))
+            total_d     = len(results)
+            lap_analysis = {
+                'lap_times':       valid_laps,
+                'lap_count':       len(valid_laps),
+                'best_lap_ms':     lap_best_ms,
+                'avg_lap_ms':      round(avg_ms),
+                'std_ms':          round(std_ms),
+                'consistency':     consistency,
+                'engineer_report': _generate_engineer_report(
+                    player_position, total_d, valid_laps
+                ),
+            }
+
     return jsonify({
         'status':         'incomplete' if incomplete else 'found',
         'position':       player_position,
@@ -361,6 +454,7 @@ def read_race_result():
         'laps_completed': laps_completed,
         'expected_laps':  expected_laps,
         'driver_name':    driver_name,
+        'lap_analysis':   lap_analysis,
     })
 
 

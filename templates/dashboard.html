@@ -128,6 +128,18 @@
             <div class="rf-value" id="rf-laps">-</div>
           </div>
         </div>
+        <!-- Post-Race Debrief Panel — shown when AC lap data is available -->
+        <div id="debrief-panel" class="debrief-panel hidden">
+          <div class="debrief-header">
+            <span class="debrief-title">Engineer Report</span>
+            <div class="consistency-wrap">
+              <span class="consistency-label">Consistency</span>
+              <span class="consistency-badge" id="debrief-consistency">–</span>
+            </div>
+          </div>
+          <p class="debrief-report" id="debrief-report"></p>
+          <div class="lap-sparkline" id="debrief-laps"></div>
+        </div>
         <div class="form-actions" style="margin-top:1.25rem">
           <button class="btn btn-race" onclick="submitAutoResult()">&#9989; Resultaat opslaan</button>
           <button class="btn btn-secondary" onclick="showManualForm('')">Handmatig invoeren</button>

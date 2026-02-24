@@ -52,6 +52,12 @@ function fmtWeather(preset) {
 function fmtPos(n) {
     return n === 1 ? 'P1 🥇' : n === 2 ? 'P2 🥈' : n === 3 ? 'P3 🥉' : 'P' + n;
 }
+function fmtMs(ms) {
+    if (!ms || ms <= 0) return '–';
+    const mins = Math.floor(ms / 60000);
+    const secs = (ms % 60000) / 1000;
+    return mins + ':' + secs.toFixed(3).padStart(6, '0');
+}
 function initials(name) {
     if (!name || name === 'No Driver') return '?';
     return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -723,6 +729,7 @@ async function confirmStartRace(mode) {
             document.getElementById('result-auto-status').className   = 'result-auto-status';
             document.getElementById('result-found').classList.add('hidden');
             document.getElementById('result-manual').classList.add('hidden');
+            document.getElementById('debrief-panel').classList.add('hidden');
             document.getElementById('finish-position').value = 1;
             document.getElementById('best-lap').value        = '';
             if (pendingRace) pendingRace._autoResult = null;
@@ -751,6 +758,7 @@ async function fetchRaceResult() {
             document.getElementById('result-auto').style.display = 'none';
             statusEl.textContent = '';
             if (pendingRace) pendingRace._autoResult = d;
+            renderDebrief(d.lap_analysis, d.position);
 
         } else if (d.status === 'incomplete') {
             statusEl.textContent = 'Race niet voltooid (' + d.laps_completed + '/' + d.expected_laps +
@@ -768,6 +776,54 @@ async function fetchRaceResult() {
         statusEl.textContent = 'Fout: ' + e.message;
         statusEl.className   = 'result-auto-status error';
     }
+}
+
+function renderDebrief(analysis, position) {
+    const panel = document.getElementById('debrief-panel');
+    if (!panel) return;
+    if (!analysis || analysis.consistency === undefined) {
+        panel.classList.add('hidden');
+        return;
+    }
+
+    // Consistency score badge
+    const score = analysis.consistency;
+    const badge = document.getElementById('debrief-consistency');
+    badge.textContent = score + '/100';
+    badge.className = 'consistency-badge ' + (
+        score >= 80 ? 'con-excellent' :
+        score >= 60 ? 'con-good' :
+        score >= 40 ? 'con-average' : 'con-poor'
+    );
+
+    // Engineer feedback text
+    const reportEl = document.getElementById('debrief-report');
+    if (reportEl) reportEl.textContent = analysis.engineer_report || '';
+
+    // Lap sparkline (mini bar chart)
+    const lapsEl = document.getElementById('debrief-laps');
+    const laps   = analysis.lap_times || [];
+    if (lapsEl && laps.length >= 2) {
+        const minLt = Math.min(...laps);
+        const maxLt = Math.max(...laps);
+        const range = maxLt - minLt || 1;
+        const bars  = laps.map((lt, i) => {
+            const pct    = 100 - Math.round(((lt - minLt) / range) * 75); // 25–100%
+            const isBest = (lt === minLt);
+            return '<div class="lap-bar' + (isBest ? ' lap-bar-best' : '') +
+                   '" style="height:' + pct + '%" title="Lap ' + (i + 1) + ': ' + fmtMs(lt) + '"></div>';
+        }).join('');
+        lapsEl.innerHTML =
+            '<div class="lap-bars">' + bars + '</div>' +
+            '<div class="lap-sparkline-label">' +
+            laps.length + ' laps &nbsp;·&nbsp; best: ' + fmtMs(minLt) +
+            ' &nbsp;·&nbsp; avg: ' + fmtMs(analysis.avg_lap_ms) +
+            '</div>';
+    } else if (lapsEl) {
+        lapsEl.innerHTML = '';
+    }
+
+    panel.classList.remove('hidden');
 }
 
 function showManualForm(hint) {

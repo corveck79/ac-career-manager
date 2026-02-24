@@ -135,6 +135,25 @@ td.col-gap{text-align:right;color:var(--text-dim);font-size:.72rem}
 .result-manual{margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border)}
 .result-manual-hint{font-size:.8rem;color:var(--accent);margin-bottom:1rem;font-style:italic}
 
+/* POST-RACE DEBRIEF */
+.debrief-panel{margin-top:1.1rem;padding:.85rem 1rem;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:var(--radius-sm)}
+.debrief-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.55rem}
+.debrief-title{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);font-weight:700}
+.consistency-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.consistency-label{font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint)}
+.consistency-badge{font-size:.88rem;font-weight:800;padding:.1rem .45rem;border-radius:4px;line-height:1.5;font-family:var(--mono)}
+.con-excellent{color:#4CAF50;background:rgba(76,175,80,.15)}
+.con-good{color:#8BC34A;background:rgba(139,195,74,.15)}
+.con-average{color:var(--accent);background:rgba(247,184,1,.12)}
+.con-poor{color:var(--primary);background:rgba(232,74,10,.12)}
+.debrief-report{font-size:.78rem;color:var(--text-dim);line-height:1.65;margin:0 0 .65rem}
+.lap-sparkline{margin-top:.1rem}
+.lap-bars{display:flex;align-items:flex-end;gap:2px;height:36px}
+.lap-bar{flex:1;min-width:3px;max-width:18px;background:var(--border-hi);border-radius:2px 2px 0 0;transition:background .15s;cursor:default}
+.lap-bar:hover{background:var(--text-dim)}
+.lap-bar-best{background:var(--accent)}
+.lap-sparkline-label{margin-top:.35rem;font-size:.62rem;color:var(--text-faint);font-family:var(--mono)}
+
 /* RESULT FORM */
 .result-form{max-width:540px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
