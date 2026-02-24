@@ -762,16 +762,17 @@ def _check_preflight(ac_path, track, car):
             'msg':  f'Track not found: {track_folder}. Install this track mod before racing.',
         })
 
-    # Car: needs both the car folder and a data/ subfolder
+    # Car: needs the car folder + either data/ (mods) or data.acd (Kunos stock cars)
     if car:
         car_path      = os.path.join(ac_path, 'content', 'cars', car)
         car_data_path = os.path.join(car_path, 'data')
+        car_data_acd  = os.path.join(car_path, 'data.acd')
         if not os.path.isdir(car_path):
             issues.append({
                 'type': 'error',
                 'msg':  f'Car not found: {car}. Install this car mod before racing.',
             })
-        elif not os.path.isdir(car_data_path):
+        elif not os.path.isdir(car_data_path) and not os.path.isfile(car_data_acd):
             issues.append({
                 'type': 'warning',
                 'msg':  f'Car "{car}" may be incomplete (missing data folder).',
