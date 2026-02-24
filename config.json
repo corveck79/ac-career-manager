@@ -12,7 +12,7 @@
   },
   "difficulty": {
     "ai_variance": 1.5,
-    "base_ai_level": 100,
+    "base_ai_level": 95,
     "tier_multipliers": {
       "gt3": 0,
       "gt4": -2,
