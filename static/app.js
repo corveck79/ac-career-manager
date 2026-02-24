@@ -444,36 +444,186 @@ async function showDriverProfile(name) {
     }
 }
 
-// ── New Career ─────────────────────────────────────────────────────────────
+// ── Career Wizard ───────────────────────────────────────────────────────────
+let wizardState = {
+    page:          1,
+    difficulty:    'pro',
+    weatherMode:   'realistic',
+    customTracks:  null,   // null = use config defaults
+    scannedTracks: [],
+    selectedIds:   new Set(),
+};
+
 function openNewCareer() {
-    const input = document.getElementById('new-driver-name');
-    if (input) input.value = (career && career.driver_name) || '';
+    // Reset state
+    wizardState = {
+        page: 1, difficulty: 'pro', weatherMode: 'realistic',
+        customTracks: null, scannedTracks: [], selectedIds: new Set(),
+    };
+    showWizardPage(1);
+    // Reset preset selections
+    document.querySelectorAll('#diff-grid .wizard-preset').forEach(el =>
+        el.classList.toggle('active', el.dataset.val === 'pro'));
+    document.querySelectorAll('#weather-grid .wizard-preset').forEach(el =>
+        el.classList.toggle('active', el.dataset.val === 'realistic'));
+    // Reset scan UI
+    document.getElementById('scan-loading').classList.add('hidden');
+    document.getElementById('scan-results').classList.add('hidden');
+    document.getElementById('btn-start-wizard').style.display = 'none';
+    const nameInput = document.getElementById('new-driver-name');
+    if (nameInput) nameInput.value = (career && career.driver_name) || '';
     openModal('modal-new-career');
-    setTimeout(() => { if (input) input.focus(); }, 100);
+    setTimeout(() => { if (nameInput) nameInput.focus(); }, 100);
 }
 
-async function confirmNewCareer() {
-    const name = (document.getElementById('new-driver-name').value || '').trim();
-    if (!name) {
-        showToast('Please enter a driver name', 'error');
+function showWizardPage(n) {
+    wizardState.page = n;
+    for (let i = 1; i <= 4; i++) {
+        const page = document.getElementById('wizard-page-' + i);
+        const dot  = document.getElementById('wdot-' + i);
+        if (page) page.classList.toggle('hidden', i !== n);
+        if (dot) {
+            dot.classList.toggle('active', i === n);
+            dot.classList.toggle('done',   i < n);
+        }
+    }
+}
+
+function wizardNext() {
+    if (wizardState.page === 1) {
+        const name = (document.getElementById('new-driver-name').value || '').trim();
+        if (!name) { showToast('Enter a driver name', 'error'); return; }
+    }
+    if (wizardState.page < 4) showWizardPage(wizardState.page + 1);
+}
+
+function wizardPrev() {
+    if (wizardState.page > 1) showWizardPage(wizardState.page - 1);
+}
+
+function selectPreset(type, val, el) {
+    const grid = (type === 'diff') ? 'diff-grid' : 'weather-grid';
+    document.querySelectorAll('#' + grid + ' .wizard-preset').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+    if (type === 'diff') wizardState.difficulty  = val;
+    else                 wizardState.weatherMode = val;
+}
+
+async function scanLibrary() {
+    const btn = document.getElementById('btn-scan-lib');
+    btn.disabled = true;
+    document.getElementById('scan-loading').classList.remove('hidden');
+    document.getElementById('scan-results').classList.add('hidden');
+    document.getElementById('btn-start-wizard').style.display = 'none';
+    try {
+        const r    = await fetch('/api/scan-content');
+        const data = await r.json();
+        if (data.error) { showToast(data.error, 'error'); return; }
+
+        wizardState.scannedTracks = data.tracks || [];
+
+        // Pre-select tracks that match the current config defaults
+        const defaults = new Set();
+        if (config && config.tiers) {
+            Object.values(config.tiers).forEach(t => (t.tracks || []).forEach(id => defaults.add(id)));
+        }
+        wizardState.selectedIds = new Set(
+            wizardState.scannedTracks.map(t => t.id).filter(id => defaults.has(id))
+        );
+
+        renderTrackChecklist('all');
+        document.getElementById('scan-results').classList.remove('hidden');
+        document.getElementById('btn-start-wizard').style.display = '';
+        _updateTrackCount();
+    } catch (e) {
+        showToast('Scan failed: ' + e.message, 'error');
+    } finally {
+        document.getElementById('scan-loading').classList.add('hidden');
+        btn.disabled = false;
+    }
+}
+
+function filterTracks(filter, btn) {
+    document.querySelectorAll('.scan-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTrackChecklist(filter);
+}
+
+function renderTrackChecklist(filter) {
+    const tracks = wizardState.scannedTracks.filter(t => {
+        if (filter === 'short')  return t.length > 0 && t.length <= 3000;
+        if (filter === 'medium') return t.length > 3000 && t.length <= 7000;
+        if (filter === 'long')   return t.length > 7000;
+        return true;
+    });
+    const list = document.getElementById('track-checklist');
+    if (!tracks.length) {
+        list.innerHTML = '<div class="form-hint" style="padding:.4rem 0">No tracks found for this filter.</div>';
         return;
     }
+    list.innerHTML = tracks.map(t => {
+        const checked = wizardState.selectedIds.has(t.id) ? 'checked' : '';
+        const lenStr  = t.length ? (t.length / 1000).toFixed(2) + ' km' : '–';
+        const safeId  = t.id.replace(/[^a-z0-9_\-\/]/gi, '_');
+        return '<label class="track-check-item">' +
+            '<input type="checkbox" value="' + t.id + '" ' + checked +
+            ' onchange="toggleTrack(\'' + t.id + '\',this.checked)">' +
+            '<span class="track-check-name">' + t.name + '</span>' +
+            '<span class="track-check-len">' + lenStr + '</span>' +
+            '</label>';
+    }).join('');
+}
+
+function toggleTrack(id, checked) {
+    if (checked) wizardState.selectedIds.add(id);
+    else         wizardState.selectedIds.delete(id);
+    _updateTrackCount();
+}
+
+function _updateTrackCount() {
+    const el = document.getElementById('scan-track-count');
+    if (el) el.textContent = wizardState.selectedIds.size + ' track(s) selected for GT4 / GT3 / WEC';
+}
+
+function useDefaultTracks() {
+    wizardState.customTracks = null;
+    startCareerFromWizard();
+}
+
+async function startCareerFromWizard() {
+    const name = (document.getElementById('new-driver-name').value || '').trim();
+    if (!name) { showWizardPage(1); showToast('Enter a driver name', 'error'); return; }
+
+    // Build custom_tracks from wizard selection (if user scanned)
+    let customTracks = null;
+    if (wizardState.selectedIds.size > 0) {
+        const selected = Array.from(wizardState.selectedIds);
+        // All selected tracks go to GT4 / GT3 / WEC (same pool)
+        // MX5 always uses config defaults — no custom track pool needed
+        customTracks = { gt4: selected, gt3: selected, wec: selected };
+    }
+
     try {
         const r = await fetch('/api/new-career', {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ driver_name: name }),
+            body:    JSON.stringify({
+                driver_name:   name,
+                difficulty:    wizardState.difficulty,
+                weather_mode:  wizardState.weatherMode,
+                custom_tracks: customTracks,
+            }),
         });
         const d = await r.json();
+        closeModal('modal-new-career');
         if (d.status === 'success') {
-            closeModal('modal-new-career');
             await Promise.all([loadCareer(), loadConfig()]);
             await Promise.all([loadAllStandings(), loadCalendar()]);
             refresh();
             showView('standings');
-            showToast('Career started! Good luck, ' + name + '! 🏁');
+            showToast('Career started! Good luck, ' + name + '! \uD83C\uDFC1');
         } else {
-            showToast('Error starting career', 'error');
+            showToast(d.message || 'Error starting career', 'error');
         }
     } catch (e) { showToast('Error: ' + e.message, 'error'); }
 }

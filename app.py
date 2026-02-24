@@ -105,6 +105,40 @@ def _fmt_track(track_id):
     return TRACK_NAMES.get(track_id, track_id.replace('_', ' ').title())
 
 
+def _get_career_tracks(tier_key, tier_info, career_data):
+    """Return the effective track list for a tier.
+    Uses career_settings.custom_tracks[tier_key] if set, otherwise config defaults.
+    """
+    cs = career_data.get('career_settings') or {}
+    ct = cs.get('custom_tracks') or {}
+    return ct.get(tier_key) or tier_info['tracks']
+
+
+def _parse_length(raw):
+    """Parse track length from ui_track.json — may be int, float, or string."""
+    if not raw:
+        return 0
+    if isinstance(raw, (int, float)):
+        return int(raw)
+    s = str(raw).strip().lower().replace(',', '.').replace(' ', '')
+    s = s.replace('km', '').replace('m', '')
+    try:
+        val = float(s)
+        return int(val * 1000 if val < 100 else val)
+    except ValueError:
+        return 0
+
+
+def _effective_tier_info(tier_key, tier_info, career_data):
+    """Return a shallow copy of tier_info with tracks overridden from career_settings."""
+    tracks = _get_career_tracks(tier_key, tier_info, career_data)
+    if tracks is tier_info['tracks']:
+        return tier_info          # nothing to override, return original
+    info = dict(tier_info)
+    info['tracks'] = tracks
+    return info
+
+
 # ---------------------------------------------------------------------------
 # Initialise career manager
 # ---------------------------------------------------------------------------
@@ -181,7 +215,7 @@ def get_season_calendar():
     cfg            = load_config()
     tier_key       = career.tiers[career_data['tier']]
     tier_info      = cfg['tiers'][tier_key]
-    tracks         = tier_info['tracks']
+    tracks         = _get_career_tracks(tier_key, tier_info, career_data)
     races_per_tier = cfg['seasons']['races_per_tier']
     races_done     = career_data['races_completed']
     race_results   = career_data.get('race_results', [])
@@ -208,29 +242,39 @@ def get_season_calendar():
 
 @app.route('/api/next-race')
 def get_next_race():
-    career_data = load_career_data()
-    cfg         = load_config()
-    tier_index  = career_data['tier']
-    tier_key    = career.tiers[tier_index]
-    tier_info   = career.get_tier_info(tier_index)
-    race_num    = career_data['races_completed'] + 1
-    season      = career_data.get('season', 1)
+    career_data  = load_career_data()
+    cfg          = load_config()
+    tier_index   = career_data['tier']
+    tier_key     = career.tiers[tier_index]
+    tier_info    = _effective_tier_info(tier_key, career.get_tier_info(tier_index), career_data)
+    race_num     = career_data['races_completed'] + 1
+    season       = career_data.get('season', 1)
+    cs           = career_data.get('career_settings') or {}
+    weather_mode = cs.get('weather_mode', 'realistic')
     race = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
-                                tier_key=tier_key, season=season)
+                                tier_key=tier_key, season=season, weather_mode=weather_mode)
+    ai_offset = cs.get('ai_offset', 0)
+    if ai_offset:
+        race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
     return jsonify(race)
 
 
 @app.route('/api/start-race', methods=['POST'])
 def start_race():
-    career_data = load_career_data()
-    cfg         = load_config()
-    tier_index  = career_data['tier']
-    tier_key    = career.tiers[tier_index]
-    tier_info   = career.get_tier_info(tier_index)
-    race_num    = career_data['races_completed'] + 1
-    season      = career_data.get('season', 1)
-    race        = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
-                                       tier_key=tier_key, season=season)
+    career_data  = load_career_data()
+    cfg          = load_config()
+    tier_index   = career_data['tier']
+    tier_key     = career.tiers[tier_index]
+    tier_info    = _effective_tier_info(tier_key, career.get_tier_info(tier_index), career_data)
+    race_num     = career_data['races_completed'] + 1
+    season       = career_data.get('season', 1)
+    cs           = career_data.get('career_settings') or {}
+    weather_mode = cs.get('weather_mode', 'realistic')
+    race         = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
+                                        tier_key=tier_key, season=season, weather_mode=weather_mode)
+    ai_offset = cs.get('ai_offset', 0)
+    if ai_offset:
+        race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
     race['driver_name'] = career_data.get('driver_name', 'Player')
     mode    = (request.json or {}).get('mode', 'race_only')
     success = career.launch_ac_race(race, cfg, mode=mode)
@@ -419,8 +463,15 @@ def accept_contract():
 
 @app.route('/api/new-career', methods=['POST'])
 def new_career():
-    data        = request.json or {}
-    driver_name = data.get('driver_name', '').strip() or 'Driver'
+    data          = request.json or {}
+    driver_name   = data.get('driver_name', '').strip() or 'Driver'
+    difficulty    = data.get('difficulty', 'pro')
+    weather_mode  = data.get('weather_mode', 'realistic')
+    custom_tracks = data.get('custom_tracks') or None   # None → use config defaults
+
+    ai_offsets = {'rookie': -10, 'amateur': -5, 'pro': 0, 'legend': 5}
+    ai_offset  = ai_offsets.get(difficulty, 0)
+
     initial = {
         'tier':            0,
         'season':          1,
@@ -433,9 +484,98 @@ def new_career():
         'race_results':    [],
         'contracts':       None,
         'driver_history':  {},
+        'career_settings': {
+            'difficulty':    difficulty,
+            'ai_offset':     ai_offset,
+            'weather_mode':  weather_mode,
+            'custom_tracks': custom_tracks,
+        },
     }
     save_career_data(initial)
     return jsonify({'status': 'success', 'message': 'New career started!', 'career_data': initial})
+
+
+@app.route('/api/scan-content')
+def scan_content():
+    """Scan AC content/cars and content/tracks for valid GT3/GT4 cars and all tracks."""
+    cfg     = load_config()
+    ac_path = cfg.get('paths', {}).get('ac_install', '')
+
+    if not os.path.exists(os.path.join(ac_path, 'acs.exe')):
+        return jsonify({'error': 'AC installation not found. Check your AC path.'}), 400
+
+    result = {'cars': {'gt4': [], 'gt3': []}, 'tracks': []}
+
+    # ── Cars ────────────────────────────────────────────────────────────────
+    cars_dir = os.path.join(ac_path, 'content', 'cars')
+    if os.path.isdir(cars_dir):
+        for car_name in sorted(os.listdir(cars_dir)):
+            car_path  = os.path.join(cars_dir, car_name)
+            if not os.path.isdir(car_path):
+                continue
+            ui_car   = os.path.join(car_path, 'ui', 'ui_car.json')
+            data_dir = os.path.join(car_path, 'data')
+            if not os.path.exists(ui_car) or not os.path.isdir(data_dir):
+                continue
+            try:
+                with open(ui_car, 'r', encoding='utf-8', errors='ignore') as f:
+                    car_data = json.load(f)
+            except Exception:
+                continue
+            display  = car_data.get('name', car_name)
+            tags     = [t.lower() for t in (car_data.get('tags') or [])]
+            nm_lower = car_name.lower()
+            if 'gt4' in tags or 'gt4' in nm_lower:
+                result['cars']['gt4'].append({'id': car_name, 'name': display})
+            elif 'gt3' in tags or 'gt3' in nm_lower:
+                result['cars']['gt3'].append({'id': car_name, 'name': display})
+
+    # ── Tracks ──────────────────────────────────────────────────────────────
+    tracks_dir = os.path.join(ac_path, 'content', 'tracks')
+    if os.path.isdir(tracks_dir):
+        for track_name in sorted(os.listdir(tracks_dir)):
+            track_path = os.path.join(tracks_dir, track_name)
+            if not os.path.isdir(track_path):
+                continue
+            layouts = []
+            try:
+                for item in sorted(os.listdir(track_path)):
+                    item_path = os.path.join(track_path, item)
+                    if not os.path.isdir(item_path) or item == 'ui':
+                        continue
+                    layout_ui = os.path.join(item_path, 'ui', 'ui_track.json')
+                    if not os.path.exists(layout_ui):
+                        continue
+                    try:
+                        with open(layout_ui, 'r', encoding='utf-8', errors='ignore') as f:
+                            td = json.load(f)
+                        layouts.append({
+                            'id':     f'{track_name}/{item}',
+                            'name':   td.get('name') or f'{track_name} – {item}',
+                            'length': _parse_length(td.get('length', 0)),
+                        })
+                    except Exception:
+                        continue
+            except PermissionError:
+                continue
+            # Single-layout track (no layout subdirs found)
+            if not layouts:
+                root_ui = os.path.join(track_path, 'ui', 'ui_track.json')
+                if os.path.exists(root_ui):
+                    try:
+                        with open(root_ui, 'r', encoding='utf-8', errors='ignore') as f:
+                            td = json.load(f)
+                        layouts.append({
+                            'id':     track_name,
+                            'name':   td.get('name') or track_name,
+                            'length': _parse_length(td.get('length', 0)),
+                        })
+                    except Exception:
+                        pass
+            result['tracks'].extend(layouts)
+
+    result['tracks'].sort(key=lambda t: t['length'])
+    return jsonify(result)
 
 
 @app.route('/api/driver-profile')

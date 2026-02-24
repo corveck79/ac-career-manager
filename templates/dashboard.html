@@ -238,21 +238,117 @@
   </div>
 </div>
 <div id="modal-new-career" class="modal-overlay hidden">
-  <div class="modal-box">
+  <div class="modal-box wizard-box">
     <div class="modal-header">
       <h2 class="modal-title">New Career</h2>
       <button class="close-btn" onclick="closeModal('modal-new-career')">&#10005;</button>
     </div>
-    <p class="modal-subtitle">Start fresh in MX5 Cup. All current progress will be lost.</p>
-    <div class="form-group">
-      <label class="form-label">Driver Name</label>
-      <input type="text" id="new-driver-name" class="form-input" placeholder="Your name (used in AC)" maxlength="30">
-      <div class="form-hint">This name appears in Assetto Corsa as your driver.</div>
+    <!-- Step indicator -->
+    <div class="wizard-steps">
+      <div class="wizard-dot active" id="wdot-1">1</div>
+      <div class="wizard-line"></div>
+      <div class="wizard-dot" id="wdot-2">2</div>
+      <div class="wizard-line"></div>
+      <div class="wizard-dot" id="wdot-3">3</div>
+      <div class="wizard-line"></div>
+      <div class="wizard-dot" id="wdot-4">4</div>
     </div>
-    <div class="modal-actions">
-      <button class="btn btn-race"      onclick="confirmNewCareer()">&#127937; Start Career</button>
-      <button class="btn btn-secondary" onclick="closeModal('modal-new-career')">Cancel</button>
+
+    <!-- Page 1: Driver Name -->
+    <div class="wizard-page" id="wizard-page-1">
+      <div class="wizard-page-title">Driver Profile</div>
+      <p class="modal-subtitle">Start fresh in MX5 Cup. All current progress will be lost.</p>
+      <div class="form-group">
+        <label class="form-label">Driver Name</label>
+        <input type="text" id="new-driver-name" class="form-input" placeholder="Your name (used in AC)" maxlength="30">
+        <div class="form-hint">This name appears in Assetto Corsa as your driver.</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-race"  onclick="wizardNext()">Next &#8594;</button>
+        <button class="btn btn-ghost" onclick="closeModal('modal-new-career')">Cancel</button>
+      </div>
     </div>
+
+    <!-- Page 2: Difficulty -->
+    <div class="wizard-page hidden" id="wizard-page-2">
+      <div class="wizard-page-title">Difficulty</div>
+      <p class="modal-subtitle">Set the AI challenge level for your career.</p>
+      <div class="wizard-preset-grid" id="diff-grid">
+        <div class="wizard-preset" data-val="rookie" onclick="selectPreset('diff','rookie',this)">
+          <div class="preset-name">Rookie</div>
+          <div class="preset-desc">AI &minus;10 &middot; Perfect for beginners</div>
+        </div>
+        <div class="wizard-preset" data-val="amateur" onclick="selectPreset('diff','amateur',this)">
+          <div class="preset-name">Amateur</div>
+          <div class="preset-desc">AI &minus;5 &middot; Learn the ropes</div>
+        </div>
+        <div class="wizard-preset active" data-val="pro" onclick="selectPreset('diff','pro',this)">
+          <div class="preset-name">Pro</div>
+          <div class="preset-desc">AI +0 &middot; Default challenge</div>
+        </div>
+        <div class="wizard-preset" data-val="legend" onclick="selectPreset('diff','legend',this)">
+          <div class="preset-name">Legend</div>
+          <div class="preset-desc">AI +5 &middot; Unforgiving pace</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-race"  onclick="wizardNext()">Next &#8594;</button>
+        <button class="btn btn-ghost" onclick="wizardPrev()">&#8592; Back</button>
+      </div>
+    </div>
+
+    <!-- Page 3: Weather -->
+    <div class="wizard-page hidden" id="wizard-page-3">
+      <div class="wizard-page-title">Weather Mode</div>
+      <p class="modal-subtitle">How much weather variety do you want in your career?</p>
+      <div class="wizard-preset-grid" id="weather-grid">
+        <div class="wizard-preset" data-val="always_clear" onclick="selectPreset('weather','always_clear',this)">
+          <div class="preset-name">&#9728; Always Clear</div>
+          <div class="preset-desc">Dry races every time</div>
+        </div>
+        <div class="wizard-preset active" data-val="realistic" onclick="selectPreset('weather','realistic',this)">
+          <div class="preset-name">&#9925; Realistic Mix</div>
+          <div class="preset-desc">Based on real track weather</div>
+        </div>
+        <div class="wizard-preset" data-val="wet_challenge" onclick="selectPreset('weather','wet_challenge',this)">
+          <div class="preset-name">&#127783; Wet Challenge</div>
+          <div class="preset-desc">Mostly wet &amp; overcast</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-race"  onclick="wizardNext()">Next &#8594;</button>
+        <button class="btn btn-ghost" onclick="wizardPrev()">&#8592; Back</button>
+      </div>
+    </div>
+
+    <!-- Page 4: Track Library -->
+    <div class="wizard-page hidden" id="wizard-page-4">
+      <div class="wizard-page-title">Track Library</div>
+      <p class="modal-subtitle">Scan your AC folder to pick which tracks appear in your career, or use the built-in defaults.</p>
+      <div class="wizard-scan-row">
+        <button class="btn btn-secondary" id="btn-scan-lib" onclick="scanLibrary()">&#128269; Scan My Library</button>
+        <span class="form-hint" style="margin:0;align-self:center">or</span>
+        <button class="btn btn-ghost" onclick="useDefaultTracks()">Use Defaults &amp; Start</button>
+      </div>
+      <div id="scan-loading" class="scan-loading hidden">
+        <div class="scan-spinner"></div><span>Scanning AC content folder&hellip;</span>
+      </div>
+      <div id="scan-results" class="hidden">
+        <div class="scan-filter-row">
+          <button class="scan-filter-btn active" onclick="filterTracks('all',this)">All</button>
+          <button class="scan-filter-btn" onclick="filterTracks('short',this)">&#8804;3 km (MX5)</button>
+          <button class="scan-filter-btn" onclick="filterTracks('medium',this)">3&ndash;7 km</button>
+          <button class="scan-filter-btn" onclick="filterTracks('long',this)">&gt;7 km</button>
+        </div>
+        <div id="track-checklist" class="track-checklist"></div>
+        <div class="form-hint" id="scan-track-count"></div>
+      </div>
+      <div class="modal-actions" style="margin-top:1rem">
+        <button class="btn btn-race"  id="btn-start-wizard" onclick="startCareerFromWizard()" style="display:none">&#127937; Start Career</button>
+        <button class="btn btn-ghost" onclick="wizardPrev()">&#8592; Back</button>
+      </div>
+    </div>
+
   </div>
 </div>
 <!-- Driver profile modal -->

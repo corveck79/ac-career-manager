@@ -94,10 +94,11 @@ venv\Scripts\python.exe -c "import types,sys; sys.modules['webview']=types.Modul
 | POST | `/api/finish-race` | Submit result, calc points |
 | POST | `/api/end-season` | Trigger season end / contract offers; snapshots AI driver history |
 | POST | `/api/accept-contract` | Accept a contract offer |
-| POST | `/api/new-career` | Reset and start fresh |
+| POST | `/api/new-career` | Reset and start fresh; body `{driver_name, difficulty, weather_mode, custom_tracks}` |
 | GET/POST | `/api/config` | Read or update config |
 | GET | `/api/driver-profile` | Driver profile: `?name=<driver>` → `{name, profile, current, history}` |
 | GET | `/api/preflight-check` | Validate track & car exist: `?track=<id>&car=<id>` → `{ok, issues:[{type,msg}]}` |
+| GET | `/api/scan-content` | Scan AC content folder → `{cars:{gt4:[],gt3:[]}, tracks:[{id,name,length}]}` |
 
 ## Career Tiers
 

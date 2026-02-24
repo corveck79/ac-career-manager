@@ -240,15 +240,18 @@ class CareerManager:
     # Race generation
     # ------------------------------------------------------------------
 
-    def generate_race(self, tier_info, race_num, team_name, car, tier_key=None, season=1):
-        """Generate next race configuration"""
+    def generate_race(self, tier_info, race_num, team_name, car,
+                      tier_key=None, season=1, weather_mode='realistic'):
+        """Generate next race configuration.
+        weather_mode: 'realistic' (default pool) | 'always_clear' | 'wet_challenge'
+        """
         tracks = tier_info['tracks']
         track = tracks[(race_num - 1) % len(tracks)]
 
         ai_difficulty = self._calculate_ai_difficulty(team_name, tier_info)
         opponents = self._generate_opponent_field(tier_info, race_num, tier_key=tier_key, season=season)
 
-        weather = self._pick_weather(tier_info['race_format'], track)
+        weather = self._pick_weather(tier_info['race_format'], track, weather_mode=weather_mode)
         return {
             'race_num':         race_num,
             'track':            track,
@@ -270,14 +273,25 @@ class CareerManager:
         'ks_red_bull_ring', 'ks_vallelunga',
     }
 
-    def _pick_weather(self, race_format, track):
-        """Pick a weather preset using weighted random from weather_pool.
-        Falls back to 7_heavy_clouds if wet is selected on an unsupported track.
+    def _pick_weather(self, race_format, track, weather_mode='realistic'):
+        """Pick a weather preset.
+        weather_mode:
+          'always_clear'  → always 3_clear
+          'wet_challenge' → mostly wet / heavy cloud
+          'realistic'     → use the tier's weighted weather_pool (default)
+        Falls back to 7_heavy_clouds if wet is picked on an unsupported track.
         """
-        pool = race_format.get('weather_pool', [['3_clear', 100]])
-        presets  = [p[0] for p in pool]
-        weights  = [p[1] for p in pool]
-        chosen   = random.choices(presets, weights=weights, k=1)[0]
+        if weather_mode == 'always_clear':
+            return '3_clear'
+
+        if weather_mode == 'wet_challenge':
+            pool = [['wet', 60], ['7_heavy_clouds', 30], ['4_mid_clear', 10]]
+        else:  # realistic
+            pool = race_format.get('weather_pool', [['3_clear', 100]])
+
+        presets = [p[0] for p in pool]
+        weights = [p[1] for p in pool]
+        chosen  = random.choices(presets, weights=weights, k=1)[0]
 
         if chosen == 'wet':
             track_folder = track.split('/')[0]
