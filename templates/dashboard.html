@@ -235,6 +235,18 @@
             <span class="toggle-slider"></span>
           </label>
         </div>
+        <span class="toggle-csp-hint hidden" id="night-cycle-csp-hint">&#9888; Requires CSP &#8212; install via Content Manager</span>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Mod Support</div>
+        <div class="setting-row csp-status-row">
+          <span class="csp-badge" id="badge-csp">&#9881; CSP Preview</span>
+          <span class="csp-badge" id="badge-pure">&#10024; Pure Weather FX</span>
+        </div>
+        <div class="slider-hints" style="margin-top:.4rem">
+          <span style="color:var(--text-faint);font-size:.75rem">Install both via Content Manager &#8594; Mods</span>
+        </div>
       </div>
 
       <div class="settings-section">
@@ -352,7 +364,12 @@
           <div class="preset-name">&#127783; Wet Challenge</div>
           <div class="preset-desc">Mostly wet &amp; overcast</div>
         </div>
+        <div class="wizard-preset" data-val="csp_pure" onclick="selectPreset('weather','csp_pure',this)">
+          <div class="preset-name">&#10024; CSP (Pure)</div>
+          <div class="preset-desc">Dramatic mix &#8212; requires CSP Pure</div>
+        </div>
       </div>
+      <div class="form-hint hidden" id="csp-pure-hint" style="color:var(--danger)">&#9888; CSP Pure not detected &#8212; effects will be reduced</div>
       <div class="modal-actions">
         <button class="btn btn-race"       onclick="wizardNext()">Next &#8594;</button>
         <button class="btn btn-race-ghost" onclick="wizardPrev()">&#8592; Back</button>

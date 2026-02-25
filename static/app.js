@@ -403,6 +403,15 @@ function openConfig() {
     document.getElementById('s-dynamic-weather').checked = cs.dynamic_weather !== false;
     document.getElementById('s-night-cycle').checked      = cs.night_cycle      !== false;
 
+    // CSP / Pure badges and night-cycle hint
+    const cspStatus = (career && career.csp_status) || {};
+    const bCsp  = document.getElementById('badge-csp');
+    const bPure = document.getElementById('badge-pure');
+    if (bCsp)  bCsp.classList.toggle('csp-found',  !!cspStatus.csp);
+    if (bPure) bPure.classList.toggle('csp-found', !!cspStatus.pure);
+    const ncHint = document.getElementById('night-cycle-csp-hint');
+    if (ncHint) ncHint.classList.toggle('hidden', !!cspStatus.csp);
+
     showView('config');
 }
 
@@ -586,6 +595,10 @@ function openNewCareer() {
     // Show warning if overwriting existing career
     const warningEl = document.getElementById('wizard-career-warning');
     if (warningEl) warningEl.classList.toggle('hidden', !(career && career.driver_name && career.team));
+    // Show CSP Pure hint on weather page if Pure not detected
+    const cspPureHint = document.getElementById('csp-pure-hint');
+    const hasPure = !!(career && career.csp_status && career.csp_status.pure);
+    if (cspPureHint) cspPureHint.classList.toggle('hidden', hasPure);
     openModal('modal-new-career');
     setTimeout(() => { if (nameInput) nameInput.focus(); }, 100);
 }

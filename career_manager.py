@@ -300,6 +300,7 @@ class CareerManager:
         weather_mode:
           'always_clear'  → always 3_clear
           'wet_challenge' → mostly wet / heavy cloud
+          'csp_pure'      → dramatic mix, maximises CSP Pure visual range
           'realistic'     → use the tier's weighted weather_pool (default)
         Falls back to 7_heavy_clouds if wet is picked on an unsupported track.
         """
@@ -308,6 +309,10 @@ class CareerManager:
 
         if weather_mode == 'wet_challenge':
             pool = [['wet', 60], ['7_heavy_clouds', 30], ['4_mid_clear', 10]]
+        elif weather_mode == 'csp_pure':
+            # Dramatic mix — maximises Pure Weather FX visual range
+            pool = [['7_heavy_clouds', 30], ['wet', 25], ['6_light_clouds', 20],
+                    ['4_mid_clear', 15], ['3_clear', 10]]
         else:  # realistic
             pool = race_format.get('weather_pool', [['3_clear', 100]])
 

@@ -246,6 +246,9 @@ def save_ac_path():
 def get_career_status():
     career_data = load_career_data()
     career_data['total_races'] = career.get_tier_races(career_data)
+    cfg = load_config()
+    ac_path = cfg.get('paths', {}).get('ac_install', '')
+    career_data['csp_status'] = detect_csp(ac_path)
     return jsonify(career_data)
 
 
@@ -769,6 +772,19 @@ def preflight_check():
     return jsonify(result)
 
 
+def detect_csp(ac_path):
+    """Return CSP / Pure installation status.
+    CSP  detected → <AC>/extension/ folder exists
+    Pure detected → <AC>/extension/weather_fx/ folder exists
+    """
+    ext  = os.path.join(ac_path, 'extension')
+    pure = os.path.join(ac_path, 'extension', 'weather_fx')
+    return {
+        'csp':  os.path.isdir(ext),
+        'pure': os.path.isdir(pure),
+    }
+
+
 def _check_preflight(ac_path, track, car):
     """Validate that track and car exist in the AC content folder.
 
@@ -808,18 +824,26 @@ def _check_preflight(ac_path, track, car):
                 'msg':  f'Car "{car}" may be incomplete (missing data folder).',
             })
 
-    # Night cycle CSP check
-    cd_check = load_career_data()
-    cs_check = cd_check.get('career_settings', {})
-    if cs_check.get('night_cycle', True):
-        extension_path = os.path.join(ac_path, 'extension')
-        if not os.path.isdir(extension_path):
-            issues.append({
-                'type': 'warning',
-                'msg':  'Night cycle is enabled but Custom Shader Patch (CSP) was not found. '
-                        'Install CSP via Content Manager for full day/night progression. '
-                        'Without CSP the race will start at a fixed sun angle.',
-            })
+    # CSP checks
+    csp_status = detect_csp(ac_path)
+    cd_check   = load_career_data()
+    cs_check   = cd_check.get('career_settings', {})
+
+    if cs_check.get('night_cycle', True) and not csp_status['csp']:
+        issues.append({
+            'type': 'warning',
+            'msg':  'Night cycle is enabled but Custom Shader Patch (CSP) was not found. '
+                    'Install CSP via Content Manager for full day/night progression. '
+                    'Without CSP the race will start at a fixed sun angle.',
+        })
+
+    if cs_check.get('weather_mode') == 'csp_pure' and not csp_status['pure']:
+        issues.append({
+            'type': 'warning',
+            'msg':  'CSP (Pure) weather is active but Pure Weather FX was not found. '
+                    'Weather will still work, but without Pure\'s visual enhancements. '
+                    'Install Pure via Content Manager for the full effect.',
+        })
 
     return {'ok': len(issues) == 0, 'issues': issues}
 
