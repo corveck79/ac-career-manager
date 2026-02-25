@@ -184,17 +184,16 @@ function renderCalendar() {
         const pill = document.createElement('div');
         pill.className = 'round-pill ' + r.status;
 
-        // Shorten track name to first word (max 8 chars)
-        const shortTrack = fmtTrack(r.track).split(' ')[0].slice(0, 8);
-        const icon = r.status === 'completed' ? '✓' : r.status === 'next' ? '►' : '○';
+        // Circle icon: ✓ done | ► next | round number upcoming
+        const icon = r.status === 'completed' ? '✓' : r.status === 'next' ? '▶' : r.round;
+        const shortTrack = fmtTrack(r.track).split(' ')[0].slice(0, 7);
         const resultHtml = (r.status === 'completed' && r.result)
             ? '<div class="rp-result">P' + r.result.position + '</div>'
             : '';
 
         pill.innerHTML =
-            '<div class="rp-num">R' + r.round + '</div>' +
+            '<div class="rp-icon">' + icon + '</div>' +
             '<div class="rp-track">' + shortTrack + '</div>' +
-            '<div class="rp-status">' + icon + '</div>' +
             resultHtml;
 
         row.appendChild(pill);
@@ -276,7 +275,9 @@ function renderStandings() {
         const isRival    = !s.is_player && champMode === 'drivers' &&
                            career && career.rival_name && s.driver === career.rival_name;
         const rowClass   = s.is_player ? 'player-row' : (isRival ? 'rival-row' : '');
-        const gap        = s.gap === 0 ? '–' : '–' + s.gap;
+        const gap        = s.position === 1
+            ? '<span class="gap-leader">LEADER</span>'
+            : (s.gap === 0 ? '–' : '–' + s.gap);
         const isDriverMode = champMode === 'drivers';
         const main  = isDriverMode ? (s.driver || s.team) : s.team;
         // Teams mode: show both drivers as sub ("Driver1 / Driver2")
