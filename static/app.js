@@ -136,7 +136,11 @@ function updateDriverCard() {
     // Top bar
     document.getElementById('tier-badge').textContent    = tierName(career.tier || 0);
     document.getElementById('season-badge').textContent  = 'Season ' + (career.season || 1);
-    document.getElementById('topbar-driver-name').textContent = (name !== 'No Driver') ? name : '';
+    const team = career.team || '';
+    const topCenter = (name !== 'No Driver')
+        ? (team ? name + '  ·  ' + team : name)
+        : '';
+    document.getElementById('topbar-driver-name').textContent = topCenter;
 
     // Sidebar driver card
     document.getElementById('driver-initials').textContent = initials(name);
@@ -171,6 +175,8 @@ function renderCalendar() {
     const total = calendar.length;
     const done  = calendar.filter(r => r.status === 'completed').length;
     if (progEl) progEl.textContent = done + ' / ' + total + ' races';
+    const fillEl = document.getElementById('cal-progress-fill');
+    if (fillEl) fillEl.style.width = (total > 0 ? Math.round(done / total * 100) : 0) + '%';
 
     let nextRound = null;
 
