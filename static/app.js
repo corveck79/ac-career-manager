@@ -256,25 +256,28 @@ function renderStandings() {
     if (table) table.style.display = '';
 
     tbody.innerHTML = data.map(s => {
-        const posClass = s.position === 1 ? 'pos-1' :
-                         s.position === 2 ? 'pos-2' :
-                         s.position === 3 ? 'pos-3' : '';
-        const rowClass = s.is_player ? 'player-row' : '';
-        const gap      = s.gap === 0 ? '–' : '–' + s.gap;
+        const posClass   = s.position === 1 ? 'pos-1' :
+                           s.position === 2 ? 'pos-2' :
+                           s.position === 3 ? 'pos-3' : '';
+        const isRival    = !s.is_player && champMode === 'drivers' &&
+                           career && career.rival_name && s.driver === career.rival_name;
+        const rowClass   = s.is_player ? 'player-row' : (isRival ? 'rival-row' : '');
+        const gap        = s.gap === 0 ? '–' : '–' + s.gap;
         const isDriverMode = champMode === 'drivers';
-        const main = isDriverMode ? (s.driver || s.team) : s.team;
+        const main  = isDriverMode ? (s.driver || s.team) : s.team;
         // Teams mode: show both drivers as sub ("Driver1 / Driver2")
-        const sub  = isDriverMode
+        const sub   = isDriverMode
             ? s.team
             : (s.driver2 ? s.driver + ' / ' + s.driver2 : (s.driver || ''));
         const star      = s.is_player ? '★ ' : '';
+        const rivalBadge = isRival ? '⚔ ' : '';
         const clickable = (!s.is_player && champMode === 'drivers')
             ? ' onclick="showDriverProfile(\'' + (s.driver || '').replace(/'/g, "\\'") + '\')"'
             : '';
         return (
             '<tr class="' + rowClass + '"' + clickable + '>' +
             '<td class="col-pos ' + posClass + '">' + s.position + '</td>' +
-            '<td class="col-name">' + star + main +
+            '<td class="col-name">' + star + rivalBadge + main +
               (sub ? '<div class="sub-name">' + sub + '</div>' : '') +
             '</td>' +
             '<td class="col-pts">' + s.points + '</td>' +
@@ -334,7 +337,9 @@ async function browseFolder() {
 }
 
 // ── View management ────────────────────────────────────────────────────────
-const ALL_VIEWS = ['standings', 'result', 'contracts', 'config'];
+const ALL_VIEWS = ['standings', 'stats', 'result', 'contracts', 'config'];
+
+const TIER_LABELS = { mx5_cup: 'MX5 Cup', gt4: 'GT4', gt3: 'GT3', wec: 'WEC' };
 
 function showView(name) {
     ALL_VIEWS.forEach(v => {
@@ -378,6 +383,72 @@ function openConfig() {
     document.getElementById('s-night-cycle').checked      = cs.night_cycle      !== false;
 
     showView('config');
+}
+
+// ── Stats page ──────────────────────────────────────────────────────────────
+function openStats() {
+    renderStats();
+    showView('stats');
+}
+
+function renderStats() {
+    const el = document.getElementById('stats-content');
+    if (!el || !career) {
+        if (el) el.innerHTML = '<div class="empty-state">Start een carrière om statistieken te zien.</div>';
+        return;
+    }
+
+    const results = career.race_results || [];
+    const history = career.player_history || [];
+    const wins    = results.filter(r => r.position === 1).length;
+    const podiums = results.filter(r => r.position <= 3).length;
+    const best    = results.length ? Math.min(...results.map(r => r.position)) : '–';
+    const avg     = results.length
+        ? (results.reduce((s, r) => s + r.position, 0) / results.length).toFixed(1) : '–';
+
+    // Current championship position
+    const tierK   = tierKey(career.tier);
+    const drivers = (allStandings[tierK] || {}).drivers || [];
+    const me      = drivers.find(d => d.is_player);
+    const champPos = me ? 'P' + me.position : '–';
+    const champGap = me && me.gap > 0 ? '–' + me.gap + ' pts' : (me ? 'Leider' : '–');
+
+    // Rival status
+    const rv       = career.rival_name && drivers.find(d => d.driver === career.rival_name);
+    const rivalHtml = rv
+        ? '<div class="rival-debrief" style="margin-bottom:.8rem">⚔ Rivaal <strong>' +
+          career.rival_name + '</strong> staat P' + rv.position +
+          (rv.gap > 0 ? ' (–' + rv.gap + ' pts)' : ' (leider)') + '</div>'
+        : '';
+
+    el.innerHTML =
+        '<div class="stats-grid">' +
+        '<div class="stat-tile"><div class="stat-val">' + results.length + '</div><div class="stat-lbl">Races</div></div>' +
+        '<div class="stat-tile"><div class="stat-val">' + wins    + '</div><div class="stat-lbl">Overwinningen</div></div>' +
+        '<div class="stat-tile"><div class="stat-val">' + podiums + '</div><div class="stat-lbl">Podiums</div></div>' +
+        '<div class="stat-tile"><div class="stat-val">' + (career.points || 0) + '</div><div class="stat-lbl">Punten</div></div>' +
+        '<div class="stat-tile"><div class="stat-val">' + best + '</div><div class="stat-lbl">Beste finish</div></div>' +
+        '<div class="stat-tile"><div class="stat-val">' + avg  + '</div><div class="stat-lbl">Gem. finish</div></div>' +
+        '</div>' +
+        '<div class="stats-champ">' +
+        '<span class="stats-champ-pos">' + champPos + '</span>' +
+        '<span class="stats-champ-gap">' + champGap + '</span>' +
+        '<span class="stats-champ-lbl">in het kampioenschap</span>' +
+        '</div>' +
+        rivalHtml +
+        (history.length
+            ? '<div class="stats-section-label">Seizoen history</div>' +
+              '<table class="standings-table"><thead><tr>' +
+              '<th>Seizoen</th><th>Tier</th><th>Pos</th><th>Punten</th><th>Races</th><th>Winst</th>' +
+              '</tr></thead><tbody>' +
+              history.slice().reverse().map(h =>
+                  '<tr><td>' + h.season + '</td>' +
+                  '<td>' + (TIER_LABELS[h.tier] || h.tier) + '</td>' +
+                  '<td>' + (h.pos === 1 ? '🏆 1' : h.pos) + '</td>' +
+                  '<td>' + h.pts + '</td><td>' + h.races + '</td><td>' + h.wins + '</td></tr>'
+              ).join('') +
+              '</tbody></table>'
+            : '<div class="empty-state">Nog geen afgeronde seizoenen.</div>');
 }
 
 // ── Modal helpers ──────────────────────────────────────────────────────────
@@ -825,6 +896,24 @@ function renderDebrief(analysis, position) {
     }
 
     panel.classList.remove('hidden');
+
+    // Rival status one-liner
+    const existingRivalEl = document.getElementById('debrief-rival');
+    if (existingRivalEl) existingRivalEl.remove();
+    if (career && career.rival_name) {
+        const tierK   = tierKey(career.tier);
+        const drivers = (allStandings[tierK] || {}).drivers || [];
+        const rv      = drivers.find(d => d.driver === career.rival_name);
+        if (rv) {
+            const gapTxt = rv.gap === 0 ? 'leider' : rv.gap + ' pts achter';
+            const div    = document.createElement('div');
+            div.id        = 'debrief-rival';
+            div.className = 'rival-debrief';
+            div.innerHTML = '⚔ Rivaal <strong>' + career.rival_name + '</strong> staat P' +
+                            rv.position + ' (' + gapTxt + ')';
+            panel.appendChild(div);
+        }
+    }
 }
 
 function showManualForm(hint) {

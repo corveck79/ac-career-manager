@@ -48,6 +48,7 @@
       <button class="btn btn-race" onclick="startRace()">&#127937; Start Race</button>
       <div class="action-sep"></div>
       <button class="btn btn-secondary" onclick="showView('standings')">&#128202; Standings</button>
+      <button class="btn btn-secondary" onclick="openStats()">&#128200; Stats</button>
       <button class="btn btn-secondary" onclick="openConfig()">&#9881; Settings</button>
       <div class="action-sep"></div>
       <button class="btn btn-ghost" onclick="openNewCareer()">&#128260; New Career</button>
@@ -100,6 +101,10 @@
           <tbody id="standings-body"></tbody>
         </table>
       </div>
+    </div>
+    <div id="view-stats" class="card view-card hidden">
+      <h2 class="card-title">Statistieken</h2>
+      <div id="stats-content"></div>
     </div>
     <div id="view-result" class="card view-card hidden">
       <h2 class="section-title">Race Result</h2>

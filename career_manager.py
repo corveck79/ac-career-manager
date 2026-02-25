@@ -534,6 +534,28 @@ class CareerManager:
             result[tk] = {'drivers': drivers, 'teams': teams}
         return result
 
+    def pick_rival(self, tier_key, season):
+        """Pick the AI driver in tier_key whose skill is closest to 82.
+        Called at new career start and on every contract acceptance (new season/tier).
+        Returns a driver name string, or None if no drivers found.
+        """
+        tier_info = self.config['tiers'].get(tier_key)
+        if not tier_info:
+            return None
+        offset    = self.TIER_SLOT_OFFSET.get(tier_key, 0)
+        dpt       = self.DRIVERS_PER_TEAM.get(tier_key, 1)
+        best_name = None
+        best_diff = 999
+        for i in range(len(tier_info['teams'])):
+            slot    = offset + i * dpt
+            name    = self._get_driver_name(slot, season)
+            profile = self.DRIVER_PROFILES.get(name, {})
+            diff    = abs(profile.get('skill', 80) - 82)
+            if diff < best_diff:
+                best_diff = diff
+                best_name = name
+        return best_name
+
     def _calc_ai_points(self, team, season, tier_index, races_done, team_count):
         """
         Deterministic per-race AI points using MD5-seeded RNG.

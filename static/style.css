@@ -319,3 +319,19 @@ td.col-gap{text-align:right;color:var(--text-dim);font-size:.72rem}
 .toggle-slider:before{content:'';position:absolute;width:18px;height:18px;left:2px;top:2px;background:var(--text-faint);border-radius:50%;transition:.2s}
 .toggle-switch input:checked+.toggle-slider{background:var(--primary);border-color:var(--primary)}
 .toggle-switch input:checked+.toggle-slider:before{transform:translateX(20px);background:#fff}
+
+/* STATS PAGE */
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.2rem}
+.stat-tile{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.8rem .5rem;text-align:center}
+.stat-val{font-size:1.4rem;font-weight:700;font-family:var(--mono);color:var(--text)}
+.stat-lbl{font-size:.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-faint);margin-top:.2rem}
+.stats-champ{display:flex;align-items:baseline;gap:.5rem;margin-bottom:1rem}
+.stats-champ-pos{font-size:1.6rem;font-weight:700;font-family:var(--mono);color:var(--primary)}
+.stats-champ-gap{font-size:.85rem;font-family:var(--mono);color:var(--text-dim)}
+.stats-champ-lbl{font-size:.72rem;color:var(--text-faint)}
+.stats-section-label{font-size:.58rem;text-transform:uppercase;letter-spacing:2px;color:var(--text-faint);margin:.85rem 0 .4rem}
+
+/* RIVAL */
+.rival-row td{background:rgba(247,184,1,.05)!important}
+.rival-row td:first-child{border-left:2px solid #F7B801}
+.rival-debrief{font-size:.78rem;color:var(--text-dim);margin-top:.6rem;border-top:1px solid var(--border);padding-top:.5rem}

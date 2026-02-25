@@ -99,6 +99,8 @@ def _default_career():
         'standings':       [],
         'race_results':    [],
         'contracts':       None,
+        'player_history':  [],
+        'rival_name':      None,
     }
 
 
@@ -522,6 +524,18 @@ def _do_end_season():
         })
     career_data['driver_history'] = driver_history
 
+    # Snapshot player season stats into player_history
+    player_history = career_data.setdefault('player_history', [])
+    wins = sum(1 for r in career_data.get('race_results', []) if r.get('position') == 1)
+    player_history.append({
+        'season': season,
+        'tier':   tier_key,
+        'pos':    position,
+        'pts':    career_data['points'],
+        'races':  career_data['races_completed'],
+        'wins':   wins,
+    })
+
     contracts   = career.generate_contract_offers(
         position, tier_index + 1, cfg,
         current_tier=tier_index,
@@ -569,6 +583,10 @@ def accept_contract():
     # Preserve career_settings (difficulty, weather, custom tracks) across seasons
     # career_settings is intentionally NOT reset here
 
+    # Pick new rival for the new tier/season
+    new_tier_key              = career.tiers[new_tier]
+    career_data['rival_name'] = career.pick_rival(new_tier_key, career_data.get('season', 1))
+
     save_career_data(career_data)
 
     move_labels = {
@@ -612,6 +630,8 @@ def new_career():
         'race_results':    [],
         'contracts':       None,
         'driver_history':  {},
+        'player_history':  [],
+        'rival_name':      career.pick_rival('mx5_cup', 1),
         'career_settings': {
             'difficulty':    difficulty,
             'ai_offset':     ai_offset,
