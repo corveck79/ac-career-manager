@@ -54,10 +54,10 @@
       "name": "British GT GT3",
       "order": 2,
       "race_format": {
-        "laps": 20,
-        "time_limit_minutes": 90,
-        "practice_minutes": 15,
-        "quali_minutes": 15,
+        "laps": 15,
+        "time_limit_minutes": 35,
+        "practice_minutes": 30,
+        "quali_minutes": 10,
         "weather": "variable",
         "weather_pool": [["3_clear", 42], ["4_mid_clear", 25], ["6_light_clouds", 10], ["7_heavy_clouds", 15], ["wet", 8]]
       },
@@ -184,17 +184,16 @@
         }
       ],
       "tracks": [
-        "imola",                   "imola",
-        "ks_brands_hatch/gp",      "ks_brands_hatch/gp",
+        "imola",                    "imola",
+        "ks_brands_hatch/gp",       "ks_brands_hatch/gp",
         "monza",
-        "spa",
-        "ks_silverstone/gp",       "ks_silverstone/gp",
-        "ks_nurburgring/layout_gp",
-        "zandvoort",               "zandvoort",
-        "ks_barcelona/layout_gp",  "ks_barcelona/layout_gp",
-        "spa",
-        "monza"
-      ]
+        "ks_silverstone/gp",        "ks_silverstone/gp",
+        "ks_nurburgring/layout_gp", "ks_nurburgring/layout_gp",
+        "zandvoort",                "zandvoort",
+        "ks_barcelona/layout_gp",   "ks_barcelona/layout_gp",
+        "spa"
+      ],
+      "race_laps": [15,15, 15,15, 30, 15,15, 15,15, 15,15, 15,15, 40]
     },
     "gt4": {
       "ai_difficulty": -2,
@@ -202,9 +201,9 @@
       "name": "GT4 SuperCup",
       "order": 1,
       "race_format": {
-        "laps": 18,
-        "time_limit_minutes": 60,
-        "practice_minutes": 10,
+        "laps": 15,
+        "time_limit_minutes": 35,
+        "practice_minutes": 30,
         "quali_minutes": 10,
         "weather": "variable",
         "weather_pool": [["3_clear", 50], ["4_mid_clear", 25], ["6_light_clouds", 10], ["7_heavy_clouds", 10], ["wet", 5]]
@@ -322,9 +321,9 @@
       "name": "MX5 Cup",
       "order": 0,
       "race_format": {
-        "laps": 20,
-        "time_limit_minutes": 45,
-        "practice_minutes": 10,
+        "laps": 10,
+        "time_limit_minutes": 20,
+        "practice_minutes": 20,
         "quali_minutes": 10,
         "weather": "clear",
         "weather_pool": [["3_clear", 80], ["4_mid_clear", 20]]
@@ -430,9 +429,9 @@
       "name": "WEC / Elite Endurance",
       "order": 3,
       "race_format": {
-        "laps": 40,
-        "time_limit_minutes": 180,
-        "practice_minutes": 15,
+        "laps": 30,
+        "time_limit_minutes": 60,
+        "practice_minutes": 30,
         "quali_minutes": 15,
         "weather": "variable",
         "weather_pool": [["3_clear", 40], ["4_mid_clear", 20], ["6_light_clouds", 10], ["7_heavy_clouds", 20], ["wet", 10]]
@@ -508,7 +507,8 @@
         "zandvoort",
         "ks_barcelona/layout_gp",
         "spa"
-      ]
+      ],
+      "race_laps": [30, 40, 30, 30, 30, 30, 30, 50]
     }
   }
 }

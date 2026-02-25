@@ -265,7 +265,9 @@ class CareerManager:
             'team':             team_name,
             'ai_difficulty':    ai_difficulty,
             'opponents':        opponents,
-            'laps':             tier_info['race_format'].get('laps', 20),
+            'laps':             (tier_info['race_laps'][race_num - 1]
+                                if tier_info.get('race_laps') and (race_num - 1) < len(tier_info['race_laps'])
+                                else tier_info['race_format'].get('laps', 20)),
             'time_limit':       tier_info['race_format'].get('time_limit_minutes', 45),
             'practice_minutes': tier_info['race_format'].get('practice_minutes', 10),
             'quali_minutes':    tier_info['race_format'].get('quali_minutes', 10),
