@@ -53,7 +53,7 @@
       <button class="btn btn-race" onclick="startRace()">&#127937; Start Race</button>
       <div class="action-sep"></div>
       <button class="nav-btn" onclick="showView('standings')"><span class="nav-icon">&#127942;</span>Standings</button>
-      <button class="nav-btn" onclick="openStats()"><span class="nav-icon">&#128200;</span>Stats</button>
+      <button class="nav-btn" onclick="openStats()"><span class="nav-icon">&#128200;</span>Statistics</button>
       <button class="nav-btn" onclick="openConfig()"><span class="nav-icon">&#9881;</span>Settings</button>
       <div class="action-sep"></div>
       <button class="btn-ghost-sm" onclick="openNewCareer()">&#128260; New Career</button>
@@ -252,7 +252,7 @@
 
       <div class="form-actions" style="margin-top:1.5rem">
         <button class="btn btn-race"      onclick="saveSettings()">Save</button>
-        <button class="btn btn-secondary" onclick="showView('standings')">Cancel</button>
+        <button class="btn btn-race-ghost" onclick="showView('standings')">Cancel</button>
       </div>
     </div>
   </main>
@@ -292,7 +292,10 @@
     <!-- Page 1: Driver Name -->
     <div class="wizard-page" id="wizard-page-1">
       <div class="wizard-page-title">Driver Profile</div>
-      <p class="modal-subtitle">Start fresh in MX5 Cup. All current progress will be lost.</p>
+      <p class="modal-subtitle">Start fresh in MX5 Cup.</p>
+      <div id="wizard-career-warning" class="wizard-warning hidden">
+        &#9888; You have an active career. Starting a new one will <strong>permanently erase</strong> all current progress and results.
+      </div>
       <div class="form-group">
         <label class="form-label">Driver Name</label>
         <input type="text" id="new-driver-name" class="form-input" placeholder="Your name (used in AC)" maxlength="30">

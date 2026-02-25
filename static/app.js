@@ -86,6 +86,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([loadAllStandings(), loadCalendar()]);
     refresh();
     if (career) switchStandingsTier(career.tier || 0);
+
+    // Auto-open New Career wizard if no active career exists
+    if (!career || !career.driver_name) {
+        const setupOverlay = document.getElementById('setup-overlay');
+        if (!setupOverlay || setupOverlay.classList.contains('hidden')) {
+            setTimeout(() => openNewCareer(), 300);
+        }
+    }
 });
 
 // ── Data loaders ───────────────────────────────────────────────────────────
@@ -148,7 +156,7 @@ function updateDriverCard() {
     document.getElementById('driver-team').textContent     = career.team  || '–';
     document.getElementById('driver-car').textContent      = fmtCar(career.car);
     document.getElementById('driver-points').textContent   = career.points || 0;
-    document.getElementById('races-done').textContent      = done + '/' + total;
+    document.getElementById('races-done').textContent      = done;
 
     // Position from player's own tier driver standings (independent of currently viewed tab)
     const playerTierK       = tierKey(career.tier || 0);
@@ -575,6 +583,9 @@ function openNewCareer() {
     document.getElementById('btn-start-wizard').style.display = 'none';
     const nameInput = document.getElementById('new-driver-name');
     if (nameInput) nameInput.value = (career && career.driver_name) || '';
+    // Show warning if overwriting existing career
+    const warningEl = document.getElementById('wizard-career-warning');
+    if (warningEl) warningEl.classList.toggle('hidden', !(career && career.driver_name && career.team));
     openModal('modal-new-career');
     setTimeout(() => { if (nameInput) nameInput.focus(); }, 100);
 }
