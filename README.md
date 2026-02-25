@@ -39,7 +39,7 @@ AC Career Manager adds a full career mode to Assetto Corsa. It runs in its own n
 
 ## DOWNLOAD
 
-**[⬇ Download AC_Career_Manager.exe (v1.8.0)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_Manager.exe)**
+**[⬇ Download AC_Career_Manager.exe (v1.8.3)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_Manager.exe)**
 
 - Windows 10/11 only
 - No Python installation needed
@@ -165,25 +165,25 @@ P1: 25 · P2: 18 · P3: 15 · P4: 12 · P5: 10 · P6: 8 · P7: 6 · P8: 4 · P9:
 - Car: Mazda MX5 Cup (one-make)
 - Teams: 14
 - AI Difficulty: base − 4
-- Tracks: Silverstone National, Brands Hatch Indy, Magione, Vallelunga, Black Cat County
+- Tracks: Silverstone National, Brands Hatch Indy, Magione, Vallelunga, Black Cat County, Red Bull Ring National
 
 ### Tier 2: GT4 SuperCup
 - Cars: Porsche Cayman GT4, Maserati GT MC GT4, Lotus 2-Eleven GT4
 - Teams: 16
 - AI Difficulty: base − 2
-- Tracks: Silverstone GP, Spa, Brands Hatch GP, Monza, Red Bull Ring
+- Tracks: Monza, Spa, Zandvoort, Silverstone GP, Nürburgring GP, Barcelona
 
 ### Tier 3: British GT GT3
 - Cars: Ferrari 488 GT3, Porsche 911 GT3, McLaren 650 GT3, BMW Z4 GT3, Lamborghini Huracán GT3, Mercedes AMG GT3, Nissan GTR GT3, and more
 - Teams: 20 (Factory / Semi-Factory / Customer)
 - AI Difficulty: base + 0
-- Tracks: Silverstone GP, Spa, Monza, Laguna Seca, Mugello, Imola
+- Tracks: Imola, Brands Hatch GP, Monza, Spa, Silverstone GP, Nürburgring GP, Zandvoort, Barcelona
 
 ### Tier 4: WEC / Elite Endurance
 - Cars: GT3 lineup, endurance setup
 - Teams: 10 elite teams
 - AI Difficulty: base + 1.5
-- Tracks: Silverstone GP, Spa, Monza, Mugello
+- Tracks: Spa, Imola, Monza, Silverstone GP, Nürburgring GP
 
 ---
 
