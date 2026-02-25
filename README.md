@@ -1,7 +1,7 @@
 # AC CAREER MANAGER
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.12.3
+**Version:** 1.12.4
 **Platform:** Windows 10/11
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
