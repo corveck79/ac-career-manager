@@ -174,7 +174,7 @@ P1: 25 · P2: 18 · P3: 15 · P4: 12 · P5: 10 · P6: 8 · P7: 6 · P8: 4 · P9:
 ### Tier 3: British GT GT3
 - Cars: Ferrari 488 GT3, Porsche 911 GT3, McLaren 650 GT3, BMW Z4 GT3, Lamborghini Huracán, Mercedes AMG GT3, Nissan GTR GT3, and more
 - Teams: 20 (Factory / Semi-Factory / Customer) · AI Difficulty: base + 0
-- **15 races** (10 events, mix of sprints & endurance): Imola×2, Brands Hatch×2, Monza endurance, Spa endurance, Silverstone×2, Nürburgring endurance, Zandvoort×2, Barcelona×2, Spa endurance, Monza endurance
+- **14 races** (8 events, no duplicate venues): Imola×2, Brands Hatch×2, Monza endurance, Silverstone×2, Nürburgring×2, Zandvoort×2, Barcelona×2, Spa endurance finale
 
 ### Tier 4: WEC / Elite Endurance
 - Cars: GT3 lineup, endurance setup
