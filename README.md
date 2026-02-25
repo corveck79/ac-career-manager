@@ -12,7 +12,7 @@
 AC Career Manager adds a full career mode to Assetto Corsa. It runs in its own native window (no browser needed).
 
 **Career & Progression**
-- 4-tier ladder: MX5 Cup → GT4 → GT3 → WEC, 10 races each
+- 4-tier ladder: MX5 Cup (12 races) → GT4 (12 races) → GT3 (14 races) → WEC (8 races)
 - End-of-season contracts based on championship finish; real promotion and relegation
 - Career Wizard: choose difficulty (Rookie/Amateur/Pro/Legend), weather mode, and scan your AC library for custom track pools
 
@@ -39,7 +39,7 @@ AC Career Manager adds a full career mode to Assetto Corsa. It runs in its own n
 
 ## DOWNLOAD
 
-**[⬇ Download AC_Career_Manager.exe (v1.9.0)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_Manager.exe)**
+**[⬇ Download AC_Career_Manager.exe (v1.9.1)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_Manager.exe)**
 
 - Windows 10/11 only
 - No Python installation needed
@@ -104,7 +104,6 @@ ac-career-manager/
 Settings can be changed in the **Settings panel** (⚙ button in the app):
 - AI base level (slider)
 - AI variance per race (slider)
-- Races per tier (slider)
 - Assetto Corsa install path (with folder browser)
 
 For advanced changes, edit `config.json` while the app is **stopped**.
