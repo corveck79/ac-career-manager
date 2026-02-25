@@ -122,7 +122,7 @@ function updateDriverCard() {
     if (!career || !config) return;
 
     const name   = career.driver_name || 'No Driver';
-    const total  = (config.seasons && config.seasons.races_per_tier) || 10;
+    const total  = career.total_races || (config.seasons && config.seasons.races_per_tier) || 10;
     const done   = career.races_completed || 0;
 
     // Top bar
@@ -640,7 +640,7 @@ async function startRace() {
         showToast('Start a new career first!', 'error');
         return;
     }
-    const total = (config && config.seasons && config.seasons.races_per_tier) || 10;
+    const total = (career && career.total_races) || (config && config.seasons && config.seasons.races_per_tier) || 10;
     if ((career.races_completed || 0) >= total) {
         showToast('Season complete — check your contract offers!', 'warning');
         showView('contracts');
@@ -960,7 +960,7 @@ async function saveSettings() {
     const updated = JSON.parse(JSON.stringify(config));
     updated.difficulty.base_ai_level = aiLevel;
     updated.difficulty.ai_variance   = aiVar;
-    updated.seasons.races_per_tier   = races;
+    // races_per_tier is now auto-derived from track list length — not saved here
     if (acPath) updated.paths.ac_install = acPath;
 
     try {

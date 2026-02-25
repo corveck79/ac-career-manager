@@ -232,9 +232,15 @@ class CareerManager:
         tier_name = self.tiers[tier_index]
         return self.config['tiers'][tier_name]
 
-    def get_tier_races(self):
-        """Get total races per tier"""
-        return self.config['seasons']['races_per_tier']
+    def get_tier_races(self, career_data=None):
+        """Get total races for the player's current tier (= length of track list)."""
+        if career_data is None:
+            return self.config['seasons'].get('races_per_tier', 10)
+        tier_key  = self.tiers[career_data.get('tier', 0)]
+        tier_info = self.config['tiers'][tier_key]
+        cs        = career_data.get('career_settings') or {}
+        tracks    = (cs.get('custom_tracks') or {}).get(tier_key) or tier_info['tracks']
+        return len(tracks)
 
     # ------------------------------------------------------------------
     # Race generation
@@ -483,19 +489,27 @@ class CareerManager:
     def generate_all_standings(self, career_data):
         """Return standings for all 4 tiers simultaneously.
         Each tier returns {'drivers': [...], 'teams': [...]}.
-        Player appears only in their own tier; other tiers show pure AI."""
-        result      = {}
-        player_tier = career_data.get('tier', 0)
+        Player appears only in their own tier; other tiers show pure AI with
+        standings proportional to the player's season progress."""
+        result       = {}
+        player_tier  = career_data.get('tier', 0)
+        player_races = career_data.get('races_completed', 0)
+        player_total = self.get_tier_races(career_data)
+        fraction     = player_races / player_total if player_total > 0 else 1.0
+        cs           = career_data.get('career_settings') or {}
+
         for idx, tk in enumerate(self.tiers):
             tier_info = self.config['tiers'][tk]
             if idx == player_tier:
                 sim = career_data
             else:
+                other_tracks = (cs.get('custom_tracks') or {}).get(tk) or tier_info['tracks']
+                ai_races     = round(fraction * len(other_tracks))
                 sim = {
                     'tier':            idx,
                     'season':          career_data.get('season', 1),
                     'team':            None,
-                    'races_completed': career_data.get('races_completed', 0),
+                    'races_completed': ai_races,
                     'points':          0,
                     'driver_name':     '',
                 }

@@ -242,7 +242,9 @@ def save_ac_path():
 
 @app.route('/api/career-status')
 def get_career_status():
-    return jsonify(load_career_data())
+    career_data = load_career_data()
+    career_data['total_races'] = career.get_tier_races(career_data)
+    return jsonify(career_data)
 
 
 @app.route('/api/standings')
@@ -253,7 +255,7 @@ def get_standings():
     return jsonify({
         'standings':       standings,
         'races_completed': career_data['races_completed'],
-        'total_races':     career.get_tier_races(),
+        'total_races':     career.get_tier_races(career_data),
     })
 
 
@@ -265,7 +267,7 @@ def get_all_standings():
         'all_standings':   all_s,
         'current_tier':    career_data.get('tier', 0),
         'races_completed': career_data.get('races_completed', 0),
-        'total_races':     career.get_tier_races(),
+        'total_races':     career.get_tier_races(career_data),
     })
 
 
@@ -276,13 +278,13 @@ def get_season_calendar():
     tier_key       = career.tiers[career_data['tier']]
     tier_info      = cfg['tiers'][tier_key]
     tracks         = _get_career_tracks(tier_key, tier_info, career_data)
-    races_per_tier = cfg['seasons']['races_per_tier']
+    races_per_tier = len(tracks)
     races_done     = career_data['races_completed']
     race_results   = career_data.get('race_results', [])
 
     cal = []
     for i in range(races_per_tier):
-        track_id = tracks[i % len(tracks)]
+        track_id = tracks[i]
         if i < races_done:
             status = 'completed'
         elif i == races_done:

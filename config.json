@@ -184,14 +184,16 @@
         }
       ],
       "tracks": [
-        "imola",
-        "ks_brands_hatch/gp",
+        "imola",                   "imola",
+        "ks_brands_hatch/gp",      "ks_brands_hatch/gp",
         "monza",
         "spa",
-        "ks_silverstone/gp",
+        "ks_silverstone/gp",       "ks_silverstone/gp",
         "ks_nurburgring/layout_gp",
-        "zandvoort",
-        "ks_barcelona/layout_gp"
+        "zandvoort",               "zandvoort",
+        "ks_barcelona/layout_gp",  "ks_barcelona/layout_gp",
+        "spa",
+        "monza"
       ]
     },
     "gt4": {
@@ -306,12 +308,12 @@
         }
       ],
       "tracks": [
-        "monza",
-        "spa",
-        "zandvoort",
-        "ks_silverstone/gp",
-        "ks_nurburgring/layout_gp",
-        "ks_barcelona/layout_gp"
+        "monza",                    "monza",
+        "spa",                      "spa",
+        "zandvoort",                "zandvoort",
+        "ks_silverstone/gp",        "ks_silverstone/gp",
+        "ks_nurburgring/layout_gp", "ks_nurburgring/layout_gp",
+        "ks_barcelona/layout_gp",   "ks_barcelona/layout_gp"
       ]
     },
     "mx5_cup": {
@@ -414,12 +416,12 @@
         }
       ],
       "tracks": [
-        "ks_silverstone/national",
-        "ks_brands_hatch/indy",
-        "magione",
-        "ks_vallelunga/club_circuit",
-        "ks_black_cat_county/layout_long",
-        "ks_red_bull_ring/layout_national"
+        "ks_silverstone/national",          "ks_silverstone/national",
+        "ks_brands_hatch/indy",             "ks_brands_hatch/indy",
+        "magione",                          "magione",
+        "ks_black_cat_county/layout_long",  "ks_black_cat_county/layout_long",
+        "ks_vallelunga/club_circuit",       "ks_vallelunga/club_circuit",
+        "ks_red_bull_ring/layout_national", "ks_red_bull_ring/layout_national"
       ]
     },
     "wec": {
@@ -498,11 +500,14 @@
         }
       ],
       "tracks": [
-        "spa",
         "imola",
+        "spa",
         "monza",
         "ks_silverstone/gp",
-        "ks_nurburgring/layout_gp"
+        "ks_nurburgring/layout_gp",
+        "zandvoort",
+        "ks_barcelona/layout_gp",
+        "spa"
       ]
     }
   }
