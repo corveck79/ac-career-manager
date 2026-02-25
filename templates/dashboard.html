@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,6 +28,11 @@
     <div class="topbar-right">
         <span class="badge badge-tier" id="tier-badge">MX5 Cup</span>
         <span class="badge badge-season" id="season-badge">Season 1</span>
+        <div class="topbar-sep"></div>
+        <div class="tt-wrap" onclick="toggleTheme()" title="Toggle light/dark theme">
+          <span class="tt-label" id="tt-label">Dark</span>
+          <div class="tt-track"><div class="tt-thumb">🌙</div></div>
+        </div>
     </div>
   </div>
 </header>
@@ -47,11 +52,11 @@
     <div class="card actions-card">
       <button class="btn btn-race" onclick="startRace()">&#127937; Start Race</button>
       <div class="action-sep"></div>
-      <button class="btn btn-secondary" onclick="showView('standings')">&#128202; Standings</button>
-      <button class="btn btn-secondary" onclick="openStats()">&#128200; Stats</button>
-      <button class="btn btn-secondary" onclick="openConfig()">&#9881; Settings</button>
+      <button class="nav-btn" onclick="showView('standings')"><span class="nav-icon">&#127942;</span>Standings</button>
+      <button class="nav-btn" onclick="openStats()"><span class="nav-icon">&#128200;</span>Stats</button>
+      <button class="nav-btn" onclick="openConfig()"><span class="nav-icon">&#9881;</span>Settings</button>
       <div class="action-sep"></div>
-      <button class="btn btn-ghost" onclick="openNewCareer()">&#128260; New Career</button>
+      <button class="btn-ghost-sm" onclick="openNewCareer()">&#128260; New Career</button>
     </div>
   </aside>
   <main class="main">

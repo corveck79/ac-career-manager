@@ -73,6 +73,14 @@ function tierName(index) {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+    // Restore saved theme before anything renders
+    const savedTheme = localStorage.getItem('ac-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    const ttLbl = document.getElementById('tt-label');
+    if (ttLbl) ttLbl.textContent = savedTheme === 'light' ? 'Light' : 'Dark';
+    const ttThumb = document.querySelector('.tt-thumb');
+    if (ttThumb) ttThumb.textContent = savedTheme === 'light' ? '☀️' : '🌙';
+
     await checkSetup();
     await Promise.all([loadCareer(), loadConfig()]);
     await Promise.all([loadAllStandings(), loadCalendar()]);
@@ -381,6 +389,18 @@ function openConfig() {
     document.getElementById('s-night-cycle').checked      = cs.night_cycle      !== false;
 
     showView('config');
+}
+
+// ── Theme Toggle ───────────────────────────────────────────────────────────
+function toggleTheme() {
+    const cur  = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('ac-theme', next);
+    const lbl   = document.getElementById('tt-label');
+    const thumb = document.querySelector('.tt-thumb');
+    if (lbl)   lbl.textContent   = next === 'light' ? 'Light' : 'Dark';
+    if (thumb) thumb.textContent = next === 'light' ? '☀️' : '🌙';
 }
 
 // ── Stats page ──────────────────────────────────────────────────────────────
