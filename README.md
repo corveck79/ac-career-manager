@@ -21,6 +21,8 @@ AC Career Manager adds a full career mode to Assetto Corsa. It runs in its own n
 - 120 unique AI drivers with individual skill, aggression, and personality archetypes
 - Post-race engineer debrief: consistency score, lap sparkline, pace trend analysis
 - Pre-flight check warns if a track/car mod is missing before launch
+- **Dynamic weather** toggle — ON uses the tier's weather pool; OFF forces clear skies every race
+- **Night cycle** toggle — endurance races (≥30 laps) progress through afternoon → dusk → night → dawn; requires [Custom Shader Patch (CSP)](https://acstuff.ru/patch/)
 
 **Championships**
 - Live Driver and Team standings across all 4 tiers simultaneously
@@ -104,8 +106,10 @@ ac-career-manager/
 Settings can be changed in the **Settings panel** (⚙ button in the app):
 - AI base level (slider)
 - AI variance per race (slider)
-- Dynamic weather ON/OFF toggle (default ON)
-- Night cycle ON/OFF toggle — day/night progression for endurance races (default ON)
+- Dynamic weather ON/OFF toggle (default ON) — OFF = always clear weather
+- Night cycle ON/OFF toggle (default ON) — day/night progression for endurance races (≥30 laps)
+  - **Requires [Custom Shader Patch (CSP)](https://acstuff.ru/patch/)** for full time-of-day progression
+  - Without CSP the race starts at a fixed sun position; the app warns you in the pre-flight check
 - Assetto Corsa install path (with folder browser)
 
 For advanced changes, edit `config.json` while the app is **stopped**.
