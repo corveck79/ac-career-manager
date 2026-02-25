@@ -867,7 +867,7 @@ if __name__ == '__main__':
 
     api    = JsApi()
     window = webview.create_window(
-        'AC Career Manager',
+        'AC Career GT Edition',
         'http://127.0.0.1:5000',
         width=1440, height=920,
         min_size=(1000, 700),

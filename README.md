@@ -1,7 +1,7 @@
-# AC CAREER MANAGER
+# AC CAREER GT EDITION
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.12.4
+**Version:** 1.13.0
 **Platform:** Windows 10/11
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
@@ -9,7 +9,7 @@
 
 ## OVERVIEW
 
-AC Career Manager adds a full career mode to Assetto Corsa. It runs in its own native window (no browser needed).
+AC Career GT Edition adds a full career mode to Assetto Corsa. It runs in its own native window (no browser needed).
 
 **Career & Progression**
 - 4-tier ladder: MX5 Cup (12 races) → GT4 (12 races) → GT3 (14 races) → WEC (8 races)
@@ -43,7 +43,7 @@ AC Career Manager adds a full career mode to Assetto Corsa. It runs in its own n
 
 ## DOWNLOAD
 
-**[⬇ Download AC_Career_Manager.exe (v1.11.2)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_Manager.exe)**
+**[⬇ Download AC_Career_GT_Edition.exe (v1.11.2)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition.exe)**
 
 - Windows 10/11 only
 - No Python installation needed

@@ -1,4 +1,4 @@
-# AC Career Manager - Claude Code Guide
+# AC Career GT Edition - Claude Code Guide
 
 ## Versioning Convention
 
@@ -7,11 +7,11 @@
 | `x.y.0` | New feature(s), multi-file changes | v1.8.0 — Career Wizard, Debrief, Relegation |
 | `x.y.z` | Single fix, tweak, or small addition | v1.8.1 — trim README overview |
 
-Current version: **1.12.4** (bump in `README.md` header on every release commit).
+Current version: **1.13.0** (bump in `README.md` header on every release commit).
 
 ## Project Overview
 
-AC Career Manager is a desktop app (pywebview + Flask) that adds a career mode to Assetto Corsa (AC). It runs a local Flask server on `http://127.0.0.1:5000` and displays the UI in a native Edge WebView2 window — no browser needed.
+AC Career GT Edition is a desktop app (pywebview + Flask) that adds a career mode to Assetto Corsa (AC). It runs a local Flask server on `http://127.0.0.1:5000` and displays the UI in a native Edge WebView2 window — no browser needed.
 
 - **Backend:** Python / Flask (`app.py`, `career_manager.py`)
 - **Frontend:** Vanilla JS + HTML/CSS (`templates/dashboard.html`, `static/app.js`, `static/style.css`)
@@ -32,7 +32,7 @@ static/style.css             # Dark motorsport CSS theme
 static/app.js                # Frontend JS
 config.json                  # Master config (tracks, teams, difficulty, format)
 career_data.json             # Live save file (auto-created; not committed)
-build.bat                    # PyInstaller build script → dist/AC_Career_Manager.exe
+build.bat                    # PyInstaller build script → dist/AC_Career_GT_Edition.exe
 start.bat                    # Dev launcher: activates venv and runs app.py
 make_icon.py                 # Dev utility: generates static/logo.ico (run once, needs Pillow)
 static/logo.svg              # SVG logo — topbar + favicon in dashboard.html
@@ -76,7 +76,7 @@ python -m venv venv
 venv\Scripts\activate   # Windows
 
 # Build standalone EXE
-build.bat              # Runs PyInstaller, outputs dist/AC_Career_Manager.exe (~13 MB)
+build.bat              # Runs PyInstaller, outputs dist/AC_Career_GT_Edition.exe (~13 MB)
 
 # Generate logo ICO (run once after cloning, needs Pillow)
 venv\Scripts\python.exe make_icon.py
@@ -318,6 +318,6 @@ Current screenshots: `dashboard.png`, `race_modal.png`, `standings_gt4.png`, `st
 - Default AC path: `C:\Program Files (x86)\Steam\steamapps\common\assettocorsa`
 - Port 5000 is the default; change in `app.py` if it conflicts
 - `start.bat` activates venv (creates with `py -3.12` if missing) and runs `app.py`
-- `build.bat` produces a single `dist/AC_Career_Manager.exe` (~13 MB) using `--onefile`
+- `build.bat` produces a single `dist/AC_Career_GT_Edition.exe` (~13 MB) using `--onefile`
 - pywebview uses Edge WebView2 (pre-installed on Win 10/11) — no browser bundled
 - **Python 3.12 required**: pythonnet has no wheel for 3.13/3.14

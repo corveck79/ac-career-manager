@@ -1,10 +1,10 @@
 @echo off
-title AC Career Manager
+title AC Career GT Edition
 cd /d "%~dp0"
 
 echo.
 echo  ==========================================
-echo    AC CAREER MANAGER
+echo    AC CAREER GT EDITION
 echo  ==========================================
 echo.
 

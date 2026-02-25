@@ -1,4 +1,4 @@
-/* AC Career Manager - Frontend JS */
+/* AC Career GT Edition - Frontend JS */
 'use strict';
 
 // ── State ──────────────────────────────────────────────────────────────────
