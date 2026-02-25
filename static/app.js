@@ -231,7 +231,7 @@ function switchChampMode(mode) {
     document.getElementById('champ-tab-drivers').classList.toggle('active', mode === 'drivers');
     document.getElementById('champ-tab-teams').classList.toggle('active',   mode === 'teams');
     const lbl = document.getElementById('standings-col-label');
-    if (lbl) lbl.textContent = mode === 'drivers' ? 'Rijder' : 'Team';
+    if (lbl) lbl.textContent = mode === 'drivers' ? 'Driver' : 'Team';
     renderStandings();
 }
 
@@ -308,7 +308,7 @@ async function browseSetupFolder() {
 async function confirmSetup() {
     const path = (document.getElementById('setup-ac-path').value || '').trim();
     const hint = document.getElementById('setup-hint');
-    if (!path) { hint.textContent = 'Vul een map in.'; return; }
+    if (!path) { hint.textContent = 'Please enter a folder path.'; return; }
     try {
         const r = await fetch('/api/save-ac-path', {
             method: 'POST',
@@ -321,11 +321,11 @@ async function confirmSetup() {
             await Promise.all([loadCareer(), loadConfig()]);
             await Promise.all([loadAllStandings(), loadCalendar()]);
             refresh();
-            showToast('Assetto Corsa gevonden!');
+            showToast('Assetto Corsa found!');
         } else {
-            hint.textContent = d.message || 'Map niet gevonden.';
+            hint.textContent = d.message || 'Folder not found.';
         }
-    } catch (e) { hint.textContent = 'Fout: ' + e.message; }
+    } catch (e) { hint.textContent = 'Error: ' + e.message; }
 }
 
 // Native folder picker via pywebview JS API
@@ -392,7 +392,7 @@ function openStats() {
 function renderStats() {
     const el = document.getElementById('stats-content');
     if (!el || !career) {
-        if (el) el.innerHTML = '<div class="empty-state">Start een carrière om statistieken te zien.</div>';
+        if (el) el.innerHTML = '<div class="empty-state">Start a career to see statistics.</div>';
         return;
     }
 
@@ -409,35 +409,35 @@ function renderStats() {
     const drivers = (allStandings[tierK] || {}).drivers || [];
     const me      = drivers.find(d => d.is_player);
     const champPos = me ? 'P' + me.position : '–';
-    const champGap = me && me.gap > 0 ? '–' + me.gap + ' pts' : (me ? 'Leider' : '–');
+    const champGap = me && me.gap > 0 ? '–' + me.gap + ' pts' : (me ? 'Leader' : '–');
 
     // Rival status
     const rv       = career.rival_name && drivers.find(d => d.driver === career.rival_name);
     const rivalHtml = rv
-        ? '<div class="rival-debrief" style="margin-bottom:.8rem">⚔ Rivaal <strong>' +
-          career.rival_name + '</strong> staat P' + rv.position +
-          (rv.gap > 0 ? ' (–' + rv.gap + ' pts)' : ' (leider)') + '</div>'
+        ? '<div class="rival-debrief" style="margin-bottom:.8rem">⚔ Rival <strong>' +
+          career.rival_name + '</strong> is P' + rv.position +
+          (rv.gap > 0 ? ' (–' + rv.gap + ' pts)' : ' (leader)') + '</div>'
         : '';
 
     el.innerHTML =
         '<div class="stats-grid">' +
         '<div class="stat-tile"><div class="stat-val">' + results.length + '</div><div class="stat-lbl">Races</div></div>' +
-        '<div class="stat-tile"><div class="stat-val">' + wins    + '</div><div class="stat-lbl">Overwinningen</div></div>' +
+        '<div class="stat-tile"><div class="stat-val">' + wins    + '</div><div class="stat-lbl">Wins</div></div>' +
         '<div class="stat-tile"><div class="stat-val">' + podiums + '</div><div class="stat-lbl">Podiums</div></div>' +
-        '<div class="stat-tile"><div class="stat-val">' + (career.points || 0) + '</div><div class="stat-lbl">Punten</div></div>' +
-        '<div class="stat-tile"><div class="stat-val">' + best + '</div><div class="stat-lbl">Beste finish</div></div>' +
-        '<div class="stat-tile"><div class="stat-val">' + avg  + '</div><div class="stat-lbl">Gem. finish</div></div>' +
+        '<div class="stat-tile"><div class="stat-val">' + (career.points || 0) + '</div><div class="stat-lbl">Points</div></div>' +
+        '<div class="stat-tile"><div class="stat-val">' + best + '</div><div class="stat-lbl">Best Finish</div></div>' +
+        '<div class="stat-tile"><div class="stat-val">' + avg  + '</div><div class="stat-lbl">Avg Finish</div></div>' +
         '</div>' +
         '<div class="stats-champ">' +
         '<span class="stats-champ-pos">' + champPos + '</span>' +
         '<span class="stats-champ-gap">' + champGap + '</span>' +
-        '<span class="stats-champ-lbl">in het kampioenschap</span>' +
+        '<span class="stats-champ-lbl">in the championship</span>' +
         '</div>' +
         rivalHtml +
         (history.length
-            ? '<div class="stats-section-label">Seizoen history</div>' +
+            ? '<div class="stats-section-label">Season history</div>' +
               '<table class="standings-table"><thead><tr>' +
-              '<th>Seizoen</th><th>Tier</th><th>Pos</th><th>Punten</th><th>Races</th><th>Winst</th>' +
+              '<th>Season</th><th>Tier</th><th>Pos</th><th>Points</th><th>Races</th><th>Wins</th>' +
               '</tr></thead><tbody>' +
               history.slice().reverse().map(h =>
                   '<tr><td>' + h.season + '</td>' +
@@ -446,7 +446,7 @@ function renderStats() {
                   '<td>' + h.pts + '</td><td>' + h.races + '</td><td>' + h.wins + '</td></tr>'
               ).join('') +
               '</tbody></table>'
-            : '<div class="empty-state">Nog geen afgeronde seizoenen.</div>');
+            : '<div class="empty-state">No completed seasons yet.</div>');
 }
 
 // ── Modal helpers ──────────────────────────────────────────────────────────
@@ -813,7 +813,7 @@ async function confirmStartRace(mode) {
 // ── Auto-read AC result ────────────────────────────────────────────────────
 async function fetchRaceResult() {
     const statusEl = document.getElementById('result-auto-status');
-    statusEl.textContent = 'Zoeken naar resultaat...';
+    statusEl.textContent = 'Searching for result...';
     statusEl.className   = 'result-auto-status loading';
 
     try {
@@ -831,19 +831,19 @@ async function fetchRaceResult() {
             renderDebrief(d.lap_analysis, d.position);
 
         } else if (d.status === 'incomplete') {
-            statusEl.textContent = 'Race niet voltooid (' + d.laps_completed + '/' + d.expected_laps +
-                ' ronden). Voer het resultaat handmatig in.';
+            statusEl.textContent = 'Race not completed (' + d.laps_completed + '/' + d.expected_laps +
+                ' laps). Please enter the result manually.';
             statusEl.className = 'result-auto-status warning';
-            showManualForm('Race vroegtijdig gestopt — voer resultaat handmatig in.');
+            showManualForm('Race ended early — please enter result manually.');
             if (d.position) document.getElementById('finish-position').value = d.position;
             if (d.best_lap) document.getElementById('best-lap').value         = d.best_lap;
 
         } else {
-            statusEl.textContent = d.message || 'Geen resultaat gevonden. Sluit AC en probeer opnieuw.';
+            statusEl.textContent = d.message || 'No result found. Close AC and try again.';
             statusEl.className   = 'result-auto-status warning';
         }
     } catch (e) {
-        statusEl.textContent = 'Fout: ' + e.message;
+        statusEl.textContent = 'Error: ' + e.message;
         statusEl.className   = 'result-auto-status error';
     }
 }
@@ -903,11 +903,11 @@ function renderDebrief(analysis, position) {
         const drivers = (allStandings[tierK] || {}).drivers || [];
         const rv      = drivers.find(d => d.driver === career.rival_name);
         if (rv) {
-            const gapTxt = rv.gap === 0 ? 'leider' : rv.gap + ' pts achter';
+            const gapTxt = rv.gap === 0 ? 'leader' : rv.gap + ' pts behind';
             const div    = document.createElement('div');
             div.id        = 'debrief-rival';
             div.className = 'rival-debrief';
-            div.innerHTML = '⚔ Rivaal <strong>' + career.rival_name + '</strong> staat P' +
+            div.innerHTML = '⚔ Rival <strong>' + career.rival_name + '</strong> is P' +
                             rv.position + ' (' + gapTxt + ')';
             panel.appendChild(div);
         }
@@ -1074,12 +1074,12 @@ async function saveSettings() {
                 career.career_settings.night_cycle     = nightCycle;
             }
             renderCalendar();  // refresh next-race bar with new AI level
-            showToast('Instellingen opgeslagen!');
+            showToast('Settings saved!');
             showView('standings');
         } else {
-            showToast('Opslaan mislukt', 'error');
+            showToast('Save failed', 'error');
         }
-    } catch (e) { showToast('Fout: ' + e.message, 'error'); }
+    } catch (e) { showToast('Error: ' + e.message, 'error'); }
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
