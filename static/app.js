@@ -339,8 +339,6 @@ async function browseFolder() {
 // ── View management ────────────────────────────────────────────────────────
 const ALL_VIEWS = ['standings', 'stats', 'result', 'contracts', 'config'];
 
-const TIER_LABELS = { mx5_cup: 'MX5 Cup', gt4: 'GT4', gt3: 'GT3', wec: 'WEC' };
-
 function showView(name) {
     ALL_VIEWS.forEach(v => {
         const el = document.getElementById('view-' + v);
