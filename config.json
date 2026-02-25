@@ -184,12 +184,14 @@
         }
       ],
       "tracks": [
-        "ks_silverstone/gp",
-        "spa",
+        "imola",
+        "ks_brands_hatch/gp",
         "monza",
-        "ks_laguna_seca",
-        "mugello",
-        "imola"
+        "spa",
+        "ks_silverstone/gp",
+        "ks_nurburgring/layout_gp",
+        "zandvoort",
+        "ks_barcelona/layout_gp"
       ]
     },
     "gt4": {
@@ -304,11 +306,12 @@
         }
       ],
       "tracks": [
-        "ks_silverstone/gp",
-        "spa",
-        "ks_brands_hatch/gp",
         "monza",
-        "ks_red_bull_ring/layout_national"
+        "spa",
+        "zandvoort",
+        "ks_silverstone/gp",
+        "ks_nurburgring/layout_gp",
+        "ks_barcelona/layout_gp"
       ]
     },
     "mx5_cup": {
@@ -415,7 +418,8 @@
         "ks_brands_hatch/indy",
         "magione",
         "ks_vallelunga/club_circuit",
-        "ks_black_cat_county/layout_long"
+        "ks_black_cat_county/layout_long",
+        "ks_red_bull_ring/layout_national"
       ]
     },
     "wec": {
@@ -494,10 +498,11 @@
         }
       ],
       "tracks": [
-        "ks_silverstone/gp",
         "spa",
+        "imola",
         "monza",
-        "mugello"
+        "ks_silverstone/gp",
+        "ks_nurburgring/layout_gp"
       ]
     }
   }
