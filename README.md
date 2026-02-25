@@ -1,7 +1,7 @@
 # AC CAREER MANAGER
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.9.2
+**Version:** 1.10.0
 **Platform:** Windows 10/11
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
@@ -39,7 +39,7 @@ AC Career Manager adds a full career mode to Assetto Corsa. It runs in its own n
 
 ## DOWNLOAD
 
-**[⬇ Download AC_Career_Manager.exe (v1.9.2)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_Manager.exe)**
+**[⬇ Download AC_Career_Manager.exe (v1.10.0)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_Manager.exe)**
 
 - Windows 10/11 only
 - No Python installation needed
@@ -104,6 +104,8 @@ ac-career-manager/
 Settings can be changed in the **Settings panel** (⚙ button in the app):
 - AI base level (slider)
 - AI variance per race (slider)
+- Dynamic weather ON/OFF toggle (default ON)
+- Night cycle ON/OFF toggle — day/night progression for endurance races (default ON)
 - Assetto Corsa install path (with folder browser)
 
 For advanced changes, edit `config.json` while the app is **stopped**.

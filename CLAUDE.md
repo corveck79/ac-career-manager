@@ -7,7 +7,7 @@
 | `x.y.0` | New feature(s), multi-file changes | v1.8.0 — Career Wizard, Debrief, Relegation |
 | `x.y.z` | Single fix, tweak, or small addition | v1.8.1 — trim README overview |
 
-Current version: **1.9.2** (bump in `README.md` header on every release commit).
+Current version: **1.10.0** (bump in `README.md` header on every release commit).
 
 ## Project Overview
 
@@ -108,6 +108,7 @@ venv\Scripts\python.exe -c "import types,sys; sys.modules['webview']=types.Modul
 | GET | `/api/driver-profile` | Driver profile: `?name=<driver>` → `{name, profile, current, history}` |
 | GET | `/api/preflight-check` | Validate track & car exist: `?track=<id>&car=<id>` → `{ok, issues:[{type,msg}]}` |
 | GET | `/api/scan-content` | Scan AC content folder → `{cars:{gt4:[],gt3:[]}, tracks:[{id,name,length}]}` |
+| POST | `/api/career-settings` | Patch career_settings in career_data.json; body `{dynamic_weather: bool, night_cycle: bool}` |
 
 ## Career Tiers
 

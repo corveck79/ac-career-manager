@@ -372,6 +372,11 @@ function openConfig() {
     pathEl.value  = paths.ac_install || '';
     if (hint) hint.textContent = '';
 
+    // Race conditions toggles (stored in career_settings, default ON)
+    const cs = (career && career.career_settings) || {};
+    document.getElementById('s-dynamic-weather').checked = cs.dynamic_weather !== false;
+    document.getElementById('s-night-cycle').checked      = cs.night_cycle      !== false;
+
     showView('config');
 }
 
@@ -946,10 +951,12 @@ async function browseAcFolder() {
 }
 
 async function saveSettings() {
-    const aiLevel = parseFloat(document.getElementById('s-ai-level').value);
-    const aiVar   = parseFloat(document.getElementById('s-ai-var').value);
-    const acPath  = (document.getElementById('s-ac-path').value || '').trim();
-    const hint    = document.getElementById('s-ac-hint');
+    const aiLevel        = parseFloat(document.getElementById('s-ai-level').value);
+    const aiVar          = parseFloat(document.getElementById('s-ai-var').value);
+    const acPath         = (document.getElementById('s-ac-path').value || '').trim();
+    const hint           = document.getElementById('s-ac-hint');
+    const dynamicWeather = document.getElementById('s-dynamic-weather').checked;
+    const nightCycle     = document.getElementById('s-night-cycle').checked;
 
     // Deep-clone and patch
     const updated = JSON.parse(JSON.stringify(config));
@@ -959,14 +966,26 @@ async function saveSettings() {
     if (acPath) updated.paths.ac_install = acPath;
 
     try {
-        const r = await fetch('/api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updated),
-        });
-        const d = await r.json();
+        const [r1, r2] = await Promise.all([
+            fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updated),
+            }),
+            fetch('/api/career-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dynamic_weather: dynamicWeather, night_cycle: nightCycle }),
+            }),
+        ]);
+        const d = await r1.json();
         if (d.status === 'success') {
             config = updated;
+            if (career) {
+                if (!career.career_settings) career.career_settings = {};
+                career.career_settings.dynamic_weather = dynamicWeather;
+                career.career_settings.night_cycle     = nightCycle;
+            }
             renderCalendar();  // refresh next-race bar with new AI level
             showToast('Instellingen opgeslagen!');
             showView('standings');

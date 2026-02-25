@@ -247,9 +247,10 @@ class CareerManager:
     # ------------------------------------------------------------------
 
     def generate_race(self, tier_info, race_num, team_name, car,
-                      tier_key=None, season=1, weather_mode='realistic'):
+                      tier_key=None, season=1, weather_mode='realistic', night_cycle=True):
         """Generate next race configuration.
         weather_mode: 'realistic' (default pool) | 'always_clear' | 'wet_challenge'
+        night_cycle: if True and laps >= 30, enables time-of-day progression via SUN_ANGLE + TIME_OF_DAY_MULT
         """
         tracks = tier_info['tracks']
         track = tracks[(race_num - 1) % len(tracks)]
@@ -258,6 +259,19 @@ class CareerManager:
         opponents = self._generate_opponent_field(tier_info, race_num, tier_key=tier_key, season=season)
 
         weather = self._pick_weather(tier_info['race_format'], track, weather_mode=weather_mode)
+
+        laps = (tier_info['race_laps'][race_num - 1]
+                if tier_info.get('race_laps') and (race_num - 1) < len(tier_info['race_laps'])
+                else tier_info['race_format'].get('laps', 20))
+
+        # Night cycle: endurance races (>= 30 laps) get 1 full 24h day-night cycle
+        sun_angle        = None
+        time_of_day_mult = None
+        if night_cycle and laps >= 30:
+            race_hours       = laps * 2 / 60
+            time_of_day_mult = max(8, round(24 / race_hours))
+            sun_angle        = 40  # ~14:00 start → dark at 1/3, dawn at 2/3
+
         return {
             'race_num':         race_num,
             'track':            track,
@@ -265,13 +279,13 @@ class CareerManager:
             'team':             team_name,
             'ai_difficulty':    ai_difficulty,
             'opponents':        opponents,
-            'laps':             (tier_info['race_laps'][race_num - 1]
-                                if tier_info.get('race_laps') and (race_num - 1) < len(tier_info['race_laps'])
-                                else tier_info['race_format'].get('laps', 20)),
+            'laps':             laps,
             'time_limit':       tier_info['race_format'].get('time_limit_minutes', 45),
             'practice_minutes': tier_info['race_format'].get('practice_minutes', 10),
             'quali_minutes':    tier_info['race_format'].get('quali_minutes', 10),
             'weather':          weather,
+            'sun_angle':        sun_angle,
+            'time_of_day_mult': time_of_day_mult,
         }
 
     # Tracks that have wet weather support in vanilla AC
@@ -802,8 +816,12 @@ class CareerManager:
             f"AI_LEVEL={ai_lvl}",
             f"JUMP_START_PENALTY=0",
             f"WEATHER_0={weather}",
-            "",
         ]
+        if race_data.get('sun_angle') is not None:
+            lines.append(f"SUN_ANGLE={race_data['sun_angle']}")
+        if race_data.get('time_of_day_mult') is not None:
+            lines.append(f"TIME_OF_DAY_MULT={race_data['time_of_day_mult']}")
+        lines.append("")
 
         # [DRIVE] — player config
         lines += [

@@ -307,3 +307,15 @@ td.col-gap{text-align:right;color:var(--text-dim);font-size:.72rem}
 .dp-history-row{display:flex;justify-content:space-between;font-size:.76rem;font-family:var(--mono);color:var(--text-dim);padding:.22rem 0;border-bottom:1px solid var(--border)}
 .standings-table tbody tr[onclick]{cursor:pointer}
 .standings-table tbody tr[onclick]:hover td{background:rgba(232,74,10,.05)}
+
+/* TOGGLE SWITCH */
+.setting-toggle-row{display:flex;align-items:center;justify-content:space-between;padding:.6rem 0}
+.toggle-info{flex:1}
+.toggle-label{display:block;font-size:.85rem;color:var(--text)}
+.toggle-desc{display:block;font-size:.75rem;color:var(--text-faint);margin-top:.15rem}
+.toggle-switch{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--bg2);border:1px solid var(--border);border-radius:12px;transition:.2s}
+.toggle-slider:before{content:'';position:absolute;width:18px;height:18px;left:2px;top:2px;background:var(--text-faint);border-radius:50%;transition:.2s}
+.toggle-switch input:checked+.toggle-slider{background:var(--primary);border-color:var(--primary)}
+.toggle-switch input:checked+.toggle-slider:before{transform:translateX(20px);background:#fff}

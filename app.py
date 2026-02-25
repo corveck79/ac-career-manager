@@ -313,8 +313,12 @@ def get_next_race():
     season       = career_data.get('season', 1)
     cs           = career_data.get('career_settings') or {}
     weather_mode = cs.get('weather_mode', 'realistic')
+    if not cs.get('dynamic_weather', True):
+        weather_mode = 'always_clear'
+    night_cycle  = cs.get('night_cycle', True)
     race = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
-                                tier_key=tier_key, season=season, weather_mode=weather_mode)
+                                tier_key=tier_key, season=season, weather_mode=weather_mode,
+                                night_cycle=night_cycle)
     ai_offset = cs.get('ai_offset', 0)
     if ai_offset:
         race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
@@ -332,8 +336,12 @@ def start_race():
     season       = career_data.get('season', 1)
     cs           = career_data.get('career_settings') or {}
     weather_mode = cs.get('weather_mode', 'realistic')
+    if not cs.get('dynamic_weather', True):
+        weather_mode = 'always_clear'
+    night_cycle  = cs.get('night_cycle', True)
     race         = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
-                                        tier_key=tier_key, season=season, weather_mode=weather_mode)
+                                        tier_key=tier_key, season=season, weather_mode=weather_mode,
+                                        night_cycle=night_cycle)
     ai_offset = cs.get('ai_offset', 0)
     if ai_offset:
         race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
@@ -780,7 +788,30 @@ def _check_preflight(ac_path, track, car):
                 'msg':  f'Car "{car}" may be incomplete (missing data folder).',
             })
 
+    # Night cycle CSP check
+    cd_check = load_career_data()
+    cs_check = cd_check.get('career_settings', {})
+    if cs_check.get('night_cycle', True):
+        extension_path = os.path.join(ac_path, 'extension')
+        if not os.path.isdir(extension_path):
+            issues.append({
+                'type': 'warning',
+                'msg':  'Night cycle is enabled but Custom Shader Patch (CSP) was not found. '
+                        'Install CSP via Content Manager for full day/night progression. '
+                        'Without CSP the race will start at a fixed sun angle.',
+            })
+
     return {'ok': len(issues) == 0, 'issues': issues}
+
+
+@app.route('/api/career-settings', methods=['POST'])
+def update_career_settings():
+    career_data = load_career_data()
+    patch       = request.json
+    cs          = career_data.setdefault('career_settings', {})
+    cs.update(patch)
+    save_career_data(career_data)
+    return jsonify({'status': 'success'})
 
 
 @app.errorhandler(404)
