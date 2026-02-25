@@ -360,7 +360,6 @@ function openConfig() {
 
     const aiEl    = document.getElementById('s-ai-level');
     const varEl   = document.getElementById('s-ai-var');
-    const racesEl = document.getElementById('s-races');
     const pathEl  = document.getElementById('s-ac-path');
     const hint    = document.getElementById('s-ac-hint');
 
@@ -369,9 +368,6 @@ function openConfig() {
 
     varEl.value   = diff.ai_variance || 1.5;
     document.getElementById('s-ai-var-val').textContent = '\u00b1' + varEl.value;
-
-    racesEl.value = seas.races_per_tier || 10;
-    document.getElementById('s-races-val').textContent = racesEl.value;
 
     pathEl.value  = paths.ac_install || '';
     if (hint) hint.textContent = '';
@@ -952,7 +948,6 @@ async function browseAcFolder() {
 async function saveSettings() {
     const aiLevel = parseFloat(document.getElementById('s-ai-level').value);
     const aiVar   = parseFloat(document.getElementById('s-ai-var').value);
-    const races   = parseInt(document.getElementById('s-races').value);
     const acPath  = (document.getElementById('s-ac-path').value || '').trim();
     const hint    = document.getElementById('s-ac-hint');
 
