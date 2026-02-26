@@ -376,6 +376,9 @@ function showView(name) {
             el.classList.add('hidden');
         }
     });
+    // Hide calendar card on non-standings views
+    const cal = document.querySelector('.calendar-card');
+    if (cal) cal.classList.toggle('hidden', name !== 'standings');
 }
 
 function openConfig() {
