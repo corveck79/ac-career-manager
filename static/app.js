@@ -554,8 +554,6 @@ async function showDriverProfile(name, car, skinIndex) {
         document.getElementById('dp-name').textContent  = data.name || name;
         document.getElementById('dp-team').textContent  =
             cur ? (cur.team || '') + (cur.car ? '  ·  ' + fmtCar(cur.car) : '') : '';
-        document.getElementById('dp-style').textContent = p.style || '';
-
         // Nickname — show only when present
         const nickEl = document.getElementById('dp-nickname');
         if (nickEl) {
