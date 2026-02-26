@@ -13,6 +13,7 @@ import threading
 from datetime import datetime
 
 from career_manager import CareerManager
+from platform_paths import get_ac_docs_path, get_default_ac_install_path, get_webview_gui
 
 # ---------------------------------------------------------------------------
 # Path helpers — work both as script and as frozen EXE
@@ -220,10 +221,11 @@ def index():
 
 @app.route('/api/setup-status')
 def setup_status():
-    cfg     = load_config()
-    ac_path = cfg.get('paths', {}).get('ac_install', '')
-    valid   = os.path.exists(os.path.join(ac_path, 'acs.exe'))
-    return jsonify({'valid': valid, 'path': ac_path})
+    cfg          = load_config()
+    ac_path      = cfg.get('paths', {}).get('ac_install', '')
+    default_hint = get_default_ac_install_path() if not ac_path else ''
+    valid        = bool(ac_path) and os.path.exists(os.path.join(ac_path, 'acs.exe'))
+    return jsonify({'valid': valid, 'path': ac_path, 'default_hint': default_hint})
 
 
 @app.route('/api/save-ac-path', methods=['POST'])
@@ -376,7 +378,7 @@ def read_race_result():
     tier_info     = career.get_tier_info(career_data['tier'])
     expected_laps = tier_info.get('race_format', {}).get('laps', 20)
 
-    results_dir = os.path.join(os.path.expanduser('~'), 'Documents', 'Assetto Corsa', 'results')
+    results_dir = get_ac_docs_path('results')
     if not os.path.exists(results_dir):
         return jsonify({'status': 'not_found', 'message': 'Results folder not found'})
 
@@ -912,7 +914,8 @@ if __name__ == '__main__':
         min_size=(1000, 700),
         js_api=api,
     )
+    gui_backend = get_webview_gui()   # 'gtk' on Linux, 'edgechromium' on Windows
     try:
-        webview.start(gui='edgechromium')
+        webview.start(gui=gui_backend)
     except Exception:
-        webview.start()
+        webview.start()               # last-resort fallback (auto-detect)

@@ -7,7 +7,7 @@
 | `x.y.0` | New feature(s), multi-file changes | v1.8.0 — Career Wizard, Debrief, Relegation |
 | `x.y.z` | Single fix, tweak, or small addition | v1.8.1 — trim README overview |
 
-Current version: **1.15.1** (bump in `README.md` header on every release commit).
+Current version: **1.16.0** (bump in `README.md` header on every release commit).
 
 ## Project Overview
 
@@ -15,11 +15,11 @@ AC Career GT Edition is a desktop app (pywebview + Flask) that adds a career mod
 
 - **Backend:** Python / Flask (`app.py`, `career_manager.py`)
 - **Frontend:** Vanilla JS + HTML/CSS (`templates/dashboard.html`, `static/app.js`, `static/style.css`)
-- **Window:** pywebview 4.4.1 with `gui='edgechromium'` (Edge WebView2, pre-installed on Win 10/11)
+- **Window:** pywebview 4.4.1 — `gui='edgechromium'` on Windows (Edge WebView2), `gui='gtk'` on Linux
 - **Python:** 3.12 required — pythonnet (pywebview dep) has no wheel for 3.13/3.14
 - **Config:** `config.json` (all tunable game settings)
-- **Save data:** `career_data.json` (auto-created at runtime, next to EXE)
-- **Platform:** Windows only (AC is a Windows game)
+- **Save data:** `career_data.json` (auto-created at runtime, next to EXE/AppImage)
+- **Platform:** Windows 10/11 · Linux (AC via Steam Proton)
 
 ## Architecture
 
@@ -32,8 +32,11 @@ static/style.css             # Dark motorsport CSS theme
 static/app.js                # Frontend JS
 config.json                  # Master config (tracks, teams, difficulty, format)
 career_data.json             # Live save file (auto-created; not committed)
-build.bat                    # PyInstaller build script → dist/AC_Career_GT_Edition.exe
-start.bat                    # Dev launcher: activates venv and runs app.py
+platform_paths.py            # OS path helpers (Windows vs Linux Proton paths, GUI backend)
+build.bat                    # Windows: PyInstaller build → dist/AC_Career_GT_Edition.exe
+build.sh                     # Linux:   PyInstaller + appimagetool → AppImage
+start.bat                    # Windows dev launcher (activates venv and runs app.py)
+start.sh                     # Linux dev launcher (creates venv with Python 3.12)
 make_icon.py                 # Dev utility: generates static/logo.ico (run once, needs Pillow)
 static/logo.svg              # SVG logo — topbar + favicon in dashboard.html
 static/logo.ico              # Multi-res ICO (16–256px) — embedded in EXE via --icon

@@ -10,6 +10,8 @@ from datetime import datetime
 import subprocess
 import os
 
+from platform_paths import get_ac_docs_path, is_linux
+
 
 class CareerManager:
     """Main career management system"""
@@ -733,9 +735,11 @@ class CareerManager:
     # ------------------------------------------------------------------
 
     def _get_ac_docs_cfg(self):
-        """Return path to AC's config folder in Documents (where AC actually reads cfg)."""
-        docs = os.path.join(os.path.expanduser("~"), "Documents", "Assetto Corsa", "cfg")
-        return docs
+        """Return path to AC's config folder where AC actually reads race.ini.
+        Windows: ~/Documents/Assetto Corsa/cfg
+        Linux:   Proton compat-data path/.../Documents/Assetto Corsa/cfg
+        """
+        return get_ac_docs_path("cfg")
 
     def launch_ac_race(self, race_config, config, mode='race_only'):
         """Launch Assetto Corsa with race configuration.
@@ -759,10 +763,15 @@ class CareerManager:
         launcher_path = os.path.join(docs_cfg, 'launcher.ini')
         self._patch_launcher_ini(launcher_path, race_config)
 
-        # 3. Launch acs.exe from its own directory
-        ac_exe = os.path.join(ac_path, 'acs.exe')
+        # 3. Launch AC — method differs by OS
         try:
-            subprocess.Popen(ac_exe, cwd=ac_path)
+            if is_linux():
+                # Linux: AC runs under Steam Proton; launch via Steam applaunch so
+                # Proton environment, version pinning, and launch options are respected.
+                subprocess.Popen(['steam', '-applaunch', '244210'])
+            else:
+                ac_exe = os.path.join(ac_path, 'acs.exe')
+                subprocess.Popen(ac_exe, cwd=ac_path)
             return True
         except Exception as e:
             print(f"Failed to launch AC: {e}")

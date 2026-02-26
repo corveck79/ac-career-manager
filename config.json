@@ -27,8 +27,8 @@
     "theme": "dark"
   },
   "paths": {
-    "ac_install": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa",
-    "content_manager": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\assettocorsa\\Content Manager.exe"
+    "ac_install": "",
+    "content_manager": ""
   },
   "seasons": {
     "championship_points": [

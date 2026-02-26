@@ -1,8 +1,8 @@
 # AC CAREER GT EDITION
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.15.1
-**Platform:** Windows 10/11
+**Version:** 1.16.0
+**Platform:** Windows 10/11 · Linux (Steam Proton)
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
 ---
@@ -53,12 +53,36 @@ AC Career GT Edition adds a full career mode to Assetto Corsa. It runs in its ow
 
 ## DOWNLOAD
 
-**[⬇ Download AC_Career_GT_Edition.exe (v1.15.0)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition.exe)**
+### Windows
+**[⬇ Download AC_Career_GT_Edition.exe (v1.16.0)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition.exe)**
 
-- Windows 10/11 only
-- No Python installation needed
-- ~13 MB single file
+- Windows 10/11 · No Python needed · ~13 MB single file
 - Requires Assetto Corsa installed via Steam
+
+### Linux (AppImage)
+**[⬇ Download AC_Career_GT_Edition-1.16.0-x86_64.AppImage](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition-1.16.0-x86_64.AppImage)**
+
+- Requires Assetto Corsa installed via **Steam + Proton**
+- Requires `libwebkit2gtk-4.0` or `libwebkit2gtk-4.1` (GTK WebView):
+
+```bash
+# Ubuntu / Debian / Pop!_OS
+sudo apt install gir1.2-webkit2-4.0 python3-gi
+
+# Fedora
+sudo dnf install webkit2gtk3
+
+# Arch / Manjaro
+sudo pacman -S webkit2gtk
+```
+
+```bash
+chmod +x AC_Career_GT_Edition-1.16.0-x86_64.AppImage
+./AC_Career_GT_Edition-1.16.0-x86_64.AppImage
+```
+
+> **Note:** AC is launched via `steam -applaunch 244210`. Make sure Steam is running before clicking **START RACE**.
+> AC Documents path is auto-detected from `~/.steam/steam/steamapps/compatdata/244210/pfx/...`
 
 ---
 
