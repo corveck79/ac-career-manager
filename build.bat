@@ -19,6 +19,7 @@ pyinstaller --onefile ^
     --add-data "templates;templates" ^
     --add-data "static;static" ^
     --add-data "config.json;." ^
+    --add-data "platform_paths.py;." ^
     --collect-all flask ^
     --collect-all flask_cors ^
     --collect-all webview ^

@@ -10,14 +10,14 @@
 #   bash build.sh
 #
 # Output:
-#   dist/AC_Career_GT_Edition-1.16.0-x86_64.AppImage
+#   dist/AC_Career_GT_Edition-<VERSION>-x86_64.AppImage  (VERSION defaults to 1.16.0)
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 APP_NAME="AC_Career_GT_Edition"
-VERSION="1.16.0"
+VERSION="${VERSION:-1.16.0}"   # can be overridden by CI: export VERSION=1.17.0
 APPDIR="$SCRIPT_DIR/AppDir"
 APPIMAGETOOL="${APPIMAGETOOL:-appimagetool}"
 
