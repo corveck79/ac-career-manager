@@ -397,6 +397,14 @@ td.col-gap{text-align:right;color:var(--text-dim);font-size:.78rem}
 .lap-bar:hover{background:var(--text-dim)}
 .lap-bar-best{background:var(--accent)}
 .lap-sparkline-label{margin-top:.35rem;font-size:.62rem;color:var(--text-faint);font-family:var(--mono)}
+.sector-grid{display:flex;gap:8px;margin-top:.75rem}
+.sector-card{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;padding:.55rem .5rem;text-align:center}
+.sector-card.sector-weak{border-color:var(--accent);background:rgba(247,184,1,.06)}
+.sector-label{font-size:.58rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);margin-bottom:.25rem}
+.sector-card.sector-weak .sector-label{color:var(--accent)}
+.sector-best{font-size:.82rem;font-weight:700;color:var(--text-primary);font-family:var(--mono)}
+.sector-avg{font-size:.62rem;color:var(--text-faint);margin-top:.15rem;font-family:var(--mono)}
+.debrief-meta{margin-top:.55rem;font-size:.68rem;color:var(--text-faint);text-align:center;line-height:1.5}
 
 /* ═══════════════════════════════════════════════
    RESULT FORM

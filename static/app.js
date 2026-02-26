@@ -378,6 +378,11 @@ async function browseFolder() {
 const ALL_VIEWS = ['standings', 'stats', 'result', 'contracts', 'config'];
 
 function showView(name) {
+    // Stop auto-polling when navigating away from the result view
+    if (name !== 'result' && _resultPollTimer) {
+        clearInterval(_resultPollTimer);
+        _resultPollTimer = null;
+    }
     ALL_VIEWS.forEach(v => {
         const el = document.getElementById('view-' + v);
         if (!el) return;
@@ -871,6 +876,42 @@ function rdItem(label, value) {
     );
 }
 
+// ── Auto result polling ────────────────────────────────────────────────────
+let _resultPollTimer  = null;
+const POLL_INTERVAL_MS  = 5000;   // check every 5 s
+const POLL_MAX_ATTEMPTS = 360;    // give up after 30 min
+
+function startResultPolling() {
+    if (_resultPollTimer) clearInterval(_resultPollTimer);
+    let attempts = 0;
+    const statusEl = document.getElementById('result-auto-status');
+    if (statusEl) {
+        statusEl.textContent = 'Waiting for AC to finish…';
+        statusEl.className   = 'result-auto-status loading';
+    }
+    _resultPollTimer = setInterval(async () => {
+        attempts++;
+        if (attempts > POLL_MAX_ATTEMPTS) {
+            clearInterval(_resultPollTimer);
+            _resultPollTimer = null;
+            if (statusEl) {
+                statusEl.textContent = 'Timed out — click the button to try again.';
+                statusEl.className   = 'result-auto-status warning';
+            }
+            return;
+        }
+        try {
+            const r = await fetch('/api/read-race-result');
+            const d = await r.json();
+            if (d.status === 'found' || d.status === 'incomplete') {
+                clearInterval(_resultPollTimer);
+                _resultPollTimer = null;
+                fetchRaceResult();   // reuse existing display logic
+            }
+        } catch (_) { /* network hiccup — keep polling */ }
+    }, POLL_INTERVAL_MS);
+}
+
 async function confirmStartRace(mode) {
     mode = mode || 'race_only';
     try {
@@ -893,16 +934,21 @@ async function confirmStartRace(mode) {
                     ' · ' + fmtTrack(pendingRace.track);
             }
             // Reset result view to auto-read state
+            if (_resultPollTimer) { clearInterval(_resultPollTimer); _resultPollTimer = null; }
             document.getElementById('result-auto').style.display     = '';
             document.getElementById('result-auto-status').textContent = '';
             document.getElementById('result-auto-status').className   = 'result-auto-status';
             document.getElementById('result-found').classList.add('hidden');
             document.getElementById('result-manual').classList.add('hidden');
             document.getElementById('debrief-panel').classList.add('hidden');
+            const _sd = document.getElementById('debrief-sectors');
+            if (_sd) _sd.classList.add('hidden');
+            const _md = document.getElementById('debrief-meta');
+            if (_md) _md.classList.add('hidden');
             document.getElementById('finish-position').value = 1;
             document.getElementById('best-lap').value        = '';
             if (pendingRace) pendingRace._autoResult = null;
-            setTimeout(() => showView('result'), 1200);
+            setTimeout(() => { showView('result'); startResultPolling(); }, 1200);
         } else {
             showToast(d.message || 'Failed to launch AC', 'error');
         }
@@ -990,6 +1036,46 @@ function renderDebrief(analysis, position) {
             '</div>';
     } else if (lapsEl) {
         lapsEl.innerHTML = '';
+    }
+
+    // Sector breakdown (S1/S2/S3 best + avg, weakest highlighted)
+    const secEl = document.getElementById('debrief-sectors');
+    const sa    = analysis.sector_analysis;
+    if (secEl && sa && sa.length === 3) {
+        const labels = ['S1', 'S2', 'S3'];
+        secEl.innerHTML = sa.map((s, i) => {
+            const isWeak = (analysis.weakest_sector === i + 1);
+            return '<div class="sector-card' + (isWeak ? ' sector-weak' : '') + '">' +
+                '<div class="sector-label">' + labels[i] + (isWeak ? ' ⚠' : '') + '</div>' +
+                '<div class="sector-best">' + fmtMs(s.best_ms) + '</div>' +
+                '<div class="sector-avg">avg ' + fmtMs(s.avg_ms) + '</div>' +
+                '</div>';
+        }).join('');
+        secEl.classList.remove('hidden');
+    } else if (secEl) {
+        secEl.classList.add('hidden');
+    }
+
+    // Meta row: gap to leader · tyre compound · track cuts
+    const metaEl = document.getElementById('debrief-meta');
+    if (metaEl) {
+        const parts = [];
+        if (analysis.gap_to_leader_ms) {
+            parts.push('⏱ +' + fmtMs(analysis.gap_to_leader_ms) + ' to leader');
+        }
+        if (analysis.tyre) {
+            parts.push('🏎 ' + analysis.tyre);
+        }
+        if (analysis.total_cuts) {
+            parts.push('⚠ ' + analysis.total_cuts + ' track limit' +
+                       (analysis.total_cuts > 1 ? 's' : ''));
+        }
+        if (parts.length) {
+            metaEl.textContent = parts.join('  ·  ');
+            metaEl.classList.remove('hidden');
+        } else {
+            metaEl.classList.add('hidden');
+        }
     }
 
     panel.classList.remove('hidden');

@@ -118,8 +118,8 @@
 
       <!-- Auto-read section -->
       <div id="result-auto">
-        <p class="result-auto-hint">Close Assetto Corsa and click the button to automatically import your result.</p>
-        <button class="btn btn-race result-fetch-btn" onclick="fetchRaceResult()">&#128269; Import Result from AC</button>
+        <p class="result-auto-hint">Your result will be imported automatically once you finish the race. Or click below if needed.</p>
+        <button class="btn btn-secondary result-fetch-btn" onclick="fetchRaceResult()">&#128269; Import Result Manually</button>
         <div id="result-auto-status" class="result-auto-status"></div>
       </div>
 
@@ -150,6 +150,10 @@
           </div>
           <p class="debrief-report" id="debrief-report"></p>
           <div class="lap-sparkline" id="debrief-laps"></div>
+          <!-- Sector breakdown — shown when AC sector data is available -->
+          <div id="debrief-sectors" class="sector-grid hidden"></div>
+          <!-- Meta row: gap · tyre · cuts -->
+          <div id="debrief-meta" class="debrief-meta hidden"></div>
         </div>
         <div class="form-actions" style="margin-top:1.25rem">
           <button class="btn btn-race" onclick="submitAutoResult()">&#9989; Save Result</button>

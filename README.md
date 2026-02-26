@@ -1,7 +1,7 @@
 # AC CAREER GT EDITION
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.16.0
+**Version:** 1.17.0
 **Platform:** Windows 10/11 · Linux (Steam Proton)
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 

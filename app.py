@@ -433,19 +433,22 @@ def read_race_result():
 
     # ── Lap-by-lap debrief analysis ──────────────────────────────────────────
     # AC results JSON has a top-level 'Laps' array with per-lap times per driver.
-    raw_laps        = data.get('Laps', [])
-    all_player_laps = [
-        l['LapTime'] for l in raw_laps
+    # Each lap object also carries Sectors, Cuts, and Tyre — used for rich debrief.
+    raw_laps         = data.get('Laps', [])
+    player_lap_objs  = [
+        l for l in raw_laps
         if isinstance(l, dict)
         and l.get('DriverName', '').lower() == driver_name.lower()
         and isinstance(l.get('LapTime'), (int, float))
         and l['LapTime'] > 0
     ]
+    all_player_laps = [l['LapTime'] for l in player_lap_objs]
     lap_analysis = {}
     if all_player_laps:
         lap_best_ms = min(all_player_laps)
         # Exclude in/out-lap style outliers (> 150% of the best lap)
-        valid_laps  = [lt for lt in all_player_laps if lt <= lap_best_ms * 1.5]
+        valid_laps     = [lt for lt in all_player_laps if lt <= lap_best_ms * 1.5]
+        valid_lap_objs = [o for o in player_lap_objs if o['LapTime'] <= lap_best_ms * 1.5]
         if len(valid_laps) >= 2:
             avg_ms      = sum(valid_laps) / len(valid_laps)
             std_ms      = statistics.stdev(valid_laps)
@@ -463,6 +466,43 @@ def read_race_result():
                     player_position, total_d, valid_laps
                 ),
             }
+
+            # ── Sector analysis (S1/S2/S3) ───────────────────────────────────
+            sector_rows = [o.get('Sectors', []) for o in valid_lap_objs]
+            if (sector_rows and all(
+                    len(s) == 3 and all(isinstance(v, (int, float)) and v > 0 for v in s)
+                    for s in sector_rows)):
+                sector_analysis = []
+                for idx in range(3):
+                    times = [row[idx] for row in sector_rows]
+                    sector_analysis.append({
+                        'best_ms': min(times),
+                        'avg_ms':  round(sum(times) / len(times)),
+                        'std_ms':  round(statistics.stdev(times)) if len(times) >= 2 else 0,
+                    })
+                # Weakest sector = highest (avg − best) delta → most room to improve
+                worst_idx = max(range(3), key=lambda i:
+                    sector_analysis[i]['avg_ms'] - sector_analysis[i]['best_ms'])
+                lap_analysis['sector_analysis'] = sector_analysis
+                lap_analysis['weakest_sector']  = worst_idx + 1  # 1-indexed
+
+            # ── Track cuts ───────────────────────────────────────────────────
+            total_cuts = sum(int(o.get('Cuts', 0)) for o in valid_lap_objs)
+            if total_cuts:
+                lap_analysis['total_cuts'] = total_cuts
+
+            # ── Tyre compound ────────────────────────────────────────────────
+            tyres = [o.get('Tyre', '') for o in player_lap_objs if o.get('Tyre')]
+            if tyres:
+                lap_analysis['tyre'] = max(set(tyres), key=tyres.count)
+
+            # ── Gap to leader ────────────────────────────────────────────────
+            if player_position and player_position > 1 and results:
+                p1_time = results[0].get('TotalTime', 0)
+                pl_time = player_result.get('TotalTime', 0)
+                gap_ms  = pl_time - p1_time
+                if gap_ms > 0:
+                    lap_analysis['gap_to_leader_ms'] = gap_ms
 
     return jsonify({
         'status':         'incomplete' if incomplete else 'found',

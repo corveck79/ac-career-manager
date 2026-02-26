@@ -7,7 +7,7 @@
 | `x.y.0` | New feature(s), multi-file changes | v1.8.0 — Career Wizard, Debrief, Relegation |
 | `x.y.z` | Single fix, tweak, or small addition | v1.8.1 — trim README overview |
 
-Current version: **1.16.0** (bump in `README.md` header on every release commit).
+Current version: **1.17.0** (bump in `README.md` header on every release commit).
 
 ## Project Overview
 
@@ -114,7 +114,7 @@ venv\Scripts\python.exe -c "import types,sys; sys.modules['webview']=types.Modul
 | GET | `/api/season-calendar` | Full season race calendar |
 | GET | `/api/next-race` | Next race details |
 | POST | `/api/start-race` | Launch AC with race config; body `{mode}` = `race_only` or `full_weekend`; saves `race_started_at` |
-| GET | `/api/read-race-result` | Auto-read result from AC results JSON; returns `lap_analysis` `{lap_times, consistency, engineer_report, …}` |
+| GET | `/api/read-race-result` | Auto-read result from AC results JSON; returns `lap_analysis` `{lap_times, consistency, engineer_report, sector_analysis, weakest_sector, total_cuts, tyre, gap_to_leader_ms, …}` |
 | POST | `/api/finish-race` | Submit result, calc points |
 | POST | `/api/end-season` | Trigger season end / contract offers; snapshots AI driver history |
 | POST | `/api/accept-contract` | Accept a contract offer; reads `target_tier` + `move` from contract → real promotion/stay/relegation |
@@ -201,35 +201,47 @@ Every contract object in `career_data.json['contracts']` carries two new fields:
 
 **Backwards compatibility:** Old contracts without `target_tier` fall back to `tier+1` (promotion assumed).
 
-## Post-Race Debrief (v1.8.0)
+## Post-Race Debrief (v1.8.0, extended v1.17.0)
 
-`/api/read-race-result` now reads the top-level `Laps` array from the AC results JSON and returns:
+`/api/read-race-result` reads the top-level `Laps` array from the AC results JSON.
+Each lap object carries `LapTime`, `Sectors` (3 sector times), `Cuts`, and `Tyre`.
 
 ```json
 "lap_analysis": {
-  "lap_times":       [106000, 105200, …],   // ms, valid laps only
-  "lap_count":       10,
-  "best_lap_ms":     105200,
-  "avg_lap_ms":      106800,
-  "std_ms":          420,
-  "consistency":     86,                    // 0–100 (100=perfect)
-  "engineer_report": "Solid podium, P2. Good consistency …"
+  "lap_times":        [106000, 105200, …],   // ms, valid laps only
+  "lap_count":        10,
+  "best_lap_ms":      105200,
+  "avg_lap_ms":       106800,
+  "std_ms":           420,
+  "consistency":      86,                    // 0–100 (100=perfect)
+  "engineer_report":  "Solid podium, P2. Good consistency …",
+  "sector_analysis":  [                      // only if all laps have 3 non-zero sectors
+    {"best_ms": 32100, "avg_ms": 32800, "std_ms": 210},
+    {"best_ms": 38400, "avg_ms": 39200, "std_ms": 310},
+    {"best_ms": 34700, "avg_ms": 35900, "std_ms": 180}
+  ],
+  "weakest_sector":   2,                     // 1-indexed, highest avg-best delta
+  "total_cuts":       3,                     // only present when > 0
+  "tyre":             "SM",                  // most-used compound; omitted if unavailable
+  "gap_to_leader_ms": 4520                   // omitted for P1
 }
 ```
 
-**Lap filtering:** laps with `LapTime == 0` are dropped; laps > 150% of the best lap (in/out laps) are excluded from statistics.
+**Lap filtering:** laps with `LapTime == 0` are dropped; laps > 150% of the best lap are excluded.
 
-**Consistency score:** `max(0, min(100, 100 − std_ms / 30))` — drops ~1pt per 30ms of std deviation.
+**Consistency score:** `max(0, min(100, 100 − std_ms / 30))` — drops ~1pt per 30ms of std dev.
 
-**Engineer report** has three parts:
-1. **Position feedback** — ecstatic (P1), podium (P2-3), points (P4-5), midfield, tough race
-2. **Consistency feedback** — based on std dev thresholds: <500ms/1000ms/2000ms
-3. **Pace trend** — compares first vs last third of laps (only when ≥6 valid laps)
+**Auto-polling (v1.17.0):** `confirmStartRace()` calls `startResultPolling()` which polls
+`/api/read-race-result` every 5 s (up to 30 min). When `found`/`incomplete` is returned,
+`fetchRaceResult()` is called automatically — no button press required. Manual fallback
+button ("Import Result Manually") stays for edge cases.
 
 **Frontend helpers (`app.js`):**
 - `fmtMs(ms)` — format milliseconds as `M:SS.mmm`
-- `renderDebrief(analysis, position)` — fills `#debrief-panel` with consistency badge, report text, and lap sparkline bar chart; called from `fetchRaceResult()` when status is `'found'`
-- Debrief panel is hidden on race start (reset in `confirmStartRace()`)
+- `startResultPolling()` — auto-polls every 5 s after race launch; stops on result or navigation away
+- `renderDebrief(analysis, position)` — fills `#debrief-panel` with consistency badge, report text,
+  lap sparkline, sector grid (S1/S2/S3 best+avg, weakest highlighted), and meta row (gap/tyre/cuts)
+- Debrief panel is reset in `confirmStartRace()` reset block
 
 ## Career History (v1.7.0)
 
