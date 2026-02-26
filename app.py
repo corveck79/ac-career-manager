@@ -837,14 +837,6 @@ def _check_preflight(ac_path, track, car):
                     'Without CSP the race will start at a fixed sun angle.',
         })
 
-    if cs_check.get('weather_mode') == 'csp_pure' and not csp_status['pure']:
-        issues.append({
-            'type': 'warning',
-            'msg':  'CSP (Pure) weather is active but Pure Weather FX was not found. '
-                    'Weather will still work, but without Pure\'s visual enhancements. '
-                    'Install Pure via Content Manager for the full effect.',
-        })
-
     return {'ok': len(issues) == 0, 'issues': issues}
 
 

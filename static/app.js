@@ -595,10 +595,6 @@ function openNewCareer() {
     // Show warning if overwriting existing career
     const warningEl = document.getElementById('wizard-career-warning');
     if (warningEl) warningEl.classList.toggle('hidden', !(career && career.driver_name && career.team));
-    // Show CSP Pure hint on weather page if Pure not detected
-    const cspPureHint = document.getElementById('csp-pure-hint');
-    const hasPure = !!(career && career.csp_status && career.csp_status.pure);
-    if (cspPureHint) cspPureHint.classList.toggle('hidden', hasPure);
     openModal('modal-new-career');
     setTimeout(() => { if (nameInput) nameInput.focus(); }, 100);
 }
