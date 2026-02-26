@@ -9,6 +9,11 @@
 
 Current version: **1.17.3** (bump in `README.md` header on every release commit).
 
+**On every release, update ALL version references in README.md:**
+- Header line: `**Version:** x.y.z`
+- Download section: Linux AppImage filename + URL contain the version number — use `replace_all` to catch all occurrences
+- The Windows EXE URL uses `/latest/download/` so no version in the URL, only the label needs updating
+
 ## Project Overview
 
 AC Career GT Edition is a desktop app (pywebview + Flask) that adds a career mode to Assetto Corsa (AC). It runs a local Flask server on `http://127.0.0.1:5000` and displays the UI in a native Edge WebView2 window — no browser needed.
