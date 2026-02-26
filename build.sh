@@ -38,10 +38,15 @@ command -v "$APPIMAGETOOL" &>/dev/null || {
     exit 1
 }
 
-[ -f "venv/bin/python" ] || {
-    echo "  [ERROR] venv not found. Run 'bash start.sh' once to create it."
+# Use venv if available; fall back to system Python (CI environment)
+if [ -f "venv/bin/pyinstaller" ]; then
+    PYINSTALLER="venv/bin/pyinstaller"
+elif command -v pyinstaller &>/dev/null; then
+    PYINSTALLER="pyinstaller"
+else
+    echo "  [ERROR] pyinstaller not found. Run 'bash start.sh' or 'pip install pyinstaller'."
     exit 1
-}
+fi
 
 # --- 1. Clean old artifacts ---
 echo "  [1/5] Cleaning old build artifacts..."
@@ -50,7 +55,7 @@ rm -rf dist build AppDir "${APP_NAME}.spec"
 # --- 2. PyInstaller (onedir — AppImage wraps the directory) ---
 # NOTE: --add-data separator is ':' on Linux (not ';' like Windows)
 echo "  [2/5] Running PyInstaller..."
-venv/bin/pyinstaller \
+"$PYINSTALLER" \
     --onedir \
     --windowed \
     --name "$APP_NAME" \
