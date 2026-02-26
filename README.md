@@ -1,7 +1,7 @@
 # AC CAREER GT EDITION
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.14.2
+**Version:** 1.14.3
 **Platform:** Windows 10/11
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
@@ -131,6 +131,22 @@ For advanced changes, edit `config.json` while the app is **stopped**.
 }
 ```
 Career Wizard difficulty presets apply an offset: Rookie −10 (AI 85), Amateur −5 (AI 90), Pro ±0 (AI 95), Legend +5 (AI 100).
+
+---
+
+## MOD SUPPORT — CSP & PURE
+
+The app detects [Custom Shader Patch (CSP)](https://acstuff.ru/patch/) and [Pure Weather FX](https://www.patreon.com/peterboese) automatically. Install both via **Content Manager → Mods**. The Settings screen shows a green badge for each detected mod.
+
+| Feature | Base AC | + CSP Preview | + CSP & Pure |
+|---------|:-------:|:-------------:|:------------:|
+| Weather presets (grip simulation) | ✅ | ✅ | ✅ |
+| Rain & overcast visuals | ❌ | ✅ | ✅ |
+| Rain on windscreen & road reflections | ❌ | ✅ | ✅ ✨ |
+| Day / Night cycle during endurance races | ❌ | ✅ | ✅ |
+| Realistic sky, lighting & atmosphere | ❌ | ❌ | ✅ ✨ |
+
+> ✨ = visually enhanced by Pure Weather FX
 
 ---
 
