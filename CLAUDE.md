@@ -24,23 +24,24 @@ AC Career GT Edition is a desktop app (pywebview + Flask) that adds a career mod
 ## Architecture
 
 ```
-app.py                       # Flask server, REST API, AC launch logic, pywebview window
-career_manager.py            # Game logic: tiers, teams, contracts, race generation
-extract_gt_cars.py           # Utility: extracts GT car data from AC content folder
-templates/dashboard.html     # Single-page web UI (served by Flask)
-static/style.css             # Dark motorsport CSS theme
-static/app.js                # Frontend JS
-config.json                  # Master config (tracks, teams, difficulty, format)
-career_data.json             # Live save file (auto-created; not committed)
-platform_paths.py            # OS path helpers (Windows vs Linux Proton paths, GUI backend)
-build.bat                    # Windows: PyInstaller build → dist/AC_Career_GT_Edition.exe
-build.sh                     # Linux:   PyInstaller + appimagetool → AppImage
-start.bat                    # Windows dev launcher (activates venv and runs app.py)
-start.sh                     # Linux dev launcher (creates venv with Python 3.12)
-make_icon.py                 # Dev utility: generates static/logo.ico (run once, needs Pillow)
-static/logo.svg              # SVG logo — topbar + favicon in dashboard.html
-static/logo.ico              # Multi-res ICO (16–256px) — embedded in EXE via --icon
-docs/screenshots/            # README screenshots (dashboard, race_modal, standings_*)
+app.py                           # Flask server, REST API, AC launch logic, pywebview window
+career_manager.py                # Game logic: tiers, teams, contracts, race generation
+platform_paths.py                # OS path helpers (Windows vs Linux Proton, GUI backend)
+extract_gt_cars.py               # Utility: extracts GT car data from AC content folder
+templates/dashboard.html         # Single-page web UI (served by Flask)
+static/style.css                 # Dark motorsport CSS theme
+static/app.js                    # Frontend JS
+config.json                      # Master config (tracks, teams, difficulty, format)
+career_data.json                 # Live save file (auto-created; not committed)
+build.bat                        # Windows: PyInstaller --onefile → dist/AC_Career_GT_Edition.exe
+build.sh                         # Linux:   PyInstaller --onedir + appimagetool → AppImage
+start.bat                        # Windows dev launcher (activates venv and runs app.py)
+start.sh                         # Linux dev launcher (creates venv with Python 3.12)
+.github/workflows/release.yml   # CI: tag push → auto-build EXE + AppImage + GitHub release
+make_icon.py                     # Dev utility: generates static/logo.ico (run once, needs Pillow)
+static/logo.svg                  # SVG logo — topbar + favicon in dashboard.html
+static/logo.ico                  # Multi-res ICO (16–256px) — embedded in EXE via --icon
+docs/screenshots/                # README screenshots (dashboard, race_modal, standings_*)
 ```
 
 Note: `dashboard.html`, `style.css`, and `app.js` also exist as duplicates in the project root — not used by Flask. Flask reads from `templates/` and `static/` only.
@@ -65,29 +66,40 @@ Python, which calls `webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG
 ## Common Commands
 
 ```bash
-# Run the app (from project root, with venv active)
-python app.py
+# ── Dev (Windows) ─────────────────────────────────────────────────────────────
+start.bat                  # Create venv + run app (recommended)
+python app.py              # Run directly with venv active
 
-# Install dependencies
+# ── Dev (Linux) ───────────────────────────────────────────────────────────────
+bash start.sh              # Create venv + run app
+
+# ── Install dependencies ──────────────────────────────────────────────────────
 pip install -r requirements.txt
+pip install pythonnet --pre   # pythonnet needs --pre flag
 
-# Note: pythonnet must be installed with --pre flag
-pip install pythonnet --pre
+# ── Release (preferred — GitHub Actions) ─────────────────────────────────────
+git tag v1.17.0 && git push origin v1.17.0
+# → CI builds EXE (windows-latest) + AppImage (ubuntu-latest) + creates release
 
-# Create/activate venv
-python -m venv venv
-venv\Scripts\activate   # Windows
+# ── Manual build (Windows, fallback only) ────────────────────────────────────
+# Do NOT use build.bat directly in scripts (has `pause` → blocks shell)
+venv\Scripts\pyinstaller --onefile --windowed --name "AC_Career_GT_Edition" ^
+    --icon "static\logo.ico" --add-data "templates;templates" ^
+    --add-data "static;static" --add-data "config.json;." ^
+    --add-data "platform_paths.py;." --collect-all flask ^
+    --collect-all flask_cors --collect-all webview app.py
 
-# Build standalone EXE
-build.bat              # Runs PyInstaller, outputs dist/AC_Career_GT_Edition.exe (~13 MB)
+# ── Manual build (Linux, fallback only) ──────────────────────────────────────
+# Requires appimagetool in PATH or APPIMAGETOOL env var
+bash build.sh
 
-# Generate logo ICO (run once after cloning, needs Pillow)
-venv\Scripts\python.exe make_icon.py
+# ── Generate logo ICO (run once after cloning, needs Pillow) ─────────────────
+venv\Scripts\python.exe make_icon.py   # Windows
+venv/bin/python make_icon.py           # Linux
 
-# Take/update README screenshots (headless — no pywebview window needed)
-# 1. Start Flask without webview:
+# ── README screenshots (headless Flask, no pywebview needed) ─────────────────
 venv\Scripts\python.exe -c "import types,sys; sys.modules['webview']=types.ModuleType('webview'); from app import app; app.run(host='127.0.0.1',port=5000,debug=False,use_reloader=False)"
-# 2. In another terminal, run Playwright screenshot script (pip install playwright + playwright install chromium)
+# Then run Playwright script (pip install playwright && playwright install chromium)
 ```
 
 ## API Endpoints
@@ -304,6 +316,26 @@ Current screenshots: `dashboard.png`, `race_modal.png`, `standings_gt4.png`, `st
 
 **To update screenshots:** start Flask headless (see Common Commands), run the Playwright script, then commit `docs/screenshots/`.
 
+## platform_paths.py (v1.16.0)
+
+Central module for OS-specific path logic — import instead of hardcoding `~/Documents` anywhere.
+
+| Function | Returns |
+|----------|---------|
+| `is_linux()` | `True` on Linux |
+| `is_windows()` | `True` on Windows |
+| `get_ac_docs_path(subfolder)` | `~/Documents/Assetto Corsa/<sub>` on Windows; Proton compat-data path on Linux |
+| `get_default_ac_install_path()` | OS-appropriate AC install hint for the setup screen |
+| `get_webview_gui()` | `'edgechromium'` on Windows, `'gtk'` on Linux |
+
+**Proton path detection order:**
+1. `~/.steam/steam/steamapps/compatdata/244210/pfx/…`
+2. `~/.local/share/Steam/steamapps/compatdata/244210/pfx/…`
+3. Extra Steam libraries from `~/.steam/steam/steamapps/libraryfolders.vdf`
+4. Fallback to `~/.steam/steam/…` (may not exist until first AC launch — `os.makedirs` creates it)
+
+**Used by:** `app.py` (`results_dir`, `setup_status default_hint`, `webview.start gui=`) and `career_manager.py` (`_get_ac_docs_cfg`, `launch_ac_race`).
+
 ## Dependencies
 
 - `Flask==3.0.0` + `flask-cors==4.0.0` + `Werkzeug==3.0.0`
@@ -313,14 +345,35 @@ Current screenshots: `dashboard.png`, `race_modal.png`, `standings_gt4.png`, `st
 - `pyinstaller==6.19.0` (build only)
 - `Pillow>=10.0.0` (build only — needed to run `make_icon.py`; not required at runtime)
 
-## Windows-Specific Notes
+## Platform Notes
 
-- AC is launched via `subprocess` writing `race.ini` to `Documents\Assetto Corsa\cfg\`
-- AC writes race results to `Documents\Assetto Corsa\results\YYYY_MM_DD_HH_MM_SS.json`; `/api/read-race-result` scans for the newest file after `race_started_at`
+### Both platforms
 - AC install path must contain `acs.exe`
-- Default AC path: `C:\Program Files (x86)\Steam\steamapps\common\assettocorsa`
-- Port 5000 is the default; change in `app.py` if it conflicts
-- `start.bat` activates venv (creates with `py -3.12` if missing) and runs `app.py`
-- `build.bat` produces a single `dist/AC_Career_GT_Edition.exe` (~13 MB) using `--onefile`
-- pywebview uses Edge WebView2 (pre-installed on Win 10/11) — no browser bundled
+- `platform_paths.py` provides all OS-specific paths and the pywebview GUI backend
 - **Python 3.12 required**: pythonnet has no wheel for 3.13/3.14
+- Port 5000 is the default; change in `app.py` if it conflicts
+
+### Windows
+- pywebview uses Edge WebView2 (`gui='edgechromium'`) — pre-installed on Win 10/11, no browser bundled
+- AC launched via `subprocess.Popen(acs.exe)` — writes `race.ini` to `~/Documents/Assetto Corsa/cfg/`
+- AC results at `~/Documents/Assetto Corsa/results/YYYY_MM_DD_HH_MM_SS.json`
+- Default AC path: `C:\Program Files (x86)\Steam\steamapps\common\assettocorsa`
+- `start.bat` activates venv (creates with `py -3.12` if missing) and runs `app.py`
+- `build.bat` produces `dist/AC_Career_GT_Edition.exe` (~13 MB) using `--onefile`
+
+### Linux
+- pywebview uses GTK (`gui='gtk'`) — requires `libwebkit2gtk-4.0` or `libwebkit2gtk-4.1` on host
+- AC runs via Steam Proton; launched with `subprocess.Popen(['steam', '-applaunch', '244210'])`
+- AC config/results inside Proton compat-data: `~/.steam/steam/steamapps/compatdata/244210/pfx/drive_c/users/steamuser/Documents/Assetto Corsa/`
+- Also checked: `~/.local/share/Steam/` and extra libraries from `libraryfolders.vdf`
+- Default AC path: `~/.steam/steam/steamapps/common/assettocorsa`
+- `start.sh` creates venv with `python3.12` and runs `app.py`
+- `build.sh` produces AppImage via PyInstaller `--onedir` + `appimagetool`
+- `VERSION` env var overrides hardcoded version in `build.sh` (used by CI)
+
+### CI/CD — `.github/workflows/release.yml`
+- Trigger: `git tag vX.Y.Z && git push origin vX.Y.Z`
+- `build-windows` (windows-latest): PyInstaller → `AC_Career_GT_Edition.exe`
+- `build-linux` (ubuntu-latest): installs GTK libs + PyGObject, PyInstaller + appimagetool → `AC_Career_GT_Edition-X.Y.Z-x86_64.AppImage`
+- `release`: downloads both artifacts, creates GitHub release with both files attached
+- Uses `APPIMAGE_EXTRACT_AND_RUN=1` to run appimagetool without FUSE on CI runners
