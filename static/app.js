@@ -302,11 +302,11 @@ function renderStandings() {
             const primDr = (tierData.drivers || []).find(d => d.team === s.team && d.is_primary !== false);
             if (primDr) skinIdxForRow = primDr.skin_index || 0;
         }
-        const clickable = (!s.is_player && isDriverMode)
-            ? ' onclick="showDriverProfile(\'' + driverName + '\',\'' + (s.car || '') + '\',' + (s.skin_index || 0) + ')"'
-            : (!isDriverMode
-                ? ' onclick="showTeamProfile(\'' + teamName + '\',\'' + (s.car || '') + '\')"'
-                : '');
+        const clickable = s.is_player
+            ? ' onclick="showPlayerProfile()"'
+            : (isDriverMode
+                ? ' onclick="showDriverProfile(\'' + driverName + '\',\'' + (s.car || '') + '\',' + (s.skin_index || 0) + ')"'
+                : ' onclick="showTeamProfile(\'' + teamName + '\',\'' + (s.car || '') + '\')"');
         const liveryImg = s.car != null
             ? '<img class="livery-swatch" src="/api/livery-preview?car=' +
               encodeURIComponent(s.car) + '&index=' + skinIdxForRow +
@@ -556,17 +556,29 @@ async function showDriverProfile(name, car, skinIndex) {
             cur ? (cur.team || '') + (cur.car ? '  ·  ' + fmtCar(cur.car) : '') : '';
         document.getElementById('dp-style').textContent = p.style || '';
 
+        // Nickname — show only when present
+        const nickEl = document.getElementById('dp-nickname');
+        if (nickEl) {
+            if (p.nickname) {
+                nickEl.textContent = '"' + p.nickname + '"';
+                nickEl.classList.remove('hidden');
+            } else {
+                nickEl.classList.add('hidden');
+            }
+        }
+
         // Stat bars — reset width to 0 first so CSS transition plays
-        const skillBar = document.getElementById('dp-skill-bar');
-        const aggrBar  = document.getElementById('dp-aggr-bar');
-        skillBar.style.width = '0';
-        aggrBar.style.width  = '0';
-        requestAnimationFrame(() => {
-            skillBar.style.width = (p.skill || 0) + '%';
-            aggrBar.style.width  = (p.aggression || 0) + '%';
-        });
-        document.getElementById('dp-skill-val').textContent = p.skill || '–';
-        document.getElementById('dp-aggr-val').textContent  = p.aggression || '–';
+        function setDpBar(barId, valId, value) {
+            const bar = document.getElementById(barId);
+            const val = document.getElementById(valId);
+            if (bar) { bar.style.width = '0'; requestAnimationFrame(() => { bar.style.width = (value || 0) + '%'; }); }
+            if (val) val.textContent = value ?? '–';
+        }
+        setDpBar('dp-skill-bar',  'dp-skill-val',  p.skill);
+        setDpBar('dp-aggr-bar',   'dp-aggr-val',   p.aggression);
+        setDpBar('dp-wet-bar',    'dp-wet-val',    p.wet_skill);
+        setDpBar('dp-quali-bar',  'dp-quali-val',  p.quali_pace);
+        setDpBar('dp-cons-bar',   'dp-cons-val',   p.consistency);
 
         // Current season
         document.getElementById('dp-current').innerHTML = cur
@@ -605,6 +617,20 @@ function showTeamProfile(teamName, car) {
     document.getElementById('tm-name').textContent = teamName;
     document.getElementById('tm-car').textContent  = fmtCar(car);
 
+    // Team class badge (factory/semi/customer)
+    const badge = document.getElementById('tm-class-badge');
+    if (badge) {
+        const entry = drivers.find(d => d.team === teamName);
+        const cls   = entry && entry.tier_level ? entry.tier_level : '';
+        if (cls) {
+            badge.textContent = cls.toUpperCase();
+            badge.className   = 'team-class-badge badge-' + cls;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+
     const tmEl = document.getElementById('tm-drivers');
     if (teamDrivers.length) {
         tmEl.innerHTML = teamDrivers.map(d =>
@@ -619,6 +645,52 @@ function showTeamProfile(teamName, car) {
         tmEl.innerHTML = '<span style="color:var(--text-faint);font-size:.8rem">No driver data</span>';
     }
     openModal('modal-team');
+}
+
+async function showPlayerProfile() {
+    try {
+        const r    = await fetch('/api/player-profile');
+        const data = await r.json();
+
+        const livEl = document.getElementById('pp-livery');
+        if (livEl) {
+            if (data.car) {
+                livEl.src = '/api/livery-preview?car=' + encodeURIComponent(data.car) + '&index=0';
+                livEl.classList.remove('hidden');
+                livEl.onerror = () => livEl.classList.add('hidden');
+            } else {
+                livEl.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('pp-name').textContent = data.driver_name || 'Player';
+        document.getElementById('pp-team').textContent =
+            (data.team || '') + (data.car ? '  ·  ' + fmtCar(data.car) : '');
+        document.getElementById('pp-races').textContent = data.races ?? '–';
+        document.getElementById('pp-wins').textContent  = data.wins  ?? '–';
+        document.getElementById('pp-pods').textContent  = data.podiums ?? '–';
+        document.getElementById('pp-avg').textContent   = data.avg_finish ?? '–';
+
+        const hist      = data.history || [];
+        const histEl    = document.getElementById('pp-history');
+        const histLabel = document.getElementById('pp-history-label');
+        if (hist.length) {
+            histLabel.style.display = '';
+            histEl.innerHTML = hist.slice().reverse().map(s =>
+                '<div class="dp-history-row">' +
+                '<span>S' + s.season + ' ' + (TIER_LABELS[s.tier] || s.tier) + '</span>' +
+                '<span>P' + s.pos + ' · ' + s.pts + ' pts' + (s.pos === 1 ? ' 🏆' : '') + '</span>' +
+                '</div>'
+            ).join('');
+        } else {
+            histLabel.style.display = 'none';
+            histEl.innerHTML = '<span style="color:var(--text-faint);font-size:.75rem">No previous seasons yet</span>';
+        }
+
+        openModal('modal-player');
+    } catch (e) {
+        showToast('Could not load player profile', 'error');
+    }
 }
 
 // ── Career Wizard ───────────────────────────────────────────────────────────

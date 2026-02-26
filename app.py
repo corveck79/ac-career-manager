@@ -776,6 +776,12 @@ def driver_profile():
     name        = request.args.get('name', '')
     career_data = load_career_data()
     profile     = career.get_driver_profile(name)
+    # Add new extended fields from raw DRIVER_PROFILES
+    raw = career.DRIVER_PROFILES.get(name, {})
+    profile['wet_skill']   = raw.get('wet_skill', 60)
+    profile['quali_pace']  = raw.get('quali_pace', 70)
+    profile['consistency'] = raw.get('consistency', 75)
+    profile['nickname']    = raw.get('nickname', None)
     history     = career_data.get('driver_history', {}).get(name, {'seasons': []})
     # Find current standings entry for this driver across all tiers
     all_s         = career.generate_all_standings(career_data)
@@ -788,6 +794,27 @@ def driver_profile():
         if current_entry:
             break
     return jsonify({'name': name, 'profile': profile, 'current': current_entry, 'history': history})
+
+
+@app.route('/api/player-profile')
+def player_profile():
+    career_data = load_career_data()
+    results  = career_data.get('race_results', [])
+    wins     = sum(1 for r in results if r.get('position') == 1)
+    podiums  = sum(1 for r in results if r.get('position', 99) <= 3)
+    avg      = round(sum(r['position'] for r in results) / len(results), 1) if results else None
+    return jsonify({
+        'driver_name': career_data.get('driver_name', 'Player'),
+        'team':        career_data.get('team'),
+        'car':         career_data.get('car'),
+        'season':      career_data.get('season', 1),
+        'races':       len(results),
+        'wins':        wins,
+        'podiums':     podiums,
+        'avg_finish':  avg,
+        'points':      career_data.get('points', 0),
+        'history':     career_data.get('player_history', []),
+    })
 
 
 @app.route('/api/livery-preview')

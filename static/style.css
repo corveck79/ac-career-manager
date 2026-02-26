@@ -603,6 +603,22 @@ td.col-gap{text-align:right;color:var(--text-dim);font-size:.78rem}
 .dp-bar{height:100%;border-radius:3px;transition:width .5s ease;width:0}
 .dp-bar-skill{background:linear-gradient(90deg,var(--primary),var(--accent))}
 .dp-bar-aggr{background:linear-gradient(90deg,var(--accent),var(--danger))}
+.dp-bar-wet{background:linear-gradient(90deg,#2980b9,#74b9ff)}
+.dp-bar-quali{background:linear-gradient(90deg,#6c3483,#c39bd3)}
+.dp-bar-cons{background:linear-gradient(90deg,#1e8449,#58d68d)}
+/* Nickname line below archetype */
+.dp-nickname{font-size:.72rem;font-style:italic;color:var(--text-dim);margin:0 0 8px;text-align:center}
+/* Team class badge */
+.tm-name-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.team-class-badge{font-size:.58rem;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:3px;text-transform:uppercase;white-space:nowrap}
+.badge-factory{background:#F7B801;color:#000}
+.badge-semi{background:rgba(255,255,255,.18);color:var(--text)}
+.badge-customer{background:rgba(255,255,255,.07);color:var(--text-dim)}
+/* Player profile stats grid */
+.player-stats-grid{display:flex;gap:8px;margin:14px 0}
+.pstat{flex:1;text-align:center;background:rgba(255,255,255,.04);border-radius:6px;padding:10px 4px}
+.pstat-val{font-size:1.1rem;font-weight:700;color:var(--text)}
+.pstat-label{font-size:.58rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
 .dp-stat-val{font-size:.8rem;font-weight:700;font-family:var(--mono);color:var(--text);width:26px;text-align:right;flex-shrink:0}
 .dp-section-label{font-size:.58rem;text-transform:uppercase;letter-spacing:2px;color:var(--text-faint);margin:.85rem 0 .35rem}
 .dp-current{font-size:.9rem;font-weight:700;font-family:var(--mono);color:var(--text)}

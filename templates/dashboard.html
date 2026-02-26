@@ -418,6 +418,7 @@
       <button class="close-btn" onclick="closeModal('modal-driver')">&#10005;</button>
     </div>
     <div class="dp-style" id="dp-style"></div>
+    <div class="dp-nickname hidden" id="dp-nickname"></div>
     <div class="dp-stats">
       <div class="dp-stat-row">
         <span class="dp-stat-label">SKILL</span>
@@ -428,6 +429,21 @@
         <span class="dp-stat-label">AGGRESSION</span>
         <div class="dp-bar-wrap"><div class="dp-bar dp-bar-aggr" id="dp-aggr-bar"></div></div>
         <span class="dp-stat-val" id="dp-aggr-val"></span>
+      </div>
+      <div class="dp-stat-row">
+        <span class="dp-stat-label">WET SKILL</span>
+        <div class="dp-bar-wrap"><div class="dp-bar dp-bar-wet" id="dp-wet-bar"></div></div>
+        <span class="dp-stat-val" id="dp-wet-val"></span>
+      </div>
+      <div class="dp-stat-row">
+        <span class="dp-stat-label">QUALI PACE</span>
+        <div class="dp-bar-wrap"><div class="dp-bar dp-bar-quali" id="dp-quali-bar"></div></div>
+        <span class="dp-stat-val" id="dp-quali-val"></span>
+      </div>
+      <div class="dp-stat-row">
+        <span class="dp-stat-label">CONSISTENCY</span>
+        <div class="dp-bar-wrap"><div class="dp-bar dp-bar-cons" id="dp-cons-bar"></div></div>
+        <span class="dp-stat-val" id="dp-cons-val"></span>
       </div>
     </div>
     <div class="dp-section-label">THIS SEASON</div>
@@ -442,11 +458,35 @@
     <div class="modal-header">
       <div>
         <div class="modal-subtitle" id="tm-car"></div>
-        <h2 class="modal-title" id="tm-name"></h2>
+        <div class="tm-name-row">
+          <h2 class="modal-title" id="tm-name"></h2>
+          <span class="team-class-badge hidden" id="tm-class-badge"></span>
+        </div>
       </div>
       <button class="close-btn" onclick="closeModal('modal-team')">&#10005;</button>
     </div>
     <div id="tm-drivers" class="tm-drivers"></div>
+  </div>
+</div>
+<!-- Player profile modal -->
+<div id="modal-player" class="modal-overlay hidden">
+  <div class="modal-box modal-driver-box">
+    <img id="pp-livery" class="dp-livery hidden" alt="Livery preview">
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title" id="pp-name"></h2>
+        <div class="modal-subtitle" id="pp-team"></div>
+      </div>
+      <button class="close-btn" onclick="closeModal('modal-player')">&#10005;</button>
+    </div>
+    <div class="player-stats-grid">
+      <div class="pstat"><div class="pstat-val" id="pp-races"></div><div class="pstat-label">RACES</div></div>
+      <div class="pstat"><div class="pstat-val" id="pp-wins"></div><div class="pstat-label">WINS</div></div>
+      <div class="pstat"><div class="pstat-val" id="pp-pods"></div><div class="pstat-label">PODIUMS</div></div>
+      <div class="pstat"><div class="pstat-val" id="pp-avg"></div><div class="pstat-label">AVG FINISH</div></div>
+    </div>
+    <div class="dp-section-label" id="pp-history-label" style="display:none">CAREER</div>
+    <div class="dp-history" id="pp-history"></div>
   </div>
 </div>
 <!-- Setup overlay — shown when AC install path not set / invalid -->
