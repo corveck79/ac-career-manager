@@ -56,17 +56,21 @@ jobs:
       - name: Install GTK / WebKit dev libraries
         run: |
           sudo apt-get update -qq
-          # Ubuntu 24.04+ ships webkit2gtk 4.1; fall back to 4.0 on older runners
+          # Common deps
           sudo apt-get install -y \
-            libgirepository1.0-dev \
             libcairo2-dev \
             pkg-config \
-            python3-dev || true
+            python3-dev \
+            libgirepository1.0-dev
+          # webkit2gtk 4.1 on Ubuntu 24.04; fall back to 4.0 on older runners
           sudo apt-get install -y libwebkit2gtk-4.1-dev gir1.2-webkit2-4.1 || \
           sudo apt-get install -y libwebkit2gtk-4.0-dev gir1.2-webkit2-4.0
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt PyGObject
+        run: |
+          pip install -r requirements.txt
+          # Pin PyGObject to last version using gobject-introspection-1.0 (Ubuntu 24.04 compatible)
+          pip install "PyGObject==3.48.2"
 
       - name: Download appimagetool
         run: |
