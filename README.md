@@ -47,6 +47,9 @@ AC Career GT Edition adds a full career mode to Assetto Corsa. It runs in its ow
   <td width="50%"><img src="docs/screenshots/driver_card.png" alt="Driver Profile Card"></td>
   <td width="50%"><img src="docs/screenshots/team_modal.png" alt="Team Livery Modal"></td>
 </tr>
+<tr>
+  <td colspan="2"><img src="docs/screenshots/debrief.png" alt="Post-Race Debrief — sector analysis, lap sparkline, consistency score"></td>
+</tr>
 </table>
 
 ---

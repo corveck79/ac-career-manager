@@ -1031,7 +1031,7 @@ function renderDebrief(analysis, position) {
         lapsEl.innerHTML =
             '<div class="lap-bars">' + bars + '</div>' +
             '<div class="lap-sparkline-label">' +
-            laps.length + ' laps &nbsp;·&nbsp; best: ' + fmtMs(minLt) +
+            laps.length + ' laps &nbsp;·&nbsp; &#9650; taller = faster &nbsp;·&nbsp; best: ' + fmtMs(minLt) +
             ' &nbsp;·&nbsp; avg: ' + fmtMs(analysis.avg_lap_ms) +
             '</div>';
     } else if (lapsEl) {
