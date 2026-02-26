@@ -775,10 +775,10 @@ def preflight_check():
 def detect_csp(ac_path):
     """Return CSP / Pure installation status.
     CSP  detected → <AC>/extension/ folder exists
-    Pure detected → <AC>/extension/weather_fx/ folder exists
+    Pure detected → <AC>/extension/weather/pure/ folder exists
     """
     ext  = os.path.join(ac_path, 'extension')
-    pure = os.path.join(ac_path, 'extension', 'weather_fx')
+    pure = os.path.join(ac_path, 'extension', 'weather', 'pure')
     return {
         'csp':  os.path.isdir(ext),
         'pure': os.path.isdir(pure),
