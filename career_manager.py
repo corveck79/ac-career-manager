@@ -379,28 +379,44 @@ class CareerManager:
         rng = random.Random(seed)
         return 0.50 + rng.random() * 0.15
 
+    def _is_car_usable(self, car, ac_path):
+        """Return True if the car folder has data/ or data.acd (i.e. is not empty/missing)."""
+        if not car or not ac_path:
+            return True  # no AC path → don't filter; preflight will warn later
+        car_path = os.path.join(ac_path, 'content', 'cars', car)
+        return (
+            os.path.isdir(os.path.join(car_path, 'data')) or
+            os.path.isfile(os.path.join(car_path, 'data.acd'))
+        )
+
     def generate_standings(self, tier_info, career_data, tier_key=None):
         """Build driver championship standings.
 
         MX5 Cup is a single-driver series (1 entry per team).
         GT4 / GT3 / WEC have 2 championship drivers per team.
         Names are globally unique across all 4 tiers (season-seeded global shuffle).
+        Teams whose car folder is empty or missing are silently excluded.
         """
         races_done  = career_data.get('races_completed', 0)
         player_pts  = career_data.get('points', 0)
         player_team = career_data.get('team')
         season      = career_data.get('season', 1)
         tier_index  = career_data.get('tier', 0)
-        team_count  = len(tier_info['teams'])
 
         if tier_key is None:
             tier_key = self.tiers[tier_index]
+
+        # Filter teams whose car folder is empty / missing data
+        ac_path     = self.config.get('paths', {}).get('ac_install', '')
+        valid_teams = [t for t in tier_info['teams']
+                       if self._is_car_usable(t.get('car', ''), ac_path)]
+        team_count  = len(valid_teams)
 
         dpt    = self.DRIVERS_PER_TEAM.get(tier_key, 1)   # drivers per team
         offset = self.TIER_SLOT_OFFSET.get(tier_key, 0)   # global slot start
 
         entries = []
-        for i, team in enumerate(tier_info['teams']):
+        for i, team in enumerate(valid_teams):
             is_player_team = (team['name'] == player_team)
             slot1 = offset + i * dpt
 
