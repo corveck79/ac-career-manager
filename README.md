@@ -273,10 +273,21 @@ P1: 25 · P2: 18 · P3: 15 · P4: 12 · P5: 10 · P6: 8 · P7: 6 · P8: 4 · P9:
 
 ## SYSTEM REQUIREMENTS
 
+### Windows
 - Windows 10/11
-- Python **3.12** (install from python.org)
+- Python **3.12** (install from python.org) — only needed for dev/source runs; the EXE is standalone
 - Assetto Corsa (Steam)
 - All required base game DLC cars
+
+### Linux
+- Ubuntu 22.04+ / Fedora 38+ / Arch (or equivalent)
+- Assetto Corsa installed via **Steam + Proton**
+- GTK WebView runtime (required by the app window):
+  - Ubuntu/Debian: `sudo apt install gir1.2-webkit2-4.0 python3-gi`
+  - Fedora: `sudo dnf install webkit2gtk3`
+  - Arch/Manjaro: `sudo pacman -S webkit2gtk`
+- Python **3.12** (only needed for dev/source runs; the AppImage is standalone)
+- Steam must be running before clicking **START RACE** (AC is launched via `steam -applaunch 244210`)
 
 ---
 
