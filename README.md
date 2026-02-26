@@ -1,7 +1,7 @@
 # AC CAREER GT EDITION
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.14.4
+**Version:** 1.14.5
 **Platform:** Windows 10/11
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
@@ -49,7 +49,7 @@ AC Career GT Edition adds a full career mode to Assetto Corsa. It runs in its ow
 
 ## DOWNLOAD
 
-**[⬇ Download AC_Career_GT_Edition.exe (v1.14.4)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition.exe)**
+**[⬇ Download AC_Career_GT_Edition.exe (v1.14.5)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition.exe)**
 
 - Windows 10/11 only
 - No Python installation needed
