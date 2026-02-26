@@ -294,12 +294,27 @@ function renderStandings() {
             : (s.driver2 ? s.driver + ' / ' + s.driver2 : (s.driver || ''));
         const star      = s.is_player ? '★ ' : '';
         const rivalBadge = isRival ? '⚔ ' : '';
-        const clickable = (!s.is_player && champMode === 'drivers')
-            ? ' onclick="showDriverProfile(\'' + (s.driver || '').replace(/'/g, "\\'") + '\')"'
+        const driverName = (s.driver || '').replace(/'/g, "\\'");
+        const teamName   = (s.team  || '').replace(/'/g, "\\'");
+        // For teams mode: look up primary driver's skin_index from driver standings
+        let skinIdxForRow = s.skin_index || 0;
+        if (!isDriverMode && s.car) {
+            const primDr = (tierData.drivers || []).find(d => d.team === s.team && d.is_primary !== false);
+            if (primDr) skinIdxForRow = primDr.skin_index || 0;
+        }
+        const clickable = (!s.is_player && isDriverMode)
+            ? ' onclick="showDriverProfile(\'' + driverName + '\',\'' + (s.car || '') + '\',' + (s.skin_index || 0) + ')"'
+            : (!isDriverMode
+                ? ' onclick="showTeamProfile(\'' + teamName + '\',\'' + (s.car || '') + '\')"'
+                : '');
+        const liveryImg = s.car != null
+            ? '<img class="livery-swatch" src="/api/livery-preview?car=' +
+              encodeURIComponent(s.car) + '&index=' + skinIdxForRow +
+              '" onerror="this.style.display=\'none\'" alt="">'
             : '';
         return (
             '<tr class="' + rowClass + '"' + clickable + '>' +
-            '<td class="col-pos ' + posClass + '">' + s.position + '</td>' +
+            '<td class="col-pos ' + posClass + '">' + liveryImg + s.position + '</td>' +
             '<td class="col-name">' + star + rivalBadge + main +
               (sub ? '<div class="sub-name">' + sub + '</div>' : '') +
             '</td>' +
@@ -511,8 +526,18 @@ function nationalityFlag(code) { return NATIONALITY_FLAGS[code] || '🏁'; }
 
 const TIER_LABELS = {mx5_cup:'MX5 Cup', gt4:'GT4', gt3:'GT3', wec:'WEC'};
 
-async function showDriverProfile(name) {
+async function showDriverProfile(name, car, skinIndex) {
     try {
+        const liveryEl = document.getElementById('dp-livery');
+        if (liveryEl) {
+            if (car) {
+                liveryEl.src = '/api/livery-preview?car=' + encodeURIComponent(car) + '&index=' + (skinIndex || 0);
+                liveryEl.classList.remove('hidden');
+                liveryEl.onerror = () => liveryEl.classList.add('hidden');
+            } else {
+                liveryEl.classList.add('hidden');
+            }
+        }
         const r    = await fetch('/api/driver-profile?name=' + encodeURIComponent(name));
         const data = await r.json();
         const p    = data.profile  || {};
@@ -565,6 +590,30 @@ async function showDriverProfile(name) {
     } catch (e) {
         showToast('Could not load driver profile', 'error');
     }
+}
+
+function showTeamProfile(teamName, car) {
+    const tierK      = tierKey(standingsTier);
+    const drivers    = (allStandings[tierK] || {}).drivers || [];
+    const teamDrivers = drivers.filter(d => d.team === teamName);
+
+    document.getElementById('tm-name').textContent = teamName;
+    document.getElementById('tm-car').textContent  = fmtCar(car);
+
+    const tmEl = document.getElementById('tm-drivers');
+    if (teamDrivers.length) {
+        tmEl.innerHTML = teamDrivers.map(d =>
+            '<div class="tm-driver-card">' +
+            '<img class="tm-livery" src="/api/livery-preview?car=' + encodeURIComponent(car) +
+            '&index=' + (d.skin_index || 0) + '" onerror="this.style.display=\'none\'" alt="">' +
+            '<div class="tm-driver-name">' + (d.driver || '') + (d.is_player ? ' ★' : '') + '</div>' +
+            '<div class="tm-driver-pts">P' + d.position + ' &nbsp;·&nbsp; ' + d.points + ' pts</div>' +
+            '</div>'
+        ).join('');
+    } else {
+        tmEl.innerHTML = '<span style="color:var(--text-faint);font-size:.8rem">No driver data</span>';
+    }
+    openModal('modal-team');
 }
 
 // ── Career Wizard ───────────────────────────────────────────────────────────

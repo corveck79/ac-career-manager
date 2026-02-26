@@ -3,7 +3,7 @@ AC Career Manager - Flask Backend
 Main application entry point
 """
 
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_file, abort
 from flask_cors import CORS
 import json
 import os
@@ -746,6 +746,29 @@ def driver_profile():
         if current_entry:
             break
     return jsonify({'name': name, 'profile': profile, 'current': current_entry, 'history': history})
+
+
+@app.route('/api/livery-preview')
+def livery_preview():
+    car   = request.args.get('car', '')
+    index = int(request.args.get('index', 0))
+    cfg     = load_config()
+    ac_path = cfg.get('paths', {}).get('ac_install', '')
+    if not car or not ac_path:
+        abort(404)
+    skins_dir = os.path.join(ac_path, 'content', 'cars', car, 'skins')
+    try:
+        skins = sorted(os.listdir(skins_dir))
+        if not skins:
+            abort(404)
+        skin = skins[index % len(skins)]
+        for fname in ('preview.jpg', 'preview.png'):
+            preview = os.path.join(skins_dir, skin, fname)
+            if os.path.isfile(preview):
+                return send_file(preview)
+        abort(404)
+    except Exception:
+        abort(404)
 
 
 @app.route('/api/config', methods=['GET'])

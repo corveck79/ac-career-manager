@@ -463,9 +463,15 @@ class CareerManager:
 
         entries.sort(key=lambda x: x['points'], reverse=True)
         leader = entries[0]['points'] if entries else 0
+        ai_skin = 1
         for i, s in enumerate(entries):
             s['position'] = i + 1
             s['gap']      = leader - s['points']
+            if s['is_player']:
+                s['skin_index'] = 0
+            else:
+                s['skin_index'] = ai_skin
+                ai_skin += 1
 
         return entries
 

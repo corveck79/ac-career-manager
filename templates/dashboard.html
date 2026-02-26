@@ -404,6 +404,7 @@
 <!-- Driver profile modal -->
 <div id="modal-driver" class="modal-overlay hidden">
   <div class="modal-box modal-driver-box">
+    <img id="dp-livery" class="dp-livery hidden" alt="Livery preview">
     <div class="modal-header">
       <div>
         <span class="driver-nationality" id="dp-nationality"></span>
@@ -429,6 +430,19 @@
     <div class="dp-current" id="dp-current"></div>
     <div class="dp-section-label" id="dp-history-label" style="display:none">CAREER</div>
     <div class="dp-history" id="dp-history"></div>
+  </div>
+</div>
+<!-- Team profile modal -->
+<div id="modal-team" class="modal-overlay hidden">
+  <div class="modal-box modal-team-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-subtitle" id="tm-car"></div>
+        <h2 class="modal-title" id="tm-name"></h2>
+      </div>
+      <button class="close-btn" onclick="closeModal('modal-team')">&#10005;</button>
+    </div>
+    <div id="tm-drivers" class="tm-drivers"></div>
   </div>
 </div>
 <!-- Setup overlay — shown when AC install path not set / invalid -->
