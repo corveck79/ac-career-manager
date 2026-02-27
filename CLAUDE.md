@@ -252,7 +252,10 @@ button ("Import Result Manually") stays for edge cases.
 - `startResultPolling()` — auto-polls every 5 s after race launch; stops on result or navigation away
 - `renderDebrief(analysis, position)` — fills `#debrief-panel` with consistency badge, report text,
   lap sparkline, sector grid (S1/S2/S3 best+avg, weakest highlighted), and meta row (gap/tyre/cuts)
-- Debrief panel is reset in `confirmStartRace()` reset block
+- **Note:** `#debrief-panel` starts with class `hidden` in HTML and `renderDebrief` never removes it.
+  The panel becomes visible in normal app flow because `fetchRaceResult()` also shows `#result-found`.
+  For headless/test scenarios, manually call `panel.classList.remove('hidden')` before `renderDebrief`.
+- Debrief panel is reset (re-hidden) in `confirmStartRace()` reset block
 
 ## Career History (v1.7.0)
 
