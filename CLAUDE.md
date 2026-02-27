@@ -46,7 +46,8 @@ start.sh                         # Linux dev launcher (creates venv with Python 
 make_icon.py                     # Dev utility: generates static/logo.ico (run once, needs Pillow)
 static/logo.svg                  # SVG logo — topbar + favicon in dashboard.html
 static/logo.ico                  # Multi-res ICO (16–256px) — embedded in EXE via --icon
-docs/screenshots/                # README screenshots (dashboard, race_modal, standings_*)
+docs/screenshots/                # README screenshots — 8 files: wizard, career_running, season_end, settings, driver_card, team_modal, player_card, debrief
+take_screenshots.py              # Playwright script — takes all 8 screenshots headlessly (run with venv/Scripts/python.exe)
 ```
 
 Note: `dashboard.html`, `style.css`, and `app.js` also exist as duplicates in the project root — not used by Flask. Flask reads from `templates/` and `static/` only.
@@ -83,7 +84,7 @@ pip install -r requirements.txt
 pip install pythonnet --pre   # pythonnet needs --pre flag
 
 # ── Release (preferred — GitHub Actions) ─────────────────────────────────────
-git tag v1.17.0 && git push origin v1.17.0
+git tag v1.18.1 && git push origin v1.18.1
 # → CI builds EXE (windows-latest) + AppImage (ubuntu-latest) + creates release
 
 # ── Manual build (Windows, fallback only) ────────────────────────────────────
@@ -125,7 +126,8 @@ venv\Scripts\python.exe -c "import types,sys; sys.modules['webview']=types.Modul
 | POST | `/api/accept-contract` | Accept a contract offer; reads `target_tier` + `move` from contract → real promotion/stay/relegation |
 | POST | `/api/new-career` | Reset and start fresh; body `{driver_name, difficulty, weather_mode, custom_tracks}` |
 | GET/POST | `/api/config` | Read or update config |
-| GET | `/api/driver-profile` | Driver profile: `?name=<driver>` → `{name, profile, current, history}` |
+| GET | `/api/driver-profile` | Driver profile: `?name=<driver>` → `{name, profile{nationality,skill,aggression,wet_skill,quali_pace,consistency,nickname,style}, current, history}` |
+| GET | `/api/player-profile` | Player career card: `{name, team, car, stats:{races,wins,podiums,avg_finish}, history:[...]}` |
 | GET | `/api/preflight-check` | Validate track & car exist: `?track=<id>&car=<id>` → `{ok, issues:[{type,msg}]}` |
 | GET | `/api/scan-content` | Scan AC content folder → `{cars:{gt4:[],gt3:[]}, tracks:[{id,name,length}]}` |
 | POST | `/api/career-settings` | Patch career_settings in career_data.json; body `{dynamic_weather: bool, night_cycle: bool}` |
@@ -164,20 +166,24 @@ F1-standard: 25-18-15-12-10-8-6-4-2-1. Fastest lap bonus removed.
 - `generate_all_standings()`: returns `{tier_key: {drivers:[...], teams:[...]}}` for all 4 tiers
 - `_get_car_skin(car, ac_path, index=0)`: index-based skin picker; player gets 0, AI cars get 1,2,3…
 
-## Driver Profiles & Personalities (v1.7.0, career_manager.py)
+## Driver Profiles & Personalities (v1.7.0 → v1.18.0, career_manager.py)
 
 - `DRIVER_PROFILES`: class-level dict — 120 entries matching `DRIVER_NAMES` exactly
-  - Each entry: `{"nationality": "GBR", "skill": 80, "aggression": 50}`
-  - `skill` range: 70–95 → maps to `AI_LEVEL` offset in race.ini (`skill_offset = int((skill-80)*0.2)`)
-  - `aggression` range: 0–100 → maps directly to `AI_AGGRESSION` in race.ini
-- `_get_style(skill, aggression)` → archetype string:
-  - skill≥85 + aggr≥60 = **"The Charger"**
-  - skill≥85 + aggr<60 = **"The Tactician"**
-  - skill<85 + aggr≥60 = **"The Wildcard"**
-  - else = **"The Journeyman"**
-- `get_driver_profile(name)` → `{nationality, skill, aggression, style}` (fallback: GBR/80/40)
-- `_generate_opponent_field()` stores `driver_name` + `global_slot` per opponent
-- `_write_race_config()` uses per-driver `AI_LEVEL` + `AI_AGGRESSION` (no longer global/hardcoded 0)
+  - Each entry: `{"nationality":"GBR","skill":80,"aggression":50,"wet_skill":60,"quali_pace":70,"consistency":75,"nickname":null}`
+  - `skill` (70–95) → `AI_LEVEL` offset: `skill_offset = int((skill-80)*0.2)`
+  - `aggression` (0–100) → `AI_AGGRESSION` in race.ini
+  - `wet_skill` (0–100) → `wet_adj = round((wet_skill-50)*0.06)` — applied only on WET_PRESETS weather (max ±3 pts)
+  - `consistency` (0–100) → per-driver variance: `driver_variance = base_variance * (1+(50-consistency)/50)`; low consistency also bumps aggression
+  - `quali_pace` (0–100) → display-only on driver card; NOT applied to AI (AC uses same level for all sessions)
+  - `nickname` (str|None) → ~37 drivers have paddock nicknames (e.g. "Apex Predator", "Clockwork", "Rain King"); shown on driver card only when not None
+- `WET_PRESETS` = `{'rainy','heavy_rain','wet','light_rain','drizzle','stormy','overcast_wet'}`
+- `TEAM_BALLAST` = `{"factory":0, "semi":10, "customer":20}` — applied per car in race.ini
+- `_get_style(skill, aggression)` → archetype string (INTERNAL ONLY — not displayed in UI since v1.18.1):
+  - skill≥85 + aggr≥60 = **"The Charger"** · skill≥85 + aggr<60 = **"The Tactician"**
+  - skill<85 + aggr≥60 = **"The Wildcard"** · else = **"The Journeyman"**
+- `get_driver_profile(name)` → `{nationality, skill, aggression, wet_skill, quali_pace, consistency, nickname, style}`
+- `_generate_opponent_field()` stores `driver_name` + `global_slot` + `tier` per opponent
+- `_write_race_config()` uses per-driver AI_LEVEL, AI_AGGRESSION, wet_adj, consistency variance, and team ballast
 - standings↔race name sync: both use `_get_driver_name(global_slot, season)` — names now match
 
 ## Contracts & Promotion/Relegation (v1.8.0)
@@ -314,24 +320,47 @@ bottom-left triangle, white "AC" bold text, gold underline.
 
 ## Screenshots (docs/screenshots/)
 
-Taken headlessly with Playwright (chromium). Flask runs without pywebview, Playwright renders at 1440×920.
+Taken headlessly with Playwright (chromium) via `take_screenshots.py` in the project root.
+Flask runs without pywebview, Playwright renders at 1440×920.
 
-```python
-# Pattern used to take screenshots:
-from playwright.sync_api import sync_playwright
-with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
-    page = browser.new_context(viewport={'width':1440,'height':920}).new_page()
-    page.goto('http://127.0.0.1:5000', wait_until='networkidle')
-    page.screenshot(path='docs/screenshots/dashboard.png')
-    page.evaluate("switchStandingsTier(1)")   # GT4 tab
-    page.screenshot(path='docs/screenshots/standings_gt4.png')
-    browser.close()
+```bash
+# Update all 8 screenshots in one command:
+venv/Scripts/python.exe take_screenshots.py
+# Mocks pywebview, starts Flask on port 5000, writes demo career_data.json,
+# takes all 8 shots, then restores original career_data.json automatically.
 ```
 
-Current screenshots: `dashboard.png`, `race_modal.png`, `standings_gt4.png`, `standings_wec.png`, `standings_teams.png`
+**Current 8 screenshots (README table: 4×2 grid):**
 
-**To update screenshots:** start Flask headless (see Common Commands), run the Playwright script, then commit `docs/screenshots/`.
+| File | Content |
+|------|---------|
+| `wizard.png` | New Career wizard modal (page 1) |
+| `career_running.png` | Main dashboard — James Hunt, Ferrari GT3 Team, Season 3 |
+| `season_end.png` | Season Complete + 3 contract offers (Factory/Semi/Customer) |
+| `settings.png` | Settings / config panel |
+| `driver_card.png` | Driver profile modal — 5 bars: Skill, Aggression, Wet Skill, Quali Pace, Consistency |
+| `team_modal.png` | Team modal — Porsche Factory with [FACTORY] gold badge + 2 car liveries |
+| `player_card.png` | Player career card — wins/podiums/avg finish stats (new in v1.18.0) |
+| `debrief.png` | Post-race debrief — sector grid, sparkline, consistency 91/100 |
+
+**Key JS functions used in take_screenshots.py:**
+- `openModal('modal-new-career')` + `showWizardPage(1)` — wizard
+- `switchStandingsTier(2)` + `switchChampMode('teams')` — GT3 teams view
+- `showDriverProfile(name, car, skinIndex)` — driver card
+- `showTeamProfile(name, car)` — team modal (use real name from `allStandings['gt3'].teams[0].team`)
+- `showPlayerProfile()` — player card
+- `renderContracts([{id,team_name,tier_level,tier_name,car,description}])` + `showView('contracts')` — contracts
+- **Debrief**: must manually `classList.remove('hidden')` on `debrief-panel`, `debrief-sectors`, `debrief-meta` BEFORE calling `renderDebrief(analysis, position)` — renderDebrief never unhides the panel itself
+
+**CRITICAL: gh release edit — always use --notes-file, never --notes with backticks:**
+```bash
+cat > /tmp/notes.md << 'NOTESEOF'
+## What's new
+- `code with backticks` is safe here
+NOTESEOF
+gh release edit vX.Y.Z --title "..." --notes-file /tmp/notes.md
+# Backticks inside --notes "..." are executed by bash → content gets replaced with command output
+```
 
 ## platform_paths.py (v1.16.0)
 
