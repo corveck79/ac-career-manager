@@ -70,6 +70,15 @@ function tierName(index) {
     const t = config.tiers[tierKey(index)];
     return t ? t.name : 'MX5 Cup';
 }
+function escHtml(v) {
+    return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 
 // ── Init ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -292,6 +301,8 @@ function renderStandings() {
         const sub   = isDriverMode
             ? s.team
             : (s.driver2 ? s.driver + ' / ' + s.driver2 : (s.driver || ''));
+        const mainSafe = escHtml(main);
+        const subSafe  = escHtml(sub);
         const star      = s.is_player ? '★ ' : '';
         const rivalBadge = isRival ? '⚔ ' : '';
         const driverName = (s.driver || '').replace(/'/g, "\\'");
@@ -315,8 +326,8 @@ function renderStandings() {
         return (
             '<tr class="' + rowClass + '"' + clickable + '>' +
             '<td class="col-pos ' + posClass + '">' + liveryImg + s.position + '</td>' +
-            '<td class="col-name">' + star + rivalBadge + main +
-              (sub ? '<div class="sub-name">' + sub + '</div>' : '') +
+            '<td class="col-name">' + star + rivalBadge + mainSafe +
+              (sub ? '<div class="sub-name">' + subSafe + '</div>' : '') +
             '</td>' +
             '<td class="col-pts">' + s.points + '</td>' +
             '<td class="col-gap">' + gap + '</td>' +
@@ -950,6 +961,30 @@ function rdItem(label, value) {
 let _resultPollTimer  = null;
 const POLL_INTERVAL_MS  = 5000;   // check every 5 s
 const POLL_MAX_ATTEMPTS = 360;    // give up after 30 min
+function resumeResultCheckOnReturn() {
+    if (document.hidden) return;
+    const resultView = document.getElementById('view-result');
+    if (!resultView || resultView.style.display === 'none') return;
+    if (_resultPollTimer) return;
+
+    const autoEl   = document.getElementById('result-auto');
+    const foundEl  = document.getElementById('result-found');
+    const manualEl = document.getElementById('result-manual');
+    if (!autoEl || !foundEl || !manualEl) return;
+
+    const waitingForAutoResult =
+        autoEl.style.display !== 'none' &&
+        foundEl.classList.contains('hidden') &&
+        manualEl.classList.contains('hidden');
+
+    if (waitingForAutoResult) {
+        fetchRaceResult();
+        startResultPolling();
+    }
+}
+
+document.addEventListener('visibilitychange', resumeResultCheckOnReturn);
+window.addEventListener('focus', resumeResultCheckOnReturn);
 
 function startResultPolling() {
     if (_resultPollTimer) clearInterval(_resultPollTimer);
@@ -1253,11 +1288,11 @@ function renderContracts(contracts) {
 
     el.innerHTML = banner + contracts.map(c =>
         '<div class="contract-card' + (c.degradation_risk ? ' contract-deg' : '') + '">' +
-        '<div class="contract-team">'     + c.team_name   + '</div>' +
-        '<div class="contract-tier-lbl">' + (c.tier_level || '') + ' · ' + (c.tier_name || '') + '</div>' +
-        '<div class="contract-car-lbl">'  + fmtCar(c.car) + '</div>' +
-        '<p class="contract-desc">'       + (c.description || '') + '</p>' +
-        '<button class="btn btn-race" onclick="acceptContract(\'' + c.id + '\')">Sign Contract</button>' +
+        '<div class="contract-team">'     + escHtml(c.team_name) + '</div>' +
+        '<div class="contract-tier-lbl">' + escHtml(c.tier_level || '') + ' · ' + escHtml(c.tier_name || '') + '</div>' +
+        '<div class="contract-car-lbl">'  + escHtml(fmtCar(c.car)) + '</div>' +
+        '<p class="contract-desc">'       + escHtml(c.description || '') + '</p>' +
+        '<button class="btn btn-race" onclick=\'acceptContract(' + JSON.stringify(String(c.id || '')) + ')\'>Sign Contract</button>' +
         '</div>'
     ).join('');
 }

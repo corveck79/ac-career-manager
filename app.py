@@ -11,6 +11,7 @@ import sys
 import statistics
 import threading
 from datetime import datetime
+from urllib.parse import urlsplit
 
 from career_manager import CareerManager
 from platform_paths import get_ac_docs_path, get_default_ac_install_path, get_webview_gui
@@ -49,7 +50,8 @@ ensure_config()
 # ---------------------------------------------------------------------------
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
-CORS(app)
+ALLOWED_WEB_ORIGINS = {'http://127.0.0.1:5000', 'http://localhost:5000'}
+CORS(app, resources={r'/api/*': {'origins': list(ALLOWED_WEB_ORIGINS)}})
 
 TRACK_NAMES = {
     'ks_silverstone/national':         'Silverstone National',
@@ -66,6 +68,35 @@ TRACK_NAMES = {
     'mugello':                         'Mugello',
     'imola':                           'Imola',
 }
+
+def _is_allowed_web_origin(value):
+    """Allow only local UI origins for API write requests."""
+    if not value:
+        return False
+    try:
+        parsed = urlsplit(value)
+    except Exception:
+        return False
+    if parsed.scheme != 'http':
+        return False
+    return f'http://{parsed.netloc}' in ALLOWED_WEB_ORIGINS
+
+
+@app.before_request
+def guard_api_write_origin():
+    """Block cross-site write requests against localhost API."""
+    if request.method not in {'POST', 'PUT', 'PATCH', 'DELETE'}:
+        return None
+    if not request.path.startswith('/api/'):
+        return None
+
+    origin = request.headers.get('Origin')
+    referer = request.headers.get('Referer')
+    if origin and not _is_allowed_web_origin(origin):
+        return jsonify({'status': 'error', 'message': 'Forbidden origin'}), 403
+    if not origin and referer and not _is_allowed_web_origin(referer):
+        return jsonify({'status': 'error', 'message': 'Forbidden referer'}), 403
+    return None
 
 # ---------------------------------------------------------------------------
 # Data helpers
@@ -87,6 +118,14 @@ def save_career_data(data):
     with open(DATA_PATH, 'w') as f:
         json.dump(data, f, indent=2)
 
+
+
+def _require_json_object():
+    """Return parsed JSON object or a 400 response tuple."""
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return None, (jsonify({'status': 'error', 'message': 'Invalid JSON body'}), 400)
+    return data, None
 
 def _default_career():
     return {
@@ -230,7 +269,9 @@ def setup_status():
 
 @app.route('/api/save-ac-path', methods=['POST'])
 def save_ac_path():
-    data    = request.json
+    data, err = _require_json_object()
+    if err:
+        return err
     path    = data.get('path', '').strip()
     if not os.path.exists(os.path.join(path, 'acs.exe')):
         return jsonify({'status': 'error', 'message': 'acs.exe niet gevonden in die map'}), 400
@@ -353,7 +394,10 @@ def start_race():
     if ai_offset:
         race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
     race['driver_name'] = career_data.get('driver_name', 'Player')
-    mode    = (request.json or {}).get('mode', 'race_only')
+    data, err = _require_json_object()
+    if err:
+        return err
+    mode    = data.get('mode', 'race_only')
     success = career.launch_ac_race(race, cfg, mode=mode)
     if success:
         career_data['race_started_at'] = datetime.now().isoformat()
@@ -373,7 +417,12 @@ def read_race_result():
     if not race_started_at:
         return jsonify({'status': 'not_found', 'message': 'No race started'})
 
-    start_time = datetime.fromisoformat(race_started_at)
+    try:
+        # File mtimes may have second precision; normalize to avoid missing
+        # results created in the same second as race start.
+        start_time = datetime.fromisoformat(race_started_at).replace(microsecond=0)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid race start timestamp'})
 
     tier_info     = career.get_tier_info(career_data['tier'])
     expected_laps = tier_info.get('race_format', {}).get('laps', 20)
@@ -388,36 +437,46 @@ def read_race_result():
             continue
         fpath = os.path.join(results_dir, fname)
         mtime = datetime.fromtimestamp(os.path.getmtime(fpath))
-        if mtime > start_time:
+        if mtime >= start_time:
             candidates.append((mtime, fpath))
 
     if not candidates:
         return jsonify({'status': 'not_found', 'message': 'No result file found yet'})
 
     candidates.sort(key=lambda x: x[0], reverse=True)
-    result_file = candidates[0][1]
-
-    try:
-        with open(result_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
-
-    if data.get('Type', '').upper() != 'RACE':
-        return jsonify({'status': 'not_found', 'message': 'Latest result is not a race session'})
-
-    results = data.get('Result', [])
-
-    player_result   = None
+    data = None
+    results = []
+    player_result = None
     player_position = None
-    for i, r in enumerate(results):
-        if r.get('DriverName', '').lower() == driver_name.lower():
-            player_result   = r
-            player_position = i + 1
+    race_seen = False
+
+    # Walk recent files newest -> oldest and pick the first race result
+    # that actually contains the active player.
+    for _, result_file in candidates:
+        try:
+            with open(result_file, 'r', encoding='utf-8') as f:
+                candidate_data = json.load(f)
+        except Exception:
+            continue
+
+        if candidate_data.get('Type', '').upper() != 'RACE':
+            continue
+
+        race_seen = True
+        candidate_results = candidate_data.get('Result', [])
+        for i, r in enumerate(candidate_results):
+            if r.get('DriverName', '').lower() == driver_name.lower():
+                data = candidate_data
+                results = candidate_results
+                player_result = r
+                player_position = i + 1
+                break
+        if player_result is not None:
             break
 
     if player_result is None:
-        return jsonify({'status': 'not_found', 'message': 'Driver not found in results'})
+        msg = 'Driver not found in results' if race_seen else 'No race session result found yet'
+        return jsonify({'status': 'not_found', 'message': msg})
 
     laps_completed = player_result.get('Laps', 0)
     total_time     = player_result.get('TotalTime', 0)
@@ -517,9 +576,16 @@ def read_race_result():
 
 @app.route('/api/finish-race', methods=['POST'])
 def finish_race():
-    data        = request.json
+    data, err = _require_json_object()
+    if err:
+        return err
     career_data = load_career_data()
-    position    = data.get('position', 1)
+    try:
+        position = int(data.get('position', 1))
+    except (TypeError, ValueError):
+        return jsonify({'status': 'error', 'message': 'Invalid position'}), 400
+    if position < 1:
+        return jsonify({'status': 'error', 'message': 'Position must be >= 1'}), 400
     pts_table   = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
     pts         = pts_table[min(position - 1, 9)] if position <= 10 else 0
     result = {
@@ -532,7 +598,7 @@ def finish_race():
     career_data['points']          += pts
     career_data['race_results'].append(result)
     save_career_data(career_data)
-    if career_data['races_completed'] >= career.get_tier_races():
+    if career_data['races_completed'] >= career.get_tier_races(career_data):
         return _do_end_season()
     return jsonify({'status': 'success', 'result': result, 'total_points': career_data['points']})
 
@@ -599,10 +665,13 @@ def _do_end_season():
 
 @app.route('/api/accept-contract', methods=['POST'])
 def accept_contract():
-    data        = request.json
+    data, err = _require_json_object()
+    if err:
+        return err
     career_data = load_career_data()
     contract_id = data.get('contract_id')
-    selected    = next((c for c in career_data['contracts'] if c.get('id') == contract_id), None)
+    contracts = career_data.get('contracts') or []
+    selected    = next((c for c in contracts if c.get('id') == contract_id), None)
     if not selected:
         return jsonify({'status': 'error', 'message': 'Contract not found'}), 400
 
@@ -847,7 +916,9 @@ def get_config():
 
 @app.route('/api/config', methods=['POST'])
 def update_config():
-    new_cfg = request.json
+    new_cfg, err = _require_json_object()
+    if err:
+        return err
     with open(CONFIG_PATH, 'w') as f:
         json.dump(new_cfg, f, indent=2)
     return jsonify({'status': 'success', 'message': 'Configuration updated'})
@@ -935,7 +1006,9 @@ def _check_preflight(ac_path, track, car):
 @app.route('/api/career-settings', methods=['POST'])
 def update_career_settings():
     career_data = load_career_data()
-    patch       = request.json
+    patch, err = _require_json_object()
+    if err:
+        return err
     cs          = career_data.setdefault('career_settings', {})
     cs.update(patch)
     save_career_data(career_data)
