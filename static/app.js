@@ -541,6 +541,46 @@ const NATIONALITY_FLAGS = {
 function nationalityFlag(code) { return NATIONALITY_FLAGS[code] || '🏁'; }
 
 const TIER_LABELS = {mx5_cup:'MX5 Cup', gt4:'GT4', gt3:'GT3', wec:'WEC'};
+let driverDeltaMode = 'season';
+let _driverProfileData = null;
+
+function _fmtSkillDelta(v) {
+    const n = Number(v || 0);
+    if (!Number.isFinite(n) || Math.abs(n) < 0.05) return '0.0';
+    return (n > 0 ? '+' : '') + n.toFixed(1);
+}
+
+function _setDeltaBadge(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const n = Number(value || 0);
+    el.textContent = _fmtSkillDelta(n);
+    el.classList.remove('up', 'down', 'flat');
+    if (n > 0.05) el.classList.add('up');
+    else if (n < -0.05) el.classList.add('down');
+    else el.classList.add('flat');
+}
+
+function renderDriverDeltas() {
+    const p = (_driverProfileData && _driverProfileData.profile) ? _driverProfileData.profile : {};
+    const deltas = p.skill_deltas || {};
+    const modeSet = deltas[driverDeltaMode] || {};
+    _setDeltaBadge('dp-skill-delta', modeSet.skill);
+    _setDeltaBadge('dp-aggr-delta', modeSet.aggression);
+    _setDeltaBadge('dp-wet-delta', modeSet.wet_skill);
+    _setDeltaBadge('dp-quali-delta', modeSet.quali_pace);
+    _setDeltaBadge('dp-cons-delta', modeSet.consistency);
+
+    ['season', 'race', 'career'].forEach((mode) => {
+        const btn = document.getElementById('dp-mode-' + mode);
+        if (btn) btn.classList.toggle('active', mode === driverDeltaMode);
+    });
+}
+
+function setDriverDeltaMode(mode) {
+    driverDeltaMode = mode || 'season';
+    renderDriverDeltas();
+}
 
 async function showDriverProfile(name, car, skinIndex) {
     try {
@@ -559,6 +599,7 @@ async function showDriverProfile(name, car, skinIndex) {
         const p    = data.profile  || {};
         const cur  = data.current  || null;
         const hist = (data.history && data.history.seasons) ? data.history.seasons : [];
+        _driverProfileData = data;
 
         document.getElementById('dp-nationality').textContent =
             nationalityFlag(p.nationality) + '  ' + (p.nationality || '');
@@ -566,6 +607,18 @@ async function showDriverProfile(name, car, skinIndex) {
         document.getElementById('dp-team').textContent  =
             cur ? (cur.team || '') + (cur.car ? '  ·  ' + fmtCar(cur.car) : '') : '';
         // Nickname — show only when present
+        const metaEl = document.getElementById('dp-meta');
+        if (metaEl) {
+            const ageTxt = (p.age !== undefined && p.age !== null) ? ('Age ' + p.age) : 'Age ?';
+            const potTxt = (p.potential !== undefined && p.potential !== null) ? ('Potential ' + p.potential) : 'Potential ?';
+            metaEl.textContent = ageTxt + ' | ' + potTxt;
+        }
+        const trendEl = document.getElementById('dp-trend');
+        if (trendEl) {
+            const t = (p.trend_label || 'Stable');
+            trendEl.textContent = t.toUpperCase();
+            trendEl.className = 'dp-trend ' + t.toLowerCase();
+        }
         const nickEl = document.getElementById('dp-nickname');
         if (nickEl) {
             if (p.nickname) {
@@ -588,6 +641,7 @@ async function showDriverProfile(name, car, skinIndex) {
         setDpBar('dp-wet-bar',    'dp-wet-val',    p.wet_skill);
         setDpBar('dp-quali-bar',  'dp-quali-val',  p.quali_pace);
         setDpBar('dp-cons-bar',   'dp-cons-val',   p.consistency);
+        renderDriverDeltas();
 
         // Current season
         document.getElementById('dp-current').innerHTML = cur

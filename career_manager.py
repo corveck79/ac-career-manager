@@ -229,9 +229,15 @@ class CareerManager:
         if skill <  85 and aggression >= 60: return "The Wildcard"
         return "The Journeyman"
 
-    def get_driver_profile(self, name):
+    def get_driver_profile(self, name, career_data=None):
         """Return profile dict for a driver name, with derived style field."""
-        p = self.DRIVER_PROFILES.get(name, {"nationality": "GBR", "skill": 80, "aggression": 40})
+        p = dict(self.DRIVER_PROFILES.get(name, {"nationality": "GBR", "skill": 80, "aggression": 40}))
+        if career_data:
+            progress = (career_data.get('driver_progress') or {}).get(name, {})
+            current = progress.get('current') or {}
+            for key in ['skill', 'aggression', 'wet_skill', 'quali_pace', 'consistency']:
+                if key in current:
+                    p[key] = int(round(float(current[key])))
         return {**p, "style": self._get_style(p["skill"], p["aggression"])}
 
     def get_tier_info(self, tier_index):
@@ -562,13 +568,14 @@ class CareerManager:
                     'races_completed': ai_races,
                     'points':          0,
                     'driver_name':     '',
+                    'driver_progress': career_data.get('driver_progress', {}),
                 }
             drivers = self.generate_standings(tier_info, sim, tier_key=tk)
             teams   = self.generate_team_standings_from_drivers(drivers)
             result[tk] = {'drivers': drivers, 'teams': teams}
         return result
 
-    def pick_rival(self, tier_key, season):
+    def pick_rival(self, tier_key, season, career_data=None):
         """Pick the AI driver in tier_key whose skill is closest to 82.
         Called at new career start and on every contract acceptance (new season/tier).
         Returns a driver name string, or None if no drivers found.
@@ -583,7 +590,7 @@ class CareerManager:
         for i in range(len(tier_info['teams'])):
             slot    = offset + i * dpt
             name    = self._get_driver_name(slot, season)
-            profile = self.DRIVER_PROFILES.get(name, {})
+            profile = self.get_driver_profile(name, career_data=career_data)
             diff    = abs(profile.get('skill', 80) - 82)
             if diff < best_diff:
                 best_diff = diff
@@ -746,7 +753,7 @@ class CareerManager:
         """
         return get_ac_docs_path("cfg")
 
-    def launch_ac_race(self, race_config, config, mode='race_only'):
+    def launch_ac_race(self, race_config, config, mode='race_only', career_data=None):
         """Launch Assetto Corsa with race configuration.
         mode: 'race_only' (default) or 'full_weekend' (practice + quali + race)
         """
@@ -762,7 +769,7 @@ class CareerManager:
 
         # 1. Write race.ini to Documents (where AC actually reads it)
         race_cfg_path = os.path.join(docs_cfg, 'race.ini')
-        self._write_race_config(race_cfg_path, race_config, ac_path, mode=mode)
+        self._write_race_config(race_cfg_path, race_config, ac_path, mode=mode, career_data=career_data)
 
         # 2. Patch launcher.ini in Documents so AC starts in race mode
         launcher_path = os.path.join(docs_cfg, 'launcher.ini')
@@ -835,7 +842,7 @@ class CareerManager:
         except Exception:
             return ''
 
-    def _write_race_config(self, config_path, race_data, ac_path='', mode='race_only'):
+    def _write_race_config(self, config_path, race_data, ac_path='', mode='race_only', career_data=None):
         """Write AC race.ini in the format AC expects (Documents/Assetto Corsa/cfg/race.ini).
         mode: 'race_only' → single race session; 'full_weekend' → practice + quali + race.
         """
@@ -987,7 +994,7 @@ class CareerManager:
             opp_car  = opp.get('car', car)
             opp_skin = self._get_car_skin(opp_car, ac_path, index=i) if ac_path else ''
             name     = opp.get('driver_name') or self.DRIVER_NAMES[(i - 1) % len(self.DRIVER_NAMES)]
-            profile  = self.get_driver_profile(name)
+            profile  = self.get_driver_profile(name, career_data=career_data)
             nation   = profile['nationality']
 
             # Skill offset: skill 80=±0, 95=+3, 70=-2 relative to base AI level

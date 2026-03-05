@@ -414,35 +414,42 @@
         <span class="driver-nationality" id="dp-nationality"></span>
         <h2 class="modal-title" id="dp-name"></h2>
         <div class="modal-subtitle" id="dp-team"></div>
+        <div class="dp-meta" id="dp-meta"></div>
       </div>
       <button class="close-btn" onclick="closeModal('modal-driver')">&#10005;</button>
     </div>
     <div class="dp-nickname hidden" id="dp-nickname"></div>
+    <div class="dp-trend" id="dp-trend"></div>
+    <div class="dp-delta-controls">
+      <button class="dp-delta-btn active" id="dp-mode-season" onclick="setDriverDeltaMode('season')">Season</button>
+      <button class="dp-delta-btn" id="dp-mode-race" onclick="setDriverDeltaMode('race')">Race</button>
+      <button class="dp-delta-btn" id="dp-mode-career" onclick="setDriverDeltaMode('career')">Career</button>
+    </div>
     <div class="dp-stats">
       <div class="dp-stat-row">
         <span class="dp-stat-label">SKILL</span>
         <div class="dp-bar-wrap"><div class="dp-bar dp-bar-skill" id="dp-skill-bar"></div></div>
-        <span class="dp-stat-val" id="dp-skill-val"></span>
+        <span class="dp-stat-tail"><span class="dp-stat-val" id="dp-skill-val"></span><span class="dp-stat-delta" id="dp-skill-delta"></span></span>
       </div>
       <div class="dp-stat-row">
         <span class="dp-stat-label">AGGRESSION</span>
         <div class="dp-bar-wrap"><div class="dp-bar dp-bar-aggr" id="dp-aggr-bar"></div></div>
-        <span class="dp-stat-val" id="dp-aggr-val"></span>
+        <span class="dp-stat-tail"><span class="dp-stat-val" id="dp-aggr-val"></span><span class="dp-stat-delta" id="dp-aggr-delta"></span></span>
       </div>
       <div class="dp-stat-row">
         <span class="dp-stat-label">WET SKILL</span>
         <div class="dp-bar-wrap"><div class="dp-bar dp-bar-wet" id="dp-wet-bar"></div></div>
-        <span class="dp-stat-val" id="dp-wet-val"></span>
+        <span class="dp-stat-tail"><span class="dp-stat-val" id="dp-wet-val"></span><span class="dp-stat-delta" id="dp-wet-delta"></span></span>
       </div>
       <div class="dp-stat-row">
         <span class="dp-stat-label">QUALI PACE</span>
         <div class="dp-bar-wrap"><div class="dp-bar dp-bar-quali" id="dp-quali-bar"></div></div>
-        <span class="dp-stat-val" id="dp-quali-val"></span>
+        <span class="dp-stat-tail"><span class="dp-stat-val" id="dp-quali-val"></span><span class="dp-stat-delta" id="dp-quali-delta"></span></span>
       </div>
       <div class="dp-stat-row">
         <span class="dp-stat-label">CONSISTENCY</span>
         <div class="dp-bar-wrap"><div class="dp-bar dp-bar-cons" id="dp-cons-bar"></div></div>
-        <span class="dp-stat-val" id="dp-cons-val"></span>
+        <span class="dp-stat-tail"><span class="dp-stat-val" id="dp-cons-val"></span><span class="dp-stat-delta" id="dp-cons-delta"></span></span>
       </div>
     </div>
     <div class="dp-section-label">THIS SEASON</div>

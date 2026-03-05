@@ -10,6 +10,7 @@ import os
 import sys
 import statistics
 import threading
+import hashlib
 from datetime import datetime
 from urllib.parse import urlsplit
 
@@ -152,6 +153,129 @@ def _recommended_ai_delta(position, margin_ms=None):
         return -1
     return 0
 
+
+DRIVER_SKILL_KEYS = ['skill', 'aggression', 'wet_skill', 'quali_pace', 'consistency']
+
+def _clamp(value, low, high):
+    return max(low, min(high, value))
+
+def _seed_int(seed_text, low, high):
+    raw = int(hashlib.md5(seed_text.encode('utf-8')).hexdigest()[:8], 16)
+    span = max(1, (high - low + 1))
+    return low + (raw % span)
+
+def _compute_progress_deltas(entry):
+    current = entry.get('current') or {}
+    season_start = entry.get('season_start') or {}
+    career_start = entry.get('career_start') or {}
+    last_delta = entry.get('last_delta') or {}
+    season_delta = {}
+    career_delta = {}
+    race_delta = {}
+    for key in DRIVER_SKILL_KEYS:
+        cur = float(current.get(key, 0))
+        s0 = float(season_start.get(key, cur))
+        c0 = float(career_start.get(key, cur))
+        ld = float(last_delta.get(key, 0))
+        season_delta[key] = round(cur - s0, 1)
+        career_delta[key] = round(cur - c0, 1)
+        race_delta[key] = round(ld, 1)
+    return {'race': race_delta, 'season': season_delta, 'career': career_delta}
+
+def _driver_trend_label(entry):
+    deltas = _compute_progress_deltas(entry).get('season', {})
+    net = sum(float(deltas.get(k, 0)) for k in DRIVER_SKILL_KEYS)
+    if net >= 1.0:
+        return 'Rising'
+    if net <= -1.0:
+        return 'Declining'
+    return 'Stable'
+
+def _ensure_driver_progress(career_data):
+    roster = career_data.setdefault('driver_progress', {})
+    changed = False
+    for name, base in career.DRIVER_PROFILES.items():
+        entry = roster.get(name)
+        if not isinstance(entry, dict):
+            age = _seed_int(f'age|{name}', 19, 37)
+            potential = _seed_int(f'pot|{name}', 62, 96)
+            current = {k: float(base.get(k, 70)) for k in DRIVER_SKILL_KEYS}
+            roster[name] = {
+                'age': age,
+                'potential': potential,
+                'current': current,
+                'season_start': dict(current),
+                'career_start': dict(current),
+                'last_delta': {k: 0.0 for k in DRIVER_SKILL_KEYS},
+            }
+            changed = True
+            continue
+
+        current = entry.setdefault('current', {})
+        season_start = entry.setdefault('season_start', {})
+        career_start = entry.setdefault('career_start', {})
+        entry.setdefault('last_delta', {})
+        if 'age' not in entry:
+            entry['age'] = _seed_int(f'age|{name}', 19, 37)
+            changed = True
+        if 'potential' not in entry:
+            entry['potential'] = _seed_int(f'pot|{name}', 62, 96)
+            changed = True
+        for key in DRIVER_SKILL_KEYS:
+            base_val = float(base.get(key, 70))
+            if key not in current:
+                current[key] = base_val
+                changed = True
+            if key not in season_start:
+                season_start[key] = float(current[key])
+                changed = True
+            if key not in career_start:
+                career_start[key] = float(current[key])
+                changed = True
+            if key not in entry['last_delta']:
+                entry['last_delta'][key] = 0.0
+                changed = True
+    return changed
+
+def _evolve_driver_progress_for_race(career_data, race_num):
+    _ensure_driver_progress(career_data)
+    season = career_data.get('season', 1)
+    tier = career_data.get('tier', 0)
+    for name, entry in (career_data.get('driver_progress') or {}).items():
+        age = int(entry.get('age', 26))
+        potential = int(entry.get('potential', 75))
+        current = entry.get('current') or {}
+        last_delta = {}
+
+        if age <= 26:
+            age_factor = 0.8
+        elif age <= 31:
+            age_factor = 0.2
+        elif age <= 35:
+            age_factor = -0.25
+        else:
+            age_factor = -0.6
+        pot_factor = (potential - 75) / 25.0
+
+        for key in DRIVER_SKILL_KEYS:
+            noise_raw = _seed_int(f'{name}|{season}|{tier}|{race_num}|{key}', 0, 2000) / 1000.0 - 1.0
+            key_mult = 0.9 if key == 'skill' else 0.75
+            delta = key_mult * (0.028 * age_factor + 0.033 * pot_factor + 0.055 * noise_raw)
+            delta = _clamp(delta, -0.35, 0.35)
+            cur = float(current.get(key, 70))
+            cur = _clamp(cur + delta, 40.0, 99.0)
+            current[key] = round(cur, 2)
+            last_delta[key] = round(delta, 2)
+        entry['last_delta'] = last_delta
+
+def _advance_driver_progress_season(career_data):
+    _ensure_driver_progress(career_data)
+    for _, entry in (career_data.get('driver_progress') or {}).items():
+        entry['age'] = int(_clamp(int(entry.get('age', 25)) + 1, 18, 55))
+        current = entry.get('current') or {}
+        entry['season_start'] = {k: float(current.get(k, 70)) for k in DRIVER_SKILL_KEYS}
+        entry['last_delta'] = {k: 0.0 for k in DRIVER_SKILL_KEYS}
+
 def _default_career():
     return {
         'tier':            0,
@@ -165,6 +289,7 @@ def _default_career():
         'race_results':    [],
         'contracts':       None,
         'player_history':  [],
+        'driver_progress': {},
         'rival_name':      None,
     }
 
@@ -423,7 +548,7 @@ def start_race():
     if err:
         return err
     mode    = data.get('mode', 'race_only')
-    success = career.launch_ac_race(race, cfg, mode=mode)
+    success = career.launch_ac_race(race, cfg, mode=mode, career_data=career_data)
     if success:
         career_data['race_started_at'] = datetime.now().isoformat()
         save_career_data(career_data)
@@ -642,6 +767,7 @@ def finish_race():
     if ai_delta:
         cs['ai_offset'] = max(-20, min(20, cur_ai_offset + ai_delta))
 
+    _evolve_driver_progress_for_race(career_data, result['race_num'])
     save_career_data(career_data)
     if career_data['races_completed'] >= career.get_tier_races(career_data):
         return _do_end_season()
@@ -750,7 +876,8 @@ def accept_contract():
 
     # Pick new rival for the new tier/season
     new_tier_key              = career.tiers[new_tier]
-    career_data['rival_name'] = career.pick_rival(new_tier_key, career_data.get('season', 1))
+    _advance_driver_progress_season(career_data)
+    career_data['rival_name'] = career.pick_rival(new_tier_key, career_data.get('season', 1), career_data=career_data)
 
     save_career_data(career_data)
 
@@ -804,6 +931,8 @@ def new_career():
             'custom_tracks': custom_tracks,
         },
     }
+    _ensure_driver_progress(initial)
+    initial['rival_name'] = career.pick_rival('mx5_cup', 1, career_data=initial)
     save_career_data(initial)
     return jsonify({'status': 'success', 'message': 'New career started!', 'career_data': initial})
 
@@ -895,13 +1024,19 @@ def scan_content():
 def driver_profile():
     name        = request.args.get('name', '')
     career_data = load_career_data()
-    profile     = career.get_driver_profile(name)
-    # Add new extended fields from raw DRIVER_PROFILES
-    raw = career.DRIVER_PROFILES.get(name, {})
-    profile['wet_skill']   = raw.get('wet_skill', 60)
-    profile['quali_pace']  = raw.get('quali_pace', 70)
-    profile['consistency'] = raw.get('consistency', 75)
-    profile['nickname']    = raw.get('nickname', None)
+    changed = _ensure_driver_progress(career_data)
+
+    profile = career.get_driver_profile(name, career_data=career_data)
+    progress = (career_data.get('driver_progress') or {}).get(name, {})
+    profile['age'] = progress.get('age')
+    profile['potential'] = progress.get('potential')
+    profile['skill_deltas'] = _compute_progress_deltas(progress) if progress else {
+        'race': {k: 0.0 for k in DRIVER_SKILL_KEYS},
+        'season': {k: 0.0 for k in DRIVER_SKILL_KEYS},
+        'career': {k: 0.0 for k in DRIVER_SKILL_KEYS},
+    }
+    profile['trend_label'] = _driver_trend_label(progress) if progress else 'Stable'
+
     history     = career_data.get('driver_history', {}).get(name, {'seasons': []})
     # Find current standings entry for this driver across all tiers
     all_s         = career.generate_all_standings(career_data)
@@ -913,8 +1048,11 @@ def driver_profile():
                 break
         if current_entry:
             break
-    return jsonify({'name': name, 'profile': profile, 'current': current_entry, 'history': history})
 
+    if changed:
+        save_career_data(career_data)
+
+    return jsonify({'name': name, 'profile': profile, 'current': current_entry, 'history': history})
 
 @app.route('/api/player-profile')
 def player_profile():
