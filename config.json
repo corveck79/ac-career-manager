@@ -12,11 +12,11 @@
   },
   "difficulty": {
     "ai_variance": 1.5,
-    "base_ai_level": 95,
+    "base_ai_level": 97,
     "tier_multipliers": {
       "gt3": 0,
       "gt4": -2,
-      "mx5_cup": -4,
+      "mx5_cup": -3,
       "wec": 1.5
     }
   },
@@ -316,7 +316,7 @@
       ]
     },
     "mx5_cup": {
-      "ai_difficulty": -4,
+      "ai_difficulty": -3,
       "description": "Junior One-Make Championship",
       "name": "MX5 Cup",
       "order": 0,

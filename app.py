@@ -127,6 +127,31 @@ def _require_json_object():
         return None, (jsonify({'status': 'error', 'message': 'Invalid JSON body'}), 400)
     return data, None
 
+def _parse_optional_int(value):
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _recommended_ai_delta(position, margin_ms=None):
+    """Simple adaptive AI adjustment based on result dominance."""
+    if position == 1:
+        if margin_ms is not None and margin_ms >= 30000:
+            return 3
+        if margin_ms is not None and margin_ms >= 15000:
+            return 2
+        if margin_ms is not None and margin_ms >= 7000:
+            return 1
+        return 1
+    if position >= 10:
+        return -2
+    if position >= 7:
+        return -1
+    return 0
+
 def _default_career():
     return {
         'tier':            0,
@@ -563,6 +588,17 @@ def read_race_result():
                 if gap_ms > 0:
                     lap_analysis['gap_to_leader_ms'] = gap_ms
 
+    margin_to_p2_ms = None
+    if player_position == 1 and len(results) > 1:
+        p1_time = player_result.get('TotalTime', 0)
+        p2_time = results[1].get('TotalTime', 0)
+        try:
+            gap_ms = int(p2_time) - int(p1_time)
+            if gap_ms > 0:
+                margin_to_p2_ms = gap_ms
+        except (TypeError, ValueError):
+            margin_to_p2_ms = None
+
     return jsonify({
         'status':         'incomplete' if incomplete else 'found',
         'position':       player_position,
@@ -570,6 +606,7 @@ def read_race_result():
         'laps_completed': laps_completed,
         'expected_laps':  expected_laps,
         'driver_name':    driver_name,
+        'margin_to_p2_ms': margin_to_p2_ms,
         'lap_analysis':   lap_analysis,
     })
 
@@ -588,6 +625,7 @@ def finish_race():
         return jsonify({'status': 'error', 'message': 'Position must be >= 1'}), 400
     pts_table   = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
     pts         = pts_table[min(position - 1, 9)] if position <= 10 else 0
+    margin_ms   = _parse_optional_int(data.get('margin_ms'))
     result = {
         'race_num': career_data['races_completed'] + 1,
         'position': position,
@@ -597,10 +635,23 @@ def finish_race():
     career_data['races_completed'] += 1
     career_data['points']          += pts
     career_data['race_results'].append(result)
+
+    cs = career_data.setdefault('career_settings', {})
+    cur_ai_offset = _parse_optional_int(cs.get('ai_offset')) or 0
+    ai_delta = _recommended_ai_delta(position, margin_ms=margin_ms)
+    if ai_delta:
+        cs['ai_offset'] = max(-20, min(20, cur_ai_offset + ai_delta))
+
     save_career_data(career_data)
     if career_data['races_completed'] >= career.get_tier_races(career_data):
         return _do_end_season()
-    return jsonify({'status': 'success', 'result': result, 'total_points': career_data['points']})
+    return jsonify({
+        'status': 'success',
+        'result': result,
+        'total_points': career_data['points'],
+        'ai_change': ai_delta,
+        'ai_offset': cs.get('ai_offset', 0),
+    })
 
 
 @app.route('/api/end-season', methods=['POST'])

@@ -1216,7 +1216,8 @@ async function submitAutoResult() {
     const d       = pendingRace._autoResult;
     const pos     = d.position;
     const lapTime = d.best_lap || '';
-    await _postFinishRace(pos, lapTime);
+    const marginMs = Number.isFinite(d.margin_to_p2_ms) ? d.margin_to_p2_ms : null;
+    await _postFinishRace(pos, lapTime, marginMs);
 }
 
 // ── Submit Race Result (manual form) ──────────────────────────────────────
@@ -1224,15 +1225,15 @@ async function submitResult(e) {
     e.preventDefault();
     const pos     = parseInt(document.getElementById('finish-position').value);
     const lapTime = document.getElementById('best-lap').value;
-    await _postFinishRace(pos, lapTime);
+    await _postFinishRace(pos, lapTime, null);
 }
 
-async function _postFinishRace(pos, lapTime) {
+async function _postFinishRace(pos, lapTime, marginMs) {
     try {
         const r = await fetch('/api/finish-race', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ position: pos, lap_time: lapTime }),
+            body: JSON.stringify({ position: pos, lap_time: lapTime, margin_ms: marginMs }),
         });
         const d = await r.json();
 
@@ -1240,7 +1241,8 @@ async function _postFinishRace(pos, lapTime) {
             await handleSeasonComplete(d);
         } else if (d.status === 'success') {
             const pts = d.result ? d.result.points : 0;
-            showToast(fmtPos(pos) + ' — +' + pts + ' pts!');
+            const aiMsg = d.ai_change ? (' AI ' + (d.ai_change > 0 ? '+' : '') + d.ai_change + ' (offset ' + d.ai_offset + ')') : '';
+            showToast(fmtPos(pos) + ' — +' + pts + ' pts!' + aiMsg);
             await Promise.all([loadCareer(), loadAllStandings(), loadCalendar()]);
             refresh();
             showView('standings');
