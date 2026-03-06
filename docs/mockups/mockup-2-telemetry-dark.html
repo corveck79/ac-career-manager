@@ -1,0 +1,71 @@
+﻿<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AC Career Mockup 2 - Telemetry Dark</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#090d12;--bg2:#0f1722;--card:#121d2a;--line:#1f3147;--text:#e9f1fb;--muted:#8da2bd;--cyan:#2fd9ff;--lime:#a7ff4f;--warn:#ffc44d;--radius:14px}
+    *{box-sizing:border-box} body{margin:0;font-family:"Sora",system-ui,sans-serif;color:var(--text);background:radial-gradient(circle at 20% -10%,#12314f 0,transparent 35%),radial-gradient(circle at 100% 0,#1d2f17 0,transparent 28%),var(--bg)}
+    .wrap{max-width:1280px;margin:0 auto;padding:18px}
+    .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+    .brand{font-size:22px;font-weight:800;letter-spacing:.04em}
+    .status{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--lime)}
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+    .panel{background:linear-gradient(180deg,var(--card),#0f1a28);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+    .title{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+    .hero{display:grid;grid-template-columns:1fr 220px;gap:12px}
+    .hero h2{margin:.4rem 0 0;font-size:30px;line-height:1.08}
+    .cta{display:flex;gap:8px;margin-top:14px}.btn{border:1px solid var(--line);padding:10px 12px;border-radius:9px;background:#152338;color:var(--text);font-weight:700}
+    .btn.primary{background:linear-gradient(135deg,#0bc6f0,#1998ff);border:0;color:#041321}
+    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.k{background:#0d1724;border:1px solid var(--line);border-radius:10px;padding:10px}.k b{display:block;font-size:22px}
+    .meter{height:9px;background:#0a1320;border-radius:8px;overflow:hidden;border:1px solid #203247}.meter span{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--lime));animation:pulse 3s ease-in-out infinite}
+    .list{display:grid;gap:8px;margin-top:8px}.row{display:flex;justify-content:space-between;font-family:"JetBrains Mono",monospace;font-size:13px}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+    @keyframes pulse{0%,100%{opacity:.88}50%{opacity:1}}
+    @media (max-width:980px){.grid{grid-template-columns:1fr}.hero{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top"><div class="brand">AC Career Manager / Telemetry Ops</div><div class="status">LIVE SESSION READY</div></div>
+    <div class="grid">
+      <section class="panel">
+        <div class="hero">
+          <div>
+            <div class="title">Race Control</div>
+            <h2>Round 3 · Brands Hatch Indy</h2>
+            <p style="color:var(--muted)">Data-first cockpitlayout voor snelle beslissingen vóór launch.</p>
+            <div class="kpis"><div class="k"><small>Target Pace</small><b>1:01.9</b></div><div class="k"><small>AI Window</small><b>95-97%</b></div><div class="k"><small>Fuel Plan</small><b>12.8L</b></div></div>
+            <div class="cta"><button class="btn primary">Launch AC</button><button class="btn">Open Setup</button></div>
+          </div>
+          <div class="panel" style="padding:10px">
+            <div class="title">Driver Evolution</div>
+            <div class="list">
+              <div class="row"><span>Pace</span><span style="color:var(--lime)">+1.1</span></div><div class="meter"><span style="width:85%"></span></div>
+              <div class="row"><span>Consistency</span><span style="color:var(--lime)">+0.5</span></div><div class="meter"><span style="width:79%"></span></div>
+              <div class="row"><span>Aggression</span><span style="color:var(--warn)">-0.1</span></div><div class="meter"><span style="width:67%"></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="split">
+          <div class="panel"><div class="title">Sector Delta Goal</div><div class="row"><span>S1</span><span style="color:var(--lime)">-0.12</span></div><div class="row"><span>S2</span><span style="color:var(--warn)">+0.06</span></div><div class="row"><span>S3</span><span style="color:var(--lime)">-0.09</span></div></div>
+          <div class="panel"><div class="title">Championship</div><div class="row"><span>Position</span><span>P1</span></div><div class="row"><span>Points</span><span>61</span></div><div class="row"><span>Gap to P2</span><span style="color:var(--lime)">+18</span></div></div>
+        </div>
+      </section>
+      <aside class="panel">
+        <div class="title">Timeline</div>
+        <div class="list">
+          <div class="row"><span>Practice</span><span>10:00</span></div>
+          <div class="row"><span>Qualifying</span><span>10:30</span></div>
+          <div class="row"><span>Race</span><span>10:45</span></div>
+          <div class="row"><span>Debrief</span><span>11:20</span></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</body>
+</html>
