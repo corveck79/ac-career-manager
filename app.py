@@ -664,8 +664,9 @@ def read_race_result():
 
     results = []
     car_positions = {car: idx + 1 for idx, car in enumerate(race_order)}
-    for idx, player in enumerate(players, start=1):
-        player_laps = laps_by_car.get(idx, [])
+    # race_out uses zero-based car ids; keep results aligned to that id space.
+    for car_id, player in enumerate(players):
+        player_laps = laps_by_car.get(car_id, [])
         total_time = sum(lap.get('time', 0) for lap in player_laps)
         best_lap = min((lap.get('time', 0) for lap in player_laps), default=0)
         results.append({
@@ -673,7 +674,7 @@ def read_race_result():
             'TotalTime': total_time,
             'BestLap': best_lap,
             'Laps': len(player_laps),
-            'position': car_positions.get(idx, len(players)),
+            'position': car_positions.get(car_id, len(players)),
             'Tyre': player.get('car', ''),
         })
 
@@ -708,13 +709,13 @@ def read_race_result():
 
     raw_laps = [
         {
-            'DriverName': players[lap.get('car', 1) - 1]['name'],
+            'DriverName': players[lap.get('car', 0)]['name'] if 0 <= lap.get('car', -1) < len(players) else 'Unknown',
             'LapTime': lap.get('time'),
             'Sectors': lap.get('sectors', []),
             'Cuts': lap.get('cuts', 0),
             'Tyre': lap.get('tyre', ''),
         }
-        for lap in laps if lap.get('car') == player_idx + 1
+        for lap in laps if lap.get('car') == player_idx
     ]
 
     player_lap_objs = [
