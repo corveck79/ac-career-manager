@@ -15,7 +15,12 @@ from datetime import datetime
 from urllib.parse import urlsplit
 
 from career_manager import CareerManager
-from platform_paths import get_ac_docs_path, get_default_ac_install_path, get_webview_gui
+from platform_paths import (
+    detect_ac_install_path,
+    get_ac_docs_path,
+    get_default_ac_install_path,
+    get_webview_gui,
+)
 
 # ---------------------------------------------------------------------------
 # Path helpers — work both as script and as frozen EXE
@@ -104,19 +109,24 @@ def guard_api_write_origin():
 # ---------------------------------------------------------------------------
 
 def load_config():
-    with open(CONFIG_PATH, 'r') as f:
+    with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
         return json.load(f)
+
+
+def save_config(cfg):
+    with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+        json.dump(cfg, f, indent=2)
 
 
 def load_career_data():
     if os.path.exists(DATA_PATH):
-        with open(DATA_PATH, 'r') as f:
+        with open(DATA_PATH, 'r', encoding='utf-8') as f:
             return json.load(f)
     return _default_career()
 
 
 def save_career_data(data):
-    with open(DATA_PATH, 'w') as f:
+    with open(DATA_PATH, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
 
 
@@ -135,6 +145,15 @@ def _parse_optional_int(value):
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _set_ac_install_path(cfg, path):
+    """Store AC install path and optional Content Manager path in config dict."""
+    paths = cfg.setdefault('paths', {})
+    paths['ac_install'] = path
+    cm = os.path.join(path, 'Content Manager.exe')
+    if os.path.exists(cm):
+        paths['content_manager'] = cm
 
 
 def _recommended_ai_delta(position, margin_ms=None):
@@ -410,11 +429,28 @@ def index():
 
 @app.route('/api/setup-status')
 def setup_status():
-    cfg          = load_config()
-    ac_path      = cfg.get('paths', {}).get('ac_install', '')
-    default_hint = get_default_ac_install_path() if not ac_path else ''
-    valid        = bool(ac_path) and os.path.exists(os.path.join(ac_path, 'acs.exe'))
-    return jsonify({'valid': valid, 'path': ac_path, 'default_hint': default_hint})
+    cfg = load_config()
+    ac_path = (cfg.get('paths', {}) or {}).get('ac_install', '').strip()
+    valid = bool(ac_path) and os.path.exists(os.path.join(ac_path, 'acs.exe'))
+    auto_detected = False
+
+    # First-run convenience: auto-detect and persist AC install when path is missing/invalid.
+    if not valid:
+        detected = detect_ac_install_path()
+        if detected:
+            _set_ac_install_path(cfg, detected)
+            save_config(cfg)
+            ac_path = detected
+            valid = True
+            auto_detected = True
+
+    default_hint = '' if ac_path else get_default_ac_install_path()
+    return jsonify({
+        'valid': valid,
+        'path': ac_path,
+        'default_hint': default_hint,
+        'auto_detected': auto_detected,
+    })
 
 
 @app.route('/api/save-ac-path', methods=['POST'])
@@ -426,12 +462,8 @@ def save_ac_path():
     if not os.path.exists(os.path.join(path, 'acs.exe')):
         return jsonify({'status': 'error', 'message': 'acs.exe niet gevonden in die map'}), 400
     cfg = load_config()
-    cfg['paths']['ac_install'] = path
-    cm = os.path.join(path, 'Content Manager.exe')
-    if os.path.exists(cm):
-        cfg['paths']['content_manager'] = cm
-    with open(CONFIG_PATH, 'w') as f:
-        json.dump(cfg, f, indent=2)
+    _set_ac_install_path(cfg, path)
+    save_config(cfg)
     return jsonify({'status': 'success'})
 
 
@@ -1108,8 +1140,7 @@ def update_config():
     new_cfg, err = _require_json_object()
     if err:
         return err
-    with open(CONFIG_PATH, 'w') as f:
-        json.dump(new_cfg, f, indent=2)
+    save_config(new_cfg)
     return jsonify({'status': 'success', 'message': 'Configuration updated'})
 
 
@@ -1221,12 +1252,42 @@ def server_error(e):
 if __name__ == '__main__':
     import time
     import webview
+    import ctypes
 
     class JsApi:
         """Python functions exposed to JavaScript via window.pywebview.api"""
         def browse_folder(self):
             result = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
             return result[0] if result else None
+
+    def _set_windows_titlebar_icon(title_text, icon_path):
+        """Set titlebar/taskbar icon for pywebview window when running as script on Windows."""
+        if sys.platform != 'win32' or not os.path.isfile(icon_path):
+            return
+        user32 = ctypes.windll.user32
+        IMAGE_ICON = 1
+        LR_LOADFROMFILE = 0x0010
+        LR_DEFAULTSIZE = 0x0040
+        WM_SETICON = 0x0080
+        ICON_SMALL = 0
+        ICON_BIG = 1
+
+        hicon = user32.LoadImageW(None, icon_path, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE)
+        if not hicon:
+            return
+
+        deadline = time.time() + 6.0
+        hwnd = None
+        while time.time() < deadline:
+            hwnd = user32.FindWindowW(None, title_text)
+            if hwnd:
+                break
+            time.sleep(0.1)
+        if not hwnd:
+            return
+
+        user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon)
+        user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon)
 
     def run_flask():
         app.run(debug=False, host='127.0.0.1', port=5000, use_reloader=False)
@@ -1236,15 +1297,21 @@ if __name__ == '__main__':
     time.sleep(0.8)  # let Flask start up
 
     api    = JsApi()
+    window_title = 'AC Career GT Edition'
     window = webview.create_window(
-        'AC Career GT Edition',
+        window_title,
         'http://127.0.0.1:5000',
         width=1440, height=920,
         min_size=(1000, 700),
         js_api=api,
     )
+    icon_path = os.path.join(APP_DIR, 'static', 'logo.ico')
+
+    def on_webview_ready():
+        _set_windows_titlebar_icon(window_title, icon_path)
+
     gui_backend = get_webview_gui()   # 'gtk' on Linux, 'edgechromium' on Windows
     try:
-        webview.start(gui=gui_backend)
+        webview.start(func=on_webview_ready, gui=gui_backend)
     except Exception:
-        webview.start()               # last-resort fallback (auto-detect)
+        webview.start(func=on_webview_ready)  # last-resort fallback (auto-detect)

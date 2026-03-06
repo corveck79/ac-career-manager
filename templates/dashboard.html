@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" data-theme-palette="current">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AC Career GT Edition</title>
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo-main.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script>
       if (location.protocol === 'file:') {
@@ -23,9 +23,9 @@
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="topbar-brand"><img src="{{ url_for('static', filename='logo.svg') }}" class="topbar-logo" alt="AC"><span class="topbar-title">AC CAREER</span></div>
     <div class="topbar-center" id="topbar-driver-name"></div>
     <div class="topbar-right">
+        <span class="badge badge-edition" id="edition-badge">GT Edition</span>
         <span class="badge badge-tier" id="tier-badge">MX5 Cup</span>
         <span class="badge badge-season" id="season-badge">Season 1</span>
         <div class="topbar-sep"></div>
@@ -38,6 +38,9 @@
 </header>
 <div class="layout">
   <aside class="sidebar">
+    <div class="card logo-card">
+      <img src="{{ url_for('static', filename='logo-main.png') }}" class="logo-card-img" alt="AC Career Logo">
+    </div>
     <div class="card driver-card">
       <div class="driver-avatar" id="driver-avatar"><span id="driver-initials">?</span></div>
       <div class="driver-name" id="driver-name">No Driver</div>
@@ -192,6 +195,23 @@
       <div class="view-header">
         <h2 class="section-title">&#9881; Settings</h2>
         <button class="close-btn" onclick="showView('standings')" title="Close">&#10005;</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">Appearance</div>
+        <div class="theme-palette-grid">
+          <button type="button" class="theme-palette-btn" id="s-palette-current" onclick="setThemePalette('current')">
+            <span class="tp-name">Current</span>
+            <span class="tp-meta">Existing dark palette</span>
+          </button>
+          <button type="button" class="theme-palette-btn" id="s-palette-motorsport" onclick="setThemePalette('motorsport')">
+            <span class="tp-name">Motorsport Pro</span>
+            <span class="tp-meta">Higher contrast, cleaner pro look</span>
+          </button>
+        </div>
+        <div class="slider-hints" style="margin-top:.45rem">
+          <span style="color:var(--text-faint);font-size:.75rem">Applies instantly and is saved locally on this device.</span>
+        </div>
       </div>
 
       <div class="settings-section">

@@ -13,6 +13,8 @@ Import this module in app.py and career_manager.py.
 
 import os
 import platform
+import re
+from typing import List
 
 # Steam App ID for Assetto Corsa
 AC_STEAM_APPID = 244210
@@ -38,27 +40,127 @@ def is_windows() -> bool:
     return platform.system() == "Windows"
 
 
-def _parse_steam_libraries() -> list:
+def _dedupe_keep_order(items: List[str]) -> List[str]:
+    seen = set()
+    out: List[str] = []
+    for item in items:
+        if not item:
+            continue
+        key = os.path.normcase(os.path.normpath(item))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+    return out
+
+
+def _parse_steam_libraries(vdf_path: str) -> List[str]:
     """
     Read additional Steam library paths from libraryfolders.vdf.
     Returns a list of directory paths (may be empty if file not found or parse fails).
     """
-    vdf_path = os.path.expanduser("~/.steam/steam/steamapps/libraryfolders.vdf")
-    roots = []
+    roots: List[str] = []
     if not os.path.isfile(vdf_path):
         return roots
     try:
-        with open(vdf_path, encoding="utf-8") as f:
-            for line in f:
-                # Lines look like:   "path"    "/home/user/games/Steam"
-                if '"path"' in line.lower():
-                    parts = line.strip().split('"')
-                    # parts[1]='path', parts[3]='/actual/path'
-                    if len(parts) >= 4:
-                        roots.append(parts[3])
+        with open(vdf_path, encoding="utf-8", errors="ignore") as f:
+            txt = f.read()
+        for raw in re.findall(r'"path"\s*"([^"]+)"', txt, flags=re.IGNORECASE):
+            roots.append(raw.replace("\\\\", "\\").strip())
     except Exception:
         pass
-    return roots
+    return _dedupe_keep_order(roots)
+
+
+def _candidate_install_paths_from_library(library_path: str) -> List[str]:
+    return [
+        os.path.join(library_path, "steamapps", "common", "assettocorsa"),
+        os.path.join(library_path, "steamapps", "common", "Assetto Corsa"),
+    ]
+
+
+def _looks_like_ac_install(path: str) -> bool:
+    return bool(path) and os.path.isfile(os.path.join(path, "acs.exe"))
+
+
+def _linux_library_roots() -> List[str]:
+    roots: List[str] = []
+    for steam_root in _STEAM_ROOTS:
+        roots.append(steam_root)  # default Steam library lives under Steam root
+        vdf = os.path.join(steam_root, "steamapps", "libraryfolders.vdf")
+        roots.extend(_parse_steam_libraries(vdf))
+    return _dedupe_keep_order(roots)
+
+
+def _windows_steam_roots() -> List[str]:
+    roots: List[str] = []
+
+    # Common defaults
+    for base in (os.environ.get("ProgramFiles(x86)"), os.environ.get("ProgramFiles")):
+        if base:
+            roots.append(os.path.join(base, "Steam"))
+    roots.extend([r"C:\Steam", r"D:\Steam", r"E:\Steam", r"F:\Steam"])
+
+    # Registry-based Steam path
+    try:
+        import winreg  # type: ignore
+
+        reg_locations = [
+            (winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam", "SteamPath"),
+            (winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam", "SteamExe"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Valve\Steam", "InstallPath"),
+        ]
+        for hive, key_path, value_name in reg_locations:
+            try:
+                with winreg.OpenKey(hive, key_path) as k:
+                    value, _ = winreg.QueryValueEx(k, value_name)
+                    if isinstance(value, str) and value:
+                        if value.lower().endswith(".exe"):
+                            value = os.path.dirname(value)
+                        roots.append(value)
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    # Existing folders first, then fallbacks
+    existing = [r for r in roots if os.path.isdir(r)]
+    missing = [r for r in roots if not os.path.isdir(r)]
+    return _dedupe_keep_order(existing + missing)
+
+
+def _windows_library_roots() -> List[str]:
+    libs: List[str] = []
+    for steam_root in _windows_steam_roots():
+        libs.append(steam_root)
+        vdf = os.path.join(steam_root, "steamapps", "libraryfolders.vdf")
+        libs.extend(_parse_steam_libraries(vdf))
+    return _dedupe_keep_order(libs)
+
+
+def get_ac_install_candidates() -> List[str]:
+    """
+    Return likely AC install folders for this OS, ordered by confidence.
+    """
+    candidates: List[str] = []
+    if is_linux():
+        for library in _linux_library_roots():
+            candidates.extend(_candidate_install_paths_from_library(library))
+    else:
+        for library in _windows_library_roots():
+            candidates.extend(_candidate_install_paths_from_library(library))
+    return _dedupe_keep_order(candidates)
+
+
+def detect_ac_install_path() -> str:
+    """
+    Return the first AC install folder that contains acs.exe, else empty string.
+    """
+    for candidate in get_ac_install_candidates():
+        if _looks_like_ac_install(candidate):
+            return candidate
+    return ""
 
 
 def _find_proton_docs() -> str:
@@ -67,7 +169,7 @@ def _find_proton_docs() -> str:
     Returns the first existing path, or a best-guess fallback if none found yet
     (AC may not have been launched yet, so the folder won't exist until first run).
     """
-    all_roots = _STEAM_ROOTS + _parse_steam_libraries()
+    all_roots = _linux_library_roots()
     for root in all_roots:
         candidate = os.path.join(root, _PROTON_SUBPATH)
         if os.path.isdir(candidate):
@@ -103,12 +205,15 @@ def get_default_ac_install_path() -> str:
     Return the most likely AC install path for the current OS.
     Used as a hint in the setup screen when ac_install is empty.
     """
+    detected = detect_ac_install_path()
+    if detected:
+        return detected
+
+    candidates = get_ac_install_candidates()
+    if candidates:
+        return candidates[0]
+
     if is_linux():
-        for root in _STEAM_ROOTS:
-            candidate = os.path.join(root, "steamapps", "common", "assettocorsa")
-            if os.path.isdir(candidate):
-                return candidate
-        # Return the most common path as a fallback hint
         return os.path.join(_STEAM_ROOTS[0], "steamapps", "common", "assettocorsa")
     return r"C:\Program Files (x86)\Steam\steamapps\common\assettocorsa"
 

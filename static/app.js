@@ -10,6 +10,7 @@ let standingsTier = 0;        // currently displayed tier index
 let champMode     = 'drivers'; // 'drivers' | 'teams'
 let calendar      = [];
 let pendingRace   = null;
+const THEME_PALETTE_KEY = 'ac-theme-palette';
 
 // ── Track name map ──────────────────────────────────────────────────────────
 const TRACK_NAMES = {
@@ -85,6 +86,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Restore saved theme before anything renders
     const savedTheme = localStorage.getItem('ac-theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
+    const savedPalette = localStorage.getItem(THEME_PALETTE_KEY) || 'current';
+    document.documentElement.setAttribute('data-theme-palette', savedPalette);
     const ttLbl = document.getElementById('tt-label');
     if (ttLbl) ttLbl.textContent = savedTheme === 'light' ? 'Light' : 'Dark';
     const ttThumb = document.querySelector('.tt-thumb');
@@ -137,9 +140,32 @@ async function loadCalendar() {
 
 // ── Full refresh ───────────────────────────────────────────────────────────
 function refresh() {
+    updateBranding();
     updateDriverCard();
     renderCalendar();
     renderStandings();
+}
+
+function updateBranding() {
+    if (!config || !config.app) return;
+
+    const appName = (config.app.name || 'AC Career GT Edition').trim();
+    const edition = (config.app.edition || 'GT').trim();
+
+    const topbarTitle = document.getElementById('topbar-title');
+    if (topbarTitle) {
+        const normalized = appName
+            .replace(new RegExp('\\s+' + edition + '\\s+edition$', 'i'), '')
+            .replace(/\s+edition$/i, '')
+            .trim()
+            .toUpperCase();
+        topbarTitle.textContent = normalized;
+    }
+
+    const editionBadge = document.getElementById('edition-badge');
+    if (editionBadge) {
+        editionBadge.textContent = edition.toUpperCase() + ' Edition';
+    }
 }
 
 // ── Driver card ────────────────────────────────────────────────────────────
@@ -341,9 +367,12 @@ async function checkSetup() {
     try {
         const r = await fetch('/api/setup-status');
         const d = await r.json();
+        if (d.auto_detected) {
+            showToast('Assetto Corsa installatie automatisch gevonden.');
+        }
         if (!d.valid) {
             const input = document.getElementById('setup-ac-path');
-            if (input && d.path) input.value = d.path;
+            if (input) input.value = d.path || d.default_hint || '';
             document.getElementById('setup-overlay').classList.remove('hidden');
         }
     } catch (e) { /* server not ready yet, ignore */ }
@@ -445,6 +474,7 @@ function openConfig() {
     if (bPure) bPure.classList.toggle('csp-found', !!cspStatus.pure);
     const ncHint = document.getElementById('night-cycle-csp-hint');
     if (ncHint) ncHint.classList.toggle('hidden', !!cspStatus.csp);
+    syncThemePaletteButtons();
 
     showView('config');
 }
@@ -459,6 +489,21 @@ function toggleTheme() {
     const thumb = document.querySelector('.tt-thumb');
     if (lbl)   lbl.textContent   = next === 'light' ? 'Light' : 'Dark';
     if (thumb) thumb.textContent = next === 'light' ? '☀️' : '🌙';
+}
+
+function setThemePalette(palette) {
+    const next = (palette === 'motorsport') ? 'motorsport' : 'current';
+    document.documentElement.setAttribute('data-theme-palette', next);
+    localStorage.setItem(THEME_PALETTE_KEY, next);
+    syncThemePaletteButtons();
+}
+
+function syncThemePaletteButtons() {
+    const current = document.documentElement.getAttribute('data-theme-palette') || 'current';
+    const bCurrent = document.getElementById('s-palette-current');
+    const bMoto = document.getElementById('s-palette-motorsport');
+    if (bCurrent) bCurrent.classList.toggle('active', current === 'current');
+    if (bMoto) bMoto.classList.toggle('active', current === 'motorsport');
 }
 
 // ── Stats page ──────────────────────────────────────────────────────────────
