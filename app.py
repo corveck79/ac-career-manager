@@ -373,7 +373,10 @@ def read_race_result():
     if not race_started_at:
         return jsonify({'status': 'not_found', 'message': 'No race started'})
 
-    start_time = datetime.fromisoformat(race_started_at)
+    try:
+        start_time = datetime.fromisoformat(race_started_at)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid race start timestamp'})
 
     tier_info     = career.get_tier_info(career_data['tier'])
     expected_laps = tier_info.get('race_format', {}).get('laps', 20)
@@ -383,41 +386,51 @@ def read_race_result():
         return jsonify({'status': 'not_found', 'message': 'Results folder not found'})
 
     candidates = []
-    for fname in os.listdir(results_dir):
-        if not fname.endswith('.json'):
-            continue
-        fpath = os.path.join(results_dir, fname)
-        mtime = datetime.fromtimestamp(os.path.getmtime(fpath))
-        if mtime > start_time:
-            candidates.append((mtime, fpath))
+    for root, _, files in os.walk(results_dir):
+        for fname in files:
+            if not fname.endswith('.json'):
+                continue
+            fpath = os.path.join(root, fname)
+            try:
+                mtime = datetime.fromtimestamp(os.path.getmtime(fpath))
+            except OSError:
+                continue
+            if mtime >= start_time:
+                candidates.append((mtime, fpath))
 
     if not candidates:
         return jsonify({'status': 'not_found', 'message': 'No result file found yet'})
 
     candidates.sort(key=lambda x: x[0], reverse=True)
-    result_file = candidates[0][1]
 
-    try:
-        with open(result_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
-
-    if data.get('Type', '').upper() != 'RACE':
-        return jsonify({'status': 'not_found', 'message': 'Latest result is not a race session'})
-
-    results = data.get('Result', [])
-
+    data            = None
     player_result   = None
     player_position = None
-    for i, r in enumerate(results):
-        if r.get('DriverName', '').lower() == driver_name.lower():
-            player_result   = r
-            player_position = i + 1
+    for _, result_file in candidates:
+        try:
+            with open(result_file, 'r', encoding='utf-8') as f:
+                candidate_data = json.load(f)
+        except Exception:
+            continue
+
+        if candidate_data.get('Type', '').upper() != 'RACE':
+            continue
+
+        candidate_results = candidate_data.get('Result', [])
+        for i, r in enumerate(candidate_results):
+            if r.get('DriverName', '').lower() == driver_name.lower():
+                data            = candidate_data
+                player_result   = r
+                player_position = i + 1
+                break
+
+        if player_result is not None:
             break
 
-    if player_result is None:
-        return jsonify({'status': 'not_found', 'message': 'Driver not found in results'})
+    if data is None or player_result is None:
+        return jsonify({'status': 'not_found', 'message': 'No completed race result found yet'})
+
+    results = data.get('Result', [])
 
     laps_completed = player_result.get('Laps', 0)
     total_time     = player_result.get('TotalTime', 0)
