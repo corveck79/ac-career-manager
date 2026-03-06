@@ -13,6 +13,7 @@ import statistics
 import threading
 import hashlib
 import random
+import subprocess
 from datetime import datetime
 from urllib.parse import urlsplit
 
@@ -145,6 +146,21 @@ def _get_race_out_path():
     ac_path = get_ac_docs_path('out')
     race_path = os.path.join(ac_path, 'race_out.json')
     return race_path if os.path.exists(race_path) else None
+
+
+def _is_ac_running():
+    """Best-effort check whether Assetto Corsa is still running."""
+    try:
+        if os.name == 'nt':
+            cp = subprocess.run(
+                ['tasklist', '/FI', 'IMAGENAME eq acs.exe'],
+                capture_output=True, text=True, check=False
+            )
+            return 'acs.exe' in (cp.stdout or '').lower()
+        cp = subprocess.run(['pgrep', '-f', 'acs'], capture_output=True, text=True, check=False)
+        return cp.returncode == 0
+    except Exception:
+        return False
 
 def _parse_optional_int(value):
     if value is None:
@@ -562,8 +578,6 @@ def get_next_race():
         race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
     if cs.get('debug_one_lap'):
         race['laps'] = 1
-    if cs.get('debug_one_lap'):
-        race['laps'] = 1
     return jsonify(race)
 
 
@@ -587,6 +601,8 @@ def start_race():
     ai_offset = cs.get('ai_offset', 0)
     if ai_offset:
         race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
+    if cs.get('debug_one_lap'):
+        race['laps'] = 1
     race['driver_name'] = career_data.get('driver_name', 'Player')
     data, err = _require_json_object()
     if err:
@@ -606,10 +622,27 @@ def read_race_result():
     """Auto-read the latest AC race result from race_out.json (default output)."""
     career_data = load_career_data()
     driver_name = career_data.get('driver_name', 'Player')
+    race_started_at = career_data.get('race_started_at')
+    start_time = None
+    if race_started_at:
+        try:
+            start_time = datetime.fromisoformat(race_started_at).replace(microsecond=0)
+        except ValueError:
+            start_time = None
+
+    if _is_ac_running():
+        return jsonify({'status': 'waiting', 'message': 'Race in progress. Close AC to import result.'})
 
     race_path = _get_race_out_path()
     if not race_path:
-        return jsonify({'status': 'not_found', 'message': 'Results folder not found'})
+        return jsonify({'status': 'waiting', 'message': 'Waiting for race_out.json...'})
+
+    try:
+        race_mtime = datetime.fromtimestamp(os.path.getmtime(race_path)).replace(microsecond=0)
+    except OSError:
+        return jsonify({'status': 'waiting', 'message': 'Waiting for race output file...'})
+    if start_time and race_mtime < start_time:
+        return jsonify({'status': 'waiting', 'message': 'Waiting for updated race output...'})
 
     try:
         with open(race_path, 'r', encoding='utf-8') as f:
@@ -620,7 +653,7 @@ def read_race_result():
     players = data.get('players', [])
     sessions = data.get('sessions', [])
     if not sessions:
-        return jsonify({'status': 'not_found', 'message': 'No race session result found yet'})
+        return jsonify({'status': 'waiting', 'message': 'No race session result found yet'})
 
     session = sessions[0]
     laps = session.get('laps', [])
@@ -647,14 +680,25 @@ def read_race_result():
     player_idx = next((i for i, p in enumerate(players) if p.get('name', '').lower() == driver_name.lower()), 0)
     player_result = results[player_idx] if player_idx < len(results) else None
     if not player_result:
-        return jsonify({'status': 'not_found', 'message': 'Driver not found in race file'})
+        return jsonify({'status': 'waiting', 'message': 'Driver not found in race file yet'})
 
     player_position = player_result.get('position', len(results))
     laps_completed = player_result.get('Laps', 0)
     total_time = player_result.get('TotalTime', 0)
     best_lap_ms = player_result.get('BestLap', 0)
 
-    incomplete = (laps_completed < max(1, session.get('lapsCount', 0) // 2)) or (total_time == 0 and laps_completed == 0)
+    expected_laps = int(session.get('lapsCount', 0) or 0)
+    if expected_laps <= 0:
+        expected_laps = laps_completed
+    if expected_laps <= 0:
+        return jsonify({'status': 'waiting', 'message': 'Waiting for finalized race data...'})
+    if laps_completed <= 0 or total_time <= 0:
+        return jsonify({'status': 'waiting', 'message': 'Race data incomplete. Close AC and wait a moment.'})
+    if laps_completed < expected_laps:
+        return jsonify({
+            'status': 'waiting',
+            'message': f'Race not finished in output yet ({laps_completed}/{expected_laps} laps).'
+        })
 
     best_lap_fmt = ''
     if best_lap_ms and best_lap_ms > 0:
@@ -741,11 +785,11 @@ def read_race_result():
             margin_to_p2_ms = None
 
     return jsonify({
-        'status': 'incomplete' if incomplete else 'found',
+        'status': 'found',
         'position': player_position,
         'best_lap': best_lap_fmt,
         'laps_completed': laps_completed,
-        'expected_laps': session.get('lapsCount', 0) or len(player_lap_objs),
+        'expected_laps': expected_laps,
         'driver_name': driver_name,
         'margin_to_p2_ms': margin_to_p2_ms,
         'lap_analysis': lap_analysis,

@@ -1107,7 +1107,7 @@ function startResultPolling() {
         try {
             const r = await fetch('/api/read-race-result');
             const d = await r.json();
-            if (d.status === 'found' || d.status === 'incomplete') {
+            if (d.status === 'found') {
                 clearInterval(_resultPollTimer);
                 _resultPollTimer = null;
                 fetchRaceResult();   // reuse existing display logic
@@ -1179,17 +1179,13 @@ async function fetchRaceResult() {
             if (pendingRace) pendingRace._autoResult = d;
             renderDebrief(d.lap_analysis, d.position);
 
-        } else if (d.status === 'incomplete') {
-            statusEl.textContent = 'Race not completed (' + d.laps_completed + '/' + d.expected_laps +
-                ' laps). Please enter the result manually.';
-            statusEl.className = 'result-auto-status warning';
-            showManualForm('Race ended early — please enter result manually.');
-            if (d.position) document.getElementById('finish-position').value = d.position;
-            if (d.best_lap) document.getElementById('best-lap').value         = d.best_lap;
-
+        } else if (d.status === 'waiting' || d.status === 'not_found' || d.status === 'incomplete') {
+            statusEl.textContent = d.message || 'Waiting for AC to close and write race_out.json...';
+            statusEl.className   = 'result-auto-status loading';
+            document.getElementById('result-manual').classList.add('hidden');
         } else {
-            statusEl.textContent = d.message || 'No result found. Close AC and try again.';
-            statusEl.className   = 'result-auto-status warning';
+            statusEl.textContent = d.message || 'Unable to import result right now.';
+            statusEl.className   = 'result-auto-status error';
         }
     } catch (e) {
         statusEl.textContent = 'Error: ' + e.message;
