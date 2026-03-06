@@ -610,13 +610,13 @@ def read_race_result():
     tier_info     = career.get_tier_info(career_data['tier'])
     expected_laps = tier_info.get('race_format', {}).get('laps', 20)
 
-    results_dir = get_ac_docs_path('results')
+    results_dir = get_ac_docs_path('out')
     if not os.path.exists(results_dir):
         return jsonify({'status': 'not_found', 'message': 'Results folder not found'})
 
     candidates = []
     for fname in os.listdir(results_dir):
-        if not fname.endswith('.json'):
+        if fname.lower() != 'race_out.json':
             continue
         fpath = os.path.join(results_dir, fname)
         mtime = datetime.fromtimestamp(os.path.getmtime(fpath))

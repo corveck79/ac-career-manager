@@ -146,6 +146,8 @@ ac-career-manager/
 
 > **Commit hook**: after cloning configure `git config core.hooksPath hooks`. The `hooks/pre-commit` script runs `build.bat` automatically, so you always have a fresh EXE before a commit. If the hook fails (PyInstaller error or `cmd` missing), fix the issue and rerun `build.bat` manually before retrying the commit.
 
+> **Assetto Corsa output**: the app now only reads `Documents\Assetto Corsa\out\race_out.json` (no more `results\` folder), this is the default JSON that Assetto writes for every race. Ensure AC finishes the weekend and writes that file before importing.
+
 ---
 
 ## CONFIGURATION
