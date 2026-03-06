@@ -1,0 +1,11 @@
+task,mode,input_chars,input_tokens_est,notes
+bugfix_race_import,baseline,0,0,
+bugfix_race_import,jcode,0,0,
+impact_ai_settings,baseline,0,0,
+impact_ai_settings,jcode,0,0,
+refactor_result_polling,baseline,0,0,
+refactor_result_polling,jcode,0,0,
+trace_start_race_flow,baseline,0,0,
+trace_start_race_flow,jcode,0,0,
+test_impact_read_race_result,baseline,0,0,
+test_impact_read_race_result,jcode,0,0,
