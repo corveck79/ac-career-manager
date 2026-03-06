@@ -11,6 +11,7 @@ import sys
 import statistics
 import threading
 import hashlib
+import random
 from datetime import datetime
 from urllib.parse import urlsplit
 
@@ -548,7 +549,7 @@ def get_next_race():
     night_cycle  = cs.get('night_cycle', True)
     race = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
                                 tier_key=tier_key, season=season, weather_mode=weather_mode,
-                                night_cycle=night_cycle)
+                                night_cycle=night_cycle, career_data=career_data)
     ai_offset = cs.get('ai_offset', 0)
     if ai_offset:
         race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
@@ -571,7 +572,7 @@ def start_race():
     night_cycle  = cs.get('night_cycle', True)
     race         = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
                                         tier_key=tier_key, season=season, weather_mode=weather_mode,
-                                        night_cycle=night_cycle)
+                                        night_cycle=night_cycle, career_data=career_data)
     ai_offset = cs.get('ai_offset', 0)
     if ai_offset:
         race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
@@ -937,6 +938,9 @@ def new_career():
     driver_name   = data.get('driver_name', '').strip() or 'Driver'
     difficulty    = data.get('difficulty', 'pro')
     weather_mode  = data.get('weather_mode', 'realistic')
+    name_mode     = str(data.get('name_mode', 'curated')).strip().lower()
+    if name_mode not in {'curated', 'procedural'}:
+        name_mode = 'curated'
     custom_tracks = data.get('custom_tracks') or None   # None → use config defaults
 
     ai_offsets = {'rookie': -10, 'amateur': -5, 'pro': 0, 'legend': 5}
@@ -956,10 +960,12 @@ def new_career():
         'driver_history':  {},
         'player_history':  [],
         'rival_name':      career.pick_rival('mx5_cup', 1),
+        'driver_seed':     random.randint(0, 2**31 - 1),
         'career_settings': {
             'difficulty':    difficulty,
             'ai_offset':     ai_offset,
             'weather_mode':  weather_mode,
+            'name_mode':     name_mode,
             'custom_tracks': custom_tracks,
         },
     }
