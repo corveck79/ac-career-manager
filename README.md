@@ -139,10 +139,12 @@ ac-career-manager/
 ├── templates/
 │   └── dashboard.html      # Web UI (HTML)
 │
-└── static/
-    ├── style.css          # CSS styling
-    └── app.js             # Frontend JavaScript
+    └── static/
+        ├── style.css          # CSS styling
+        └── app.js             # Frontend JavaScript
 ```
+
+> **Commit hook**: after cloning configure `git config core.hooksPath hooks`. The `hooks/pre-commit` script runs `build.bat` automatically, so you always have a fresh EXE before a commit. If the hook fails (PyInstaller error or `cmd` missing), fix the issue and rerun `build.bat` manually before retrying the commit.
 
 ---
 

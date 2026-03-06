@@ -1,27 +1,14 @@
-﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AC Career logo">
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AC Career GT Edition">
+  <rect width="256" height="256" rx="32" fill="#0c0f16"/>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#121b28"/>
-      <stop offset="1" stop-color="#1f2b3d"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ff9b50"/>
-      <stop offset="1" stop-color="#ff6f2e"/>
+    <linearGradient id="grad" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#f33c3c"/>
+      <stop offset="38%" stop-color="#f14a2d"/>
+      <stop offset="100%" stop-color="#ee6d41"/>
     </linearGradient>
   </defs>
-
-  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#bg)"/>
-  <rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="#32455f" stroke-width="1.5"/>
-
-  <path d="M9 52 L52 9" stroke="url(#accent)" stroke-width="6" stroke-linecap="round" opacity=".95"/>
-
-  <g transform="translate(42 15)">
-    <rect x="0" y="0" width="4" height="4" fill="#eaf0f8"/>
-    <rect x="4" y="0" width="4" height="4" fill="#1b2738"/>
-    <rect x="0" y="4" width="4" height="4" fill="#1b2738"/>
-    <rect x="4" y="4" width="4" height="4" fill="#eaf0f8"/>
-  </g>
-
-  <text x="18" y="41" font-family="Manrope, Arial, sans-serif" font-weight="800" font-size="22" fill="#f2f6fd" letter-spacing=".6">AC</text>
-  <path d="M16 45 H44" stroke="#ffb37a" stroke-width="2.2" stroke-linecap="round"/>
+  <rect x="32" y="32" width="192" height="192" rx="24" fill="url(#grad)" opacity="0.95"/>
+  <text x="50%" y="48%" text-anchor="middle" dominant-baseline="middle" font-size="96" font-family="Montserrat, Arial, sans-serif" fill="#0f1118" font-weight="700">AC</text>
+  <text x="50%" y="70%" text-anchor="middle" dominant-baseline="middle" font-size="40" font-family="Montserrat, Arial, sans-serif" fill="#ffffff" font-weight="600">Career GT</text>
+  <path d="M50 208h156v8a8 8 0 0 1-8 8H58a8 8 0 0 1-8-8v-8Z" fill="#0f1118"/>
 </svg>

@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+echo "Running build.bat before commit (required for EXE artifact)..."
+
+if [ -f "./build.bat" ]; then
+  if command -v cmd >/dev/null 2>&1; then
+    cmd /c build.bat
+  else
+    echo "cmd.exe not available; please run build.bat manually before committing."
+    exit 1
+  fi
+else
+  echo "build.bat not found; aborting commit."
+  exit 1
+fi
+
+exit $?
