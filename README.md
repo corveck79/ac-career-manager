@@ -36,20 +36,25 @@ AC Career GT Edition adds a full career mode to Assetto Corsa. It runs in its ow
 
 <table>
 <tr>
-  <td width="50%"><img src="docs/screenshots/wizard.png" alt="Career Wizard"></td>
-  <td width="50%"><img src="docs/screenshots/career_running.png" alt="Running Career"></td>
+  <td width="25%"><img src="docs/screenshots/wizard.png" alt="Career Wizard"></td>
+  <td width="25%"><img src="docs/screenshots/dashboard.png" alt="Dashboard overview"></td>
+  <td width="25%"><img src="docs/screenshots/career_running.png" alt="Running career screen"></td>
+  <td width="25%"><img src="docs/screenshots/race_modal.png" alt="Race launch modal"></td>
 </tr>
 <tr>
-  <td width="50%"><img src="docs/screenshots/season_end.png" alt="Season End & Contracts"></td>
-  <td width="50%"><img src="docs/screenshots/settings.png" alt="Settings"></td>
+  <td width="25%"><img src="docs/screenshots/team_modal.png" alt="Team modal with class badge"></td>
+  <td width="25%"><img src="docs/screenshots/season_end.png" alt="Season end contract offers"></td>
+  <td width="25%"><img src="docs/screenshots/settings.png" alt="Settings panel (mod detection)"></td>
+  <td width="25%"><img src="docs/screenshots/driver_card.png" alt="AI driver profile card"></td>
 </tr>
 <tr>
-  <td width="50%"><img src="docs/screenshots/driver_card.png" alt="Driver Profile Card"></td>
-  <td width="50%"><img src="docs/screenshots/team_modal.png" alt="Team Modal with Class Badge"></td>
+  <td width="25%"><img src="docs/screenshots/player_card.png" alt="Player driver card"></td>
+  <td width="25%"><img src="docs/screenshots/debrief.png" alt="Post-race debrief analytics"></td>
+  <td width="25%"><img src="docs/screenshots/standings_gt4.png" alt="GT4 standings"></td>
+  <td width="25%"><img src="docs/screenshots/standings_teams.png" alt="Team standings"></td>
 </tr>
 <tr>
-  <td width="50%"><img src="docs/screenshots/player_card.png" alt="Player Driver Card"></td>
-  <td width="50%"><img src="docs/screenshots/debrief.png" alt="Post-Race Debrief"></td>
+  <td colspan="4"><img src="docs/screenshots/standings_wec.png" alt="WEC standings"></td>
 </tr>
 </table>
 
