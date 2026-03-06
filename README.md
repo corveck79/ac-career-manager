@@ -148,6 +148,11 @@ ac-career-manager/
 
 > **Assetto Corsa output**: the app now only reads `Documents\Assetto Corsa\out\race_out.json` (no more `results\` folder), this is the default JSON that Assetto writes for every race. Ensure AC finishes the weekend and writes that file before importing.
 
+### Debug helpers
+
+- The app now reads `Documents\Assetto Corsa/out/race_out.json` by default. Use `/api/debug-race-file` (GET) to inspect the exact file path, size, and lap count when troubleshooting.  
+- Send a POST to `/api/set-debug-one-lap` with `{"enabled": true}` to force the next generated race to be a single lap (handy for rapid testing); disable it with `{"enabled": false}`.
+
 ---
 
 ## CONFIGURATION

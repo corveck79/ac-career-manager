@@ -5,6 +5,7 @@ Main application entry point
 
 from flask import Flask, render_template, jsonify, request, send_file, abort
 from flask_cors import CORS
+from collections import defaultdict
 import json
 import os
 import sys
@@ -138,6 +139,12 @@ def _require_json_object():
     if not isinstance(data, dict):
         return None, (jsonify({'status': 'error', 'message': 'Invalid JSON body'}), 400)
     return data, None
+
+def _get_race_out_path():
+    """Return path to Assetto Corsa's race_out.json inside out/."""
+    ac_path = get_ac_docs_path('out')
+    race_path = os.path.join(ac_path, 'race_out.json')
+    return race_path if os.path.exists(race_path) else None
 
 def _parse_optional_int(value):
     if value is None:
@@ -553,6 +560,10 @@ def get_next_race():
     ai_offset = cs.get('ai_offset', 0)
     if ai_offset:
         race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
+    if cs.get('debug_one_lap'):
+        race['laps'] = 1
+    if cs.get('debug_one_lap'):
+        race['laps'] = 1
     return jsonify(race)
 
 
@@ -592,157 +603,129 @@ def start_race():
 
 @app.route('/api/read-race-result')
 def read_race_result():
-    """Auto-read the latest AC race result from Documents/Assetto Corsa/results/."""
+    """Auto-read the latest AC race result from race_out.json (default output)."""
     career_data = load_career_data()
     driver_name = career_data.get('driver_name', 'Player')
 
-    race_started_at = career_data.get('race_started_at')
-    if not race_started_at:
-        return jsonify({'status': 'not_found', 'message': 'No race started'})
-
-    try:
-        # File mtimes may have second precision; normalize to avoid missing
-        # results created in the same second as race start.
-        start_time = datetime.fromisoformat(race_started_at).replace(microsecond=0)
-    except ValueError:
-        return jsonify({'status': 'error', 'message': 'Invalid race start timestamp'})
-
-    tier_info     = career.get_tier_info(career_data['tier'])
-    expected_laps = tier_info.get('race_format', {}).get('laps', 20)
-
-    results_dir = get_ac_docs_path('out')
-    if not os.path.exists(results_dir):
+    race_path = _get_race_out_path()
+    if not race_path:
         return jsonify({'status': 'not_found', 'message': 'Results folder not found'})
 
-    candidates = []
-    for fname in os.listdir(results_dir):
-        if fname.lower() != 'race_out.json':
-            continue
-        fpath = os.path.join(results_dir, fname)
-        mtime = datetime.fromtimestamp(os.path.getmtime(fpath))
-        if mtime >= start_time:
-            candidates.append((mtime, fpath))
+    try:
+        with open(race_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception:
+        return jsonify({'status': 'error', 'message': 'Unable to read race output file'})
 
-    if not candidates:
-        return jsonify({'status': 'not_found', 'message': 'No result file found yet'})
+    players = data.get('players', [])
+    sessions = data.get('sessions', [])
+    if not sessions:
+        return jsonify({'status': 'not_found', 'message': 'No race session result found yet'})
 
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    data = None
+    session = sessions[0]
+    laps = session.get('laps', [])
+    race_order = session.get('raceResult', [])
+    laps_by_car = defaultdict(list)
+    for lap in laps:
+        laps_by_car[lap.get('car')].append(lap)
+
     results = []
-    player_result = None
-    player_position = None
-    race_seen = False
+    car_positions = {car: idx + 1 for idx, car in enumerate(race_order)}
+    for idx, player in enumerate(players, start=1):
+        player_laps = laps_by_car.get(idx, [])
+        total_time = sum(lap.get('time', 0) for lap in player_laps)
+        best_lap = min((lap.get('time', 0) for lap in player_laps), default=0)
+        results.append({
+            'DriverName': player.get('name', ''),
+            'TotalTime': total_time,
+            'BestLap': best_lap,
+            'Laps': len(player_laps),
+            'position': car_positions.get(idx, len(players)),
+            'Tyre': player.get('car', ''),
+        })
 
-    # Walk recent files newest -> oldest and pick the first race result
-    # that actually contains the active player.
-    for _, result_file in candidates:
-        try:
-            with open(result_file, 'r', encoding='utf-8') as f:
-                candidate_data = json.load(f)
-        except Exception:
-            continue
+    player_idx = next((i for i, p in enumerate(players) if p.get('name', '').lower() == driver_name.lower()), 0)
+    player_result = results[player_idx] if player_idx < len(results) else None
+    if not player_result:
+        return jsonify({'status': 'not_found', 'message': 'Driver not found in race file'})
 
-        if candidate_data.get('Type', '').upper() != 'RACE':
-            continue
-
-        race_seen = True
-        candidate_results = candidate_data.get('Result', [])
-        for i, r in enumerate(candidate_results):
-            if r.get('DriverName', '').lower() == driver_name.lower():
-                data = candidate_data
-                results = candidate_results
-                player_result = r
-                player_position = i + 1
-                break
-        if player_result is not None:
-            break
-
-    if player_result is None:
-        msg = 'Driver not found in results' if race_seen else 'No race session result found yet'
-        return jsonify({'status': 'not_found', 'message': msg})
-
+    player_position = player_result.get('position', len(results))
     laps_completed = player_result.get('Laps', 0)
-    total_time     = player_result.get('TotalTime', 0)
-    best_lap_ms    = player_result.get('BestLap', 0)
+    total_time = player_result.get('TotalTime', 0)
+    best_lap_ms = player_result.get('BestLap', 0)
 
-    incomplete = (laps_completed < max(1, expected_laps // 2)) or (total_time == 0 and laps_completed == 0)
+    incomplete = (laps_completed < max(1, session.get('lapsCount', 0) // 2)) or (total_time == 0 and laps_completed == 0)
 
     best_lap_fmt = ''
     if best_lap_ms and best_lap_ms > 0:
-        mins         = best_lap_ms // 60000
-        secs         = (best_lap_ms % 60000) / 1000
+        mins = best_lap_ms // 60000
+        secs = (best_lap_ms % 60000) / 1000
         best_lap_fmt = f'{mins:02d}:{secs:06.3f}'
 
-    # ── Lap-by-lap debrief analysis ──────────────────────────────────────────
-    # AC results JSON has a top-level 'Laps' array with per-lap times per driver.
-    # Each lap object also carries Sectors, Cuts, and Tyre — used for rich debrief.
-    raw_laps         = data.get('Laps', [])
-    player_lap_objs  = [
+    raw_laps = [
+        {
+            'DriverName': players[lap.get('car', 1) - 1]['name'],
+            'LapTime': lap.get('time'),
+            'Sectors': lap.get('sectors', []),
+            'Cuts': lap.get('cuts', 0),
+            'Tyre': lap.get('tyre', ''),
+        }
+        for lap in laps if lap.get('car') == player_idx + 1
+    ]
+
+    player_lap_objs = [
         l for l in raw_laps
-        if isinstance(l, dict)
-        and l.get('DriverName', '').lower() == driver_name.lower()
-        and isinstance(l.get('LapTime'), (int, float))
-        and l['LapTime'] > 0
+        if isinstance(l.get('LapTime'), (int, float)) and l['LapTime'] > 0
     ]
     all_player_laps = [l['LapTime'] for l in player_lap_objs]
     lap_analysis = {}
     if all_player_laps:
         lap_best_ms = min(all_player_laps)
-        # Exclude in/out-lap style outliers (> 150% of the best lap)
-        valid_laps     = [lt for lt in all_player_laps if lt <= lap_best_ms * 1.5]
+        valid_laps = [lt for lt in all_player_laps if lt <= lap_best_ms * 1.5]
         valid_lap_objs = [o for o in player_lap_objs if o['LapTime'] <= lap_best_ms * 1.5]
         if len(valid_laps) >= 2:
-            avg_ms      = sum(valid_laps) / len(valid_laps)
-            std_ms      = statistics.stdev(valid_laps)
-            # consistency: 100 = perfect, drops ~1pt per 30ms of std dev
+            avg_ms = sum(valid_laps) / len(valid_laps)
+            std_ms = statistics.stdev(valid_laps)
             consistency = max(0, min(100, int(100 - std_ms / 30)))
-            total_d     = len(results)
+            total_d = len(results)
             lap_analysis = {
-                'lap_times':       valid_laps,
-                'lap_count':       len(valid_laps),
-                'best_lap_ms':     lap_best_ms,
-                'avg_lap_ms':      round(avg_ms),
-                'std_ms':          round(std_ms),
-                'consistency':     consistency,
-                'engineer_report': _generate_engineer_report(
-                    player_position, total_d, valid_laps
-                ),
+                'lap_times': valid_laps,
+                'lap_count': len(valid_laps),
+                'best_lap_ms': lap_best_ms,
+                'avg_lap_ms': round(avg_ms),
+                'std_ms': round(std_ms),
+                'consistency': consistency,
+                'engineer_report': _generate_engineer_report(player_position, total_d, valid_laps),
             }
 
-            # ── Sector analysis (S1/S2/S3) ───────────────────────────────────
             sector_rows = [o.get('Sectors', []) for o in valid_lap_objs]
             if (sector_rows and all(
-                    len(s) == 3 and all(isinstance(v, (int, float)) and v > 0 for v in s)
+                    len(s) == 2 and all(isinstance(v, (int, float)) and v > 0 for v in s)
                     for s in sector_rows)):
                 sector_analysis = []
-                for idx in range(3):
+                for idx in range(2):
                     times = [row[idx] for row in sector_rows]
                     sector_analysis.append({
                         'best_ms': min(times),
-                        'avg_ms':  round(sum(times) / len(times)),
-                        'std_ms':  round(statistics.stdev(times)) if len(times) >= 2 else 0,
+                        'avg_ms': round(sum(times) / len(times)),
+                        'std_ms': round(statistics.stdev(times)) if len(times) >= 2 else 0,
                     })
-                # Weakest sector = highest (avg − best) delta → most room to improve
-                worst_idx = max(range(3), key=lambda i:
-                    sector_analysis[i]['avg_ms'] - sector_analysis[i]['best_ms'])
+                worst_idx = max(range(2), key=lambda i: sector_analysis[i]['avg_ms'] - sector_analysis[i]['best_ms'])
                 lap_analysis['sector_analysis'] = sector_analysis
-                lap_analysis['weakest_sector']  = worst_idx + 1  # 1-indexed
+                lap_analysis['weakest_sector'] = worst_idx + 1
 
-            # ── Track cuts ───────────────────────────────────────────────────
             total_cuts = sum(int(o.get('Cuts', 0)) for o in valid_lap_objs)
             if total_cuts:
                 lap_analysis['total_cuts'] = total_cuts
 
-            # ── Tyre compound ────────────────────────────────────────────────
             tyres = [o.get('Tyre', '') for o in player_lap_objs if o.get('Tyre')]
             if tyres:
                 lap_analysis['tyre'] = max(set(tyres), key=tyres.count)
 
-            # ── Gap to leader ────────────────────────────────────────────────
             if player_position and player_position > 1 and results:
                 p1_time = results[0].get('TotalTime', 0)
                 pl_time = player_result.get('TotalTime', 0)
-                gap_ms  = pl_time - p1_time
+                gap_ms = pl_time - p1_time
                 if gap_ms > 0:
                     lap_analysis['gap_to_leader_ms'] = gap_ms
 
@@ -758,15 +741,55 @@ def read_race_result():
             margin_to_p2_ms = None
 
     return jsonify({
-        'status':         'incomplete' if incomplete else 'found',
-        'position':       player_position,
-        'best_lap':       best_lap_fmt,
+        'status': 'incomplete' if incomplete else 'found',
+        'position': player_position,
+        'best_lap': best_lap_fmt,
         'laps_completed': laps_completed,
-        'expected_laps':  expected_laps,
-        'driver_name':    driver_name,
+        'expected_laps': session.get('lapsCount', 0) or len(player_lap_objs),
+        'driver_name': driver_name,
         'margin_to_p2_ms': margin_to_p2_ms,
-        'lap_analysis':   lap_analysis,
+        'lap_analysis': lap_analysis,
     })
+
+
+@app.route('/api/debug-race-file')
+def debug_race_file():
+    """Return debug info for the race output file."""
+    race_path = _get_race_out_path()
+    if not race_path:
+        return jsonify({'status': 'not_found', 'message': 'race_out.json not found'}), 404
+
+    try:
+        with open(race_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception as exc:
+        return jsonify({'status': 'error', 'message': str(exc)}), 500
+
+    sessions = data.get('sessions') or []
+    session = sessions[0] if sessions else {}
+    stats = os.stat(race_path)
+    return jsonify({
+        'path': race_path,
+        'size': stats.st_size,
+        'modified': datetime.fromtimestamp(stats.st_mtime).isoformat(),
+        'players': len(data.get('players', [])),
+        'sessions': len(sessions),
+        'laps': len(session.get('laps', [])),
+        'order': session.get('raceResult', []),
+    })
+
+
+@app.route('/api/set-debug-one-lap', methods=['POST'])
+def set_debug_one_lap():
+    data, err = _require_json_object()
+    if err:
+        return err
+    enabled = bool(data.get('enabled'))
+    career_data = load_career_data()
+    cs = career_data.setdefault('career_settings', {})
+    cs['debug_one_lap'] = enabled
+    save_career_data(career_data)
+    return jsonify({'status': 'success', 'message': f'Debug one-lap mode {"enabled" if enabled else "disabled"}'})
 
 
 @app.route('/api/finish-race', methods=['POST'])
