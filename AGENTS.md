@@ -25,3 +25,10 @@ Required order:
 ## Scope
 
 Apply this policy to all backend and frontend code tasks in this repository.
+
+## Automatic Decision Rule
+
+- Treat JCodeMuncher as the default path for all code tasks in this repo.
+- Always use JCodeMuncher for: code exploration, impact analysis, bug triage, refactors, endpoint tracing, and test impact checks.
+- You may skip JCodeMuncher only for non-code requests (casual chat, writing, translation, summarization) where no repository inspection is needed.
+- If a task starts as non-code and later requires code lookup, switch to JCodeMuncher-first immediately.
