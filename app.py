@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import statistics
+import unicodedata
 import threading
 import hashlib
 import random
@@ -192,6 +193,8 @@ def _track_is_wec_whitelisted(track_id, name):
 def _track_is_suitable_for_gt(track_id, name, length_m):
     if _track_is_blacklisted(track_id, name):
         return False
+    if _gtwc_key_for_track(track_id, name):
+        return True
     if _track_is_wec_whitelisted(track_id, name):
         return True
     if not length_m:
@@ -200,6 +203,8 @@ def _track_is_suitable_for_gt(track_id, name, length_m):
 
 def _normalize_track_token(value):
     raw = str(value or '').strip().lower()
+    raw = unicodedata.normalize('NFKD', raw)
+    raw = ''.join(c for c in raw if not unicodedata.combining(c))
     return raw.replace(' ', '_').replace('-', '_')
 
 def _track_root(track_id):
