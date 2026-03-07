@@ -257,7 +257,7 @@ class CareerManager:
         if tier_key == 'gt3':
             return 15
         if tier_key == 'gt4':
-            return len(tier_info.get('tracks', []))
+            return 15
         if tier_key == 'wec':
             return len(tier_info.get('tracks', []))
         tracks = ct.get(tier_key) or tier_info.get('tracks', [])
@@ -483,6 +483,7 @@ class CareerManager:
         player_team = career_data.get('team')
         season      = career_data.get('season', 1)
         tier_index  = career_data.get('tier', 0)
+        reserve_active = bool((career_data.get('reserve_driver') or {}).get('active'))
         career_seed = int((career_data or {}).get('driver_seed') or 0)
         name_mode   = self._get_name_mode(career_data)
 
@@ -500,7 +501,7 @@ class CareerManager:
 
         entries = []
         for i, team in enumerate(valid_teams):
-            is_player_team = (team['name'] == player_team)
+            is_player_team = (team['name'] == player_team) and not reserve_active
             slot1 = offset + i * dpt
 
             if is_player_team:
@@ -623,6 +624,7 @@ class CareerManager:
         player_total = self.get_tier_races(career_data)
         fraction     = player_races / player_total if player_total > 0 else 1.0
         cs           = career_data.get('career_settings') or {}
+        tp           = career_data.get('tier_progress') or {}
 
         for idx, tk in enumerate(self.tiers):
             tier_info = self.config['tiers'][tk]
@@ -631,7 +633,14 @@ class CareerManager:
                 sim = career_data
             else:
                 other_tracks = (cs.get('custom_tracks') or {}).get(tk) or tier_info['tracks']
-                ai_races     = round(fraction * len(other_tracks))
+                total_races  = len(other_tracks)
+                tp_entry     = tp.get(tk) if isinstance(tp, dict) else None
+                ai_races     = None
+                if isinstance(tp_entry, dict):
+                    ai_races = tp_entry.get('races_done')
+                if ai_races is None:
+                    ai_races = round(fraction * total_races)
+                ai_races = max(0, min(total_races, int(ai_races)))
                 sim = {
                     'tier':            idx,
                     'season':          career_data.get('season', 1),
@@ -831,7 +840,8 @@ class CareerManager:
 
     def launch_ac_race(self, race_config, config, mode='race_only', career_data=None):
         """Launch Assetto Corsa with race configuration.
-        mode: 'race_only' (default) or 'full_weekend' (practice + quali + race)
+        mode: 'race_only' (default), 'full_weekend' (practice + quali + race),
+              or 'practice_only' (single practice session).
         """
         ac_path = config['paths']['ac_install']
 
@@ -920,7 +930,8 @@ class CareerManager:
 
     def _write_race_config(self, config_path, race_data, ac_path='', mode='race_only', career_data=None):
         """Write AC race.ini in the format AC expects (Documents/Assetto Corsa/cfg/race.ini).
-        mode: 'race_only' → single race session; 'full_weekend' → practice + quali + race.
+        mode: 'race_only' → single race session; 'full_weekend' → practice + quali + race;
+              'practice_only' → practice session only.
         """
         driver           = race_data.get('driver_name', 'Player')
         car              = race_data['car']
@@ -986,8 +997,18 @@ class CareerManager:
             "",
         ]
 
-        # Sessions — race only or full weekend (practice + qualifying + race)
-        if mode == 'full_weekend':
+        # Sessions — race only, full weekend (practice + qualifying + race), or practice only
+        if mode == 'practice_only':
+            lines += [
+                "[SESSION_0]",
+                "NAME=PRACTICE",
+                "TYPE=1",
+                "SPAWN_SET=PIT",
+                f"DURATION_MINUTES={practice_minutes}",
+                "LAPS=0",
+                "",
+            ]
+        elif mode == 'full_weekend':
             lines += [
                 "[SESSION_0]",
                 "NAME=PRACTICE",

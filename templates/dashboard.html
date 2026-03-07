@@ -44,16 +44,17 @@
     <div class="card driver-card">
       <div class="driver-avatar" id="driver-avatar"><span id="driver-initials">?</span></div>
       <div class="driver-name" id="driver-name">No Driver</div>
+      <div class="driver-badge hidden" id="driver-reserve-badge">RESERVE DRIVER</div>
       <div class="driver-team" id="driver-team">-</div>
       <div class="driver-car"  id="driver-car">-</div>
       <div class="driver-stats">
         <div class="dstat"><div class="dstat-val" id="driver-points">0</div><div class="dstat-lbl">Points</div></div>
         <div class="dstat"><div class="dstat-val" id="driver-pos">-</div><div class="dstat-lbl">Position</div></div>
-        <div class="dstat"><div class="dstat-val" id="races-done">0/10</div><div class="dstat-lbl">Races</div></div>
+        <div class="dstat"><div class="dstat-val" id="races-done">0/10</div><div class="dstat-lbl" id="races-label">Races</div></div>
       </div>
     </div>
     <div class="card actions-card">
-      <button class="btn btn-race" onclick="startRace()">&#127937; Start Race</button>
+      <button class="btn btn-race" id="btn-start-race" onclick="startRace()">&#127937; Start Race</button>
       <div class="action-sep"></div>
       <button class="nav-btn" onclick="showView('standings')"><span class="nav-icon">&#127942;</span>Standings</button>
       <button class="nav-btn" onclick="openStats()"><span class="nav-icon">&#128200;</span>Statistics</button>
@@ -131,6 +132,17 @@
         <p class="result-auto-hint">Your result will be imported automatically once you finish the race. Or click below if needed.</p>
         <button class="btn btn-secondary result-fetch-btn" onclick="fetchRaceResult()">&#128269; Import Result Manually</button>
         <div id="result-auto-status" class="result-auto-status"></div>
+      </div>
+
+      <!-- Practice log (reserve drivers) -->
+      <div id="result-practice" class="result-practice hidden">
+        <p class="result-manual-hint" id="practice-hint">Log your practice session when you are done.</p>
+        <div class="practice-progress" id="practice-progress"></div>
+        <div class="form-actions">
+          <button class="btn btn-race" onclick="submitPractice()">&#9989; Log Practice</button>
+          <button class="btn btn-secondary" id="btn-request-offers" onclick="requestReserveOffers()" style="display:none">Request Offers</button>
+          <button class="btn btn-ghost" onclick="showView('standings')">Back</button>
+        </div>
       </div>
 
       <!-- Auto-result display (shown when AC result is found) -->
@@ -309,8 +321,9 @@
     <div id="race-details" class="race-detail-grid"></div>
     <div id="preflight-warnings" class="preflight-warnings hidden"></div>
     <div class="modal-actions">
-      <button class="btn btn-race"      onclick="confirmStartRace('full_weekend')">&#127937; Full Weekend</button>
-      <button class="btn btn-secondary" onclick="confirmStartRace('race_only')">&#9889; Race Only</button>
+      <button class="btn btn-race" id="btn-start-fullweekend" onclick="confirmStartRace('full_weekend')">&#127937; Full Weekend</button>
+      <button class="btn btn-secondary" id="btn-start-raceonly" onclick="confirmStartRace('race_only')">&#9889; Race Only</button>
+      <button class="btn btn-race hidden" id="btn-start-practice" onclick="confirmStartRace('practice_only')">&#127937; Practice Only</button>
       <button class="btn btn-ghost"     onclick="closeModal('modal-race')">Cancel</button>
     </div>
   </div>
@@ -423,6 +436,7 @@
           <button class="scan-filter-btn" onclick="filterTracks('short',this)">&#8804;3 km (MX5)</button>
           <button class="scan-filter-btn" onclick="filterTracks('medium',this)">3&ndash;7 km</button>
           <button class="scan-filter-btn" onclick="filterTracks('long',this)">&gt;7 km</button>
+          <button class="scan-filter-btn" onclick="jumpToCarLibrary()">Car Library &#8595;</button>
         </div>
 
         <div class="wizard-section-title">AC + DLC</div>
@@ -433,7 +447,7 @@
 
         <div class="form-hint" id="scan-track-count"></div>
 
-        <div class="wizard-section-title">Car Library</div>
+        <div class="wizard-section-title" id="car-library">Car Library</div>
         <p class="modal-subtitle">Select the GT4 and GT3/WEC car pools for your career.</p>
         <div class="car-checklists">
           <div class="car-checklist-block">
@@ -511,6 +525,7 @@
 <!-- Team profile modal -->
 <div id="modal-team" class="modal-overlay hidden">
   <div class="modal-box modal-team-box">
+    <img id="tm-livery-main" class="dp-livery hidden" alt="Team livery">
     <div class="modal-header">
       <div>
         <div class="modal-subtitle" id="tm-car"></div>

@@ -111,7 +111,7 @@ GTWC_TEMPLATE = [
         'key': 'nurburgring',
         'name': 'Nürburgring GP',
         'type': 'endurance',
-        'aliases': ['ks_nurburgring/layout_gp', 'ks_nurburgring/gp', 'nurburgring_gp', 'nurburgring'],
+        'aliases': ['ks_nurburgring/layout_gp', 'ks_nurburgring/gp', 'ks_nurburgring', 'nurburgring_gp', 'nurburgring'],
     },
     {
         'key': 'portimao',
@@ -168,6 +168,9 @@ GT3_RACE_COUNT = 15
 MIN_CUSTOM_TRACKS = 8
 WEC_GTWc_WEIGHT = 0.7
 WEC_NON_GTWc_WEIGHT = 0.3
+RESERVE_PRACTICE_TARGET = 3
+RESERVE_TRIGGER_POSITION = 15
+RESERVE_TRIGGER_STREAK = 2
 
 TRACK_BLACKLIST = [
     'drift', 'kart', 'oval', 'drag', 'hillclimb', 'rally', 'traffic', 'freeroam'
@@ -666,6 +669,57 @@ def _ensure_world_state(career_data):
 
     return changed
 
+def _ensure_reserve_state(career_data):
+    rd = career_data.setdefault('reserve_driver', {})
+    if 'active' not in rd:
+        rd['active'] = False
+    if 'practice_count' not in rd:
+        rd['practice_count'] = 0
+    if 'practice_target' not in rd:
+        rd['practice_target'] = RESERVE_PRACTICE_TARGET
+    if 'eligible_for_offers' not in rd:
+        rd['eligible_for_offers'] = False
+    if 'bad_season_streak' not in rd:
+        rd['bad_season_streak'] = 0
+    return rd
+
+def _ensure_tier_progress(career_data):
+    tp = career_data.setdefault('tier_progress', {})
+    for tk in career.tiers:
+        if tk not in tp:
+            tp[tk] = {'races_done': 0}
+        elif 'races_done' not in tp[tk]:
+            tp[tk]['races_done'] = 0
+    return tp
+
+def _tier_total_for(career_data, tier_key):
+    cfg = load_config()
+    tier_info = cfg['tiers'].get(tier_key, {})
+    tracks = _get_career_tracks(tier_key, tier_info, career_data)
+    return len(tracks) if tracks else 0
+
+def _sync_tier_progress_after_race(career_data):
+    tp = _ensure_tier_progress(career_data)
+    player_tier_index = career_data.get('tier', 0)
+    player_tier_key = career.tiers[player_tier_index]
+    player_done = int(career_data.get('races_completed', 0))
+    player_total = max(1, _tier_total_for(career_data, player_tier_key))
+
+    for tk in career.tiers:
+        total = _tier_total_for(career_data, tk)
+        if tk == player_tier_key:
+            tp[tk]['races_done'] = min(player_done, total)
+            continue
+        desired = round((player_done / player_total) * total) if total else 0
+        desired = max(0, min(total, desired))
+        tp[tk]['races_done'] = max(tp[tk].get('races_done', 0), desired)
+
+def _catch_up_tiers_to_season_end(career_data):
+    tp = _ensure_tier_progress(career_data)
+    for tk in career.tiers:
+        total = _tier_total_for(career_data, tk)
+        tp[tk]['races_done'] = total
+
 def _get_driver_world_state(career_data, name):
     _ensure_world_state(career_data)
     world = career_data['world']
@@ -887,7 +941,7 @@ def _get_career_tracks(tier_key, tier_info, career_data):
     if tier_key == 'gt3':
         return _build_gt3_schedule(pool, career_data)
     if tier_key == 'gt4':
-        return _build_gt4_schedule(pool, career_data, len(tier_info.get('tracks', [])))
+        return _build_gt3_schedule(pool, career_data)
     if tier_key == 'wec':
         return _build_wec_schedule(pool, career_data, len(tier_info.get('tracks', [])))
     return tier_info['tracks']
@@ -1081,6 +1135,19 @@ def save_ac_path():
 def get_career_status():
     career_data = load_career_data()
     changed = _ensure_world_state(career_data)
+    rd = career_data.get('reserve_driver')
+    tp = career_data.get('tier_progress')
+    reserve_missing = not isinstance(rd, dict) or any(
+        k not in rd for k in ('active', 'practice_count', 'practice_target', 'eligible_for_offers', 'bad_season_streak')
+    )
+    tier_missing = not isinstance(tp, dict) or any(
+        (tk not in tp) or ('races_done' not in (tp.get(tk) or {}))
+        for tk in career.tiers
+    )
+    if reserve_missing or tier_missing:
+        changed = True
+    _ensure_reserve_state(career_data)
+    _ensure_tier_progress(career_data)
     career_data['total_races'] = career.get_tier_races(career_data)
     cfg = load_config()
     ac_path = cfg.get('paths', {}).get('ac_install', '')
@@ -1185,6 +1252,7 @@ def get_next_race():
 def start_race():
     career_data  = load_career_data()
     cfg          = load_config()
+    rd           = _ensure_reserve_state(career_data)
     tier_index   = career_data['tier']
     tier_key     = career.tiers[tier_index]
     tier_info    = _effective_tier_info(tier_key, career.get_tier_info(tier_index), career_data)
@@ -1208,6 +1276,8 @@ def start_race():
     if err:
         return err
     mode    = data.get('mode', 'race_only')
+    if rd.get('active') and mode != 'practice_only':
+        return jsonify({'status': 'error', 'message': 'Reserve drivers can only run practice sessions.'}), 400
     success = career.launch_ac_race(race, cfg, mode=mode, career_data=career_data)
     if success:
         career_data['race_started_at'] = datetime.now().isoformat()
@@ -1443,6 +1513,9 @@ def finish_race():
     if err:
         return err
     career_data = load_career_data()
+    rd = _ensure_reserve_state(career_data)
+    if rd.get('active'):
+        return jsonify({'status': 'error', 'message': 'Reserve drivers can only complete practice sessions.'}), 400
     try:
         position = int(data.get('position', 1))
     except (TypeError, ValueError):
@@ -1468,6 +1541,7 @@ def finish_race():
     if ai_delta:
         cs['ai_offset'] = max(-5, min(5, cur_ai_offset + ai_delta))
 
+    _sync_tier_progress_after_race(career_data)
     _evolve_driver_progress_for_race(career_data, result['race_num'])
     tier_index = career_data.get('tier', 0)
     tier_key = career.tiers[tier_index]
@@ -1486,6 +1560,25 @@ def finish_race():
     })
 
 
+@app.route('/api/finish-practice', methods=['POST'])
+def finish_practice():
+    career_data = load_career_data()
+    rd = _ensure_reserve_state(career_data)
+    if not rd.get('active'):
+        return jsonify({'status': 'error', 'message': 'Practice logging is only for reserve drivers.'}), 400
+    rd['practice_count'] = int(rd.get('practice_count', 0)) + 1
+    target = int(rd.get('practice_target', RESERVE_PRACTICE_TARGET))
+    if rd['practice_count'] >= target:
+        rd['eligible_for_offers'] = True
+    save_career_data(career_data)
+    return jsonify({
+        'status': 'practice_complete',
+        'practice_count': rd['practice_count'],
+        'practice_target': target,
+        'eligible_for_offers': rd.get('eligible_for_offers', False),
+    })
+
+
 @app.route('/api/end-season', methods=['POST'])
 def end_season():
     return _do_end_season()
@@ -1497,6 +1590,36 @@ def _do_end_season():
     tier_index  = career_data['tier']
     tier_key    = career.tiers[tier_index]
     tier_info   = career.get_tier_info(tier_index)
+    rd          = _ensure_reserve_state(career_data)
+
+    if rd.get('active'):
+        if not rd.get('eligible_for_offers'):
+            target = int(rd.get('practice_target', RESERVE_PRACTICE_TARGET))
+            return jsonify({
+                'status': 'reserve_active',
+                'message': f'Complete {target} practice sessions to request offers.',
+                'practice_count': rd.get('practice_count', 0),
+                'practice_target': target,
+            }), 400
+
+        _catch_up_tiers_to_season_end(career_data)
+        cfg_with_cars = _copy_config_with_custom_cars(cfg, career_data)
+        offers_position = max(1, RESERVE_TRIGGER_POSITION - 5)
+        contracts   = career.generate_contract_offers(
+            offers_position, tier_index + 1, cfg_with_cars,
+            current_tier=tier_index,
+            team_count=len(tier_info.get('teams', [])),
+            season=career_data.get('season', 1) + 1,
+        )
+        career_data['contracts']      = contracts
+        career_data['final_position'] = None
+        save_career_data(career_data)
+        return jsonify({
+            'status':        'reserve_offers',
+            'contracts':     contracts,
+            'practice_count': rd.get('practice_count', 0),
+            'practice_target': rd.get('practice_target', RESERVE_PRACTICE_TARGET),
+        })
     standings   = career.generate_standings(tier_info, career_data, tier_key=tier_key)
     position    = next((s['position'] for s in standings if s['is_player']), 1)
     team_count  = len(tier_info['teams'])
@@ -1531,6 +1654,37 @@ def _do_end_season():
     })
 
     _simulate_world_after_season(career_data, standings, position)
+    _catch_up_tiers_to_season_end(career_data)
+
+    if tier_key != 'mx5_cup':
+        if position >= RESERVE_TRIGGER_POSITION:
+            rd['bad_season_streak'] = int(rd.get('bad_season_streak', 0)) + 1
+        else:
+            rd['bad_season_streak'] = 0
+        if rd['bad_season_streak'] >= RESERVE_TRIGGER_STREAK:
+            rd['active'] = True
+            rd['practice_count'] = 0
+            rd['practice_target'] = RESERVE_PRACTICE_TARGET
+            rd['eligible_for_offers'] = False
+            rd['bad_season_streak'] = 0
+
+            career_data['season'] += 1
+            career_data['races_completed'] = 0
+            career_data['points'] = 0
+            career_data['race_results'] = []
+            career_data['contracts'] = None
+            career_data['standings'] = []
+            career_data['final_position'] = None
+            career_data['tier_progress'] = {tk: {'races_done': 0} for tk in career.tiers}
+            _advance_driver_progress_season(career_data)
+            career_data['rival_name'] = career.pick_rival(tier_key, career_data.get('season', 1), career_data=career_data)
+            save_career_data(career_data)
+            return jsonify({
+                'status': 'reserve_assigned',
+                'message': 'Seat lost. You have been assigned as a reserve driver.',
+                'practice_count': 0,
+                'practice_target': RESERVE_PRACTICE_TARGET,
+            })
 
     cfg_with_cars = _copy_config_with_custom_cars(cfg, career_data)
     contracts   = career.generate_contract_offers(
@@ -1581,6 +1735,12 @@ def accept_contract():
     career_data['contracts']        = None
     career_data['standings']        = []
     career_data['final_position']   = None
+    career_data['tier_progress']    = {tk: {'races_done': 0} for tk in career.tiers}
+    rd = _ensure_reserve_state(career_data)
+    rd['active'] = False
+    rd['practice_count'] = 0
+    rd['eligible_for_offers'] = False
+    rd['bad_season_streak'] = 0
     # Preserve career_settings (difficulty, weather, custom tracks) across seasons
     # career_settings is intentionally NOT reset here
 
@@ -1654,6 +1814,14 @@ def new_career():
             'custom_tracks': custom_tracks,
             'custom_cars':   custom_cars,
         },
+        'reserve_driver': {
+            'active': False,
+            'practice_count': 0,
+            'practice_target': RESERVE_PRACTICE_TARGET,
+            'eligible_for_offers': False,
+            'bad_season_streak': 0,
+        },
+        'tier_progress': {tk: {'races_done': 0} for tk in career.tiers},
     }
     _ensure_driver_progress(initial)
     initial['rival_name'] = career.pick_rival('mx5_cup', 1, career_data=initial)
