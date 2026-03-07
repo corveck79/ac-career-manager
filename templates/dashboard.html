@@ -85,6 +85,13 @@
         &#127942; Season complete - check your contract offers below!
       </div>
     </div>
+    <div class="card world-card">
+      <div class="world-header">
+        <h2 class="section-title">World Feed</h2>
+        <span class="world-sub" id="world-feed-sub">Latest updates</span>
+      </div>
+      <div id="world-feed" class="world-feed"></div>
+    </div>
     <div id="view-standings" class="card view-card active">
       <!-- Tier tabs -->
       <div class="tier-tabs" id="tier-tabs">
@@ -408,14 +415,37 @@
         <div class="scan-spinner"></div><span>Scanning AC content folder&hellip;</span>
       </div>
       <div id="scan-results" class="hidden">
+        <div class="wizard-section-title">GTWC Tracks</div>
+        <div id="track-checklist-gtwc" class="track-checklist"></div>
+
         <div class="scan-filter-row">
           <button class="scan-filter-btn active" onclick="filterTracks('all',this)">All</button>
           <button class="scan-filter-btn" onclick="filterTracks('short',this)">&#8804;3 km (MX5)</button>
           <button class="scan-filter-btn" onclick="filterTracks('medium',this)">3&ndash;7 km</button>
           <button class="scan-filter-btn" onclick="filterTracks('long',this)">&gt;7 km</button>
         </div>
-        <div id="track-checklist" class="track-checklist"></div>
+
+        <div class="wizard-section-title">AC + DLC</div>
+        <div id="track-checklist-official" class="track-checklist"></div>
+
+        <div class="wizard-section-title">Mods</div>
+        <div id="track-checklist-mods" class="track-checklist"></div>
+
         <div class="form-hint" id="scan-track-count"></div>
+
+        <div class="wizard-section-title">Car Library</div>
+        <p class="modal-subtitle">Select the GT4 and GT3/WEC car pools for your career.</p>
+        <div class="car-checklists">
+          <div class="car-checklist-block">
+            <div class="car-checklist-title">GT4 Cars</div>
+            <div id="car-checklist-gt4" class="car-checklist"></div>
+          </div>
+          <div class="car-checklist-block">
+            <div class="car-checklist-title">GT3 / WEC Cars</div>
+            <div id="car-checklist-gt3" class="car-checklist"></div>
+          </div>
+        </div>
+        <div class="form-hint" id="scan-car-count"></div>
       </div>
       <div class="modal-actions" style="margin-top:1rem">
         <button class="btn btn-race"       id="btn-start-wizard" onclick="startCareerFromWizard()" style="display:none">&#127937; Start Career</button>

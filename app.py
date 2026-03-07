@@ -6,6 +6,7 @@ Main application entry point
 from flask import Flask, render_template, jsonify, request, send_file, abort
 from flask_cors import CORS
 from collections import defaultdict
+import copy
 import json
 import os
 import sys
@@ -14,7 +15,7 @@ import threading
 import hashlib
 import random
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 from career_manager import CareerManager
@@ -77,6 +78,304 @@ TRACK_NAMES = {
     'mugello':                         'Mugello',
     'imola':                           'Imola',
 }
+
+OFFICIAL_TRACK_ROOTS = {
+    'monza', 'imola', 'mugello', 'magione', 'spa',
+    'ks_brands_hatch', 'ks_silverstone', 'ks_nurburgring',
+    'ks_barcelona', 'ks_zandvoort', 'ks_red_bull_ring',
+    'ks_vallelunga', 'ks_laguna_seca', 'ks_black_cat_county',
+    'ks_highlands', 'ks_nordschleife', 'ks_drag',
+    'ks_monza66', 'ks_silverstone1967', 'trento-bondone', 'drift',
+}
+
+GTWC_TEMPLATE = [
+    {
+        'key': 'paul_ricard',
+        'name': 'Paul Ricard',
+        'type': 'endurance',
+        'aliases': ['paul_ricard', 'circuit_paul_ricard', 'le_castellet', 'paulricard', 'ks_paul_ricard'],
+    },
+    {
+        'key': 'monza',
+        'name': 'Monza',
+        'type': 'endurance',
+        'aliases': ['monza', 'ks_monza'],
+    },
+    {
+        'key': 'spa',
+        'name': 'Spa-Francorchamps',
+        'type': 'endurance',
+        'aliases': ['spa', 'ks_spa', 'spa_francorchamps', 'spa-francorchamps'],
+    },
+    {
+        'key': 'nurburgring',
+        'name': 'Nürburgring GP',
+        'type': 'endurance',
+        'aliases': ['ks_nurburgring/layout_gp', 'ks_nurburgring/gp', 'nurburgring_gp', 'nurburgring'],
+    },
+    {
+        'key': 'portimao',
+        'name': 'Portimão',
+        'type': 'endurance',
+        'aliases': ['portimao', 'algarve', 'autodromo_do_algarve'],
+    },
+    {
+        'key': 'brands_hatch',
+        'name': 'Brands Hatch GP',
+        'type': 'sprint',
+        'aliases': ['ks_brands_hatch/gp', 'brands_hatch/gp', 'brands_hatch_gp', 'brands_hatch'],
+    },
+    {
+        'key': 'misano',
+        'name': 'Misano',
+        'type': 'sprint',
+        'aliases': ['misano', 'misano_world_circuit'],
+    },
+    {
+        'key': 'magny_cours',
+        'name': 'Magny-Cours',
+        'type': 'sprint',
+        'aliases': ['magny_cours', 'magnycours', 'magny-cours'],
+    },
+    {
+        'key': 'zandvoort',
+        'name': 'Zandvoort',
+        'type': 'sprint',
+        'aliases': ['zandvoort', 'ks_zandvoort'],
+    },
+    {
+        'key': 'barcelona',
+        'name': 'Barcelona GP',
+        'type': 'sprint',
+        'aliases': ['ks_barcelona/layout_gp', 'barcelona', 'barcelona_gp', 'catalunya', 'circuit_de_barcelona'],
+    },
+]
+GTWC_BY_KEY = {t['key']: t for t in GTWC_TEMPLATE}
+GTWC_TEMPLATE_ORDER = [
+    ('endurance', 'paul_ricard'),
+    ('sprint',    'brands_hatch'),
+    ('endurance', 'monza'),
+    ('endurance', 'spa'),
+    ('sprint',    'misano'),
+    ('sprint',    'magny_cours'),
+    ('endurance', 'nurburgring'),
+    ('sprint',    'zandvoort'),
+    ('sprint',    'barcelona'),
+    ('endurance', 'portimao'),
+]
+
+GT3_RACE_COUNT = 15
+MIN_CUSTOM_TRACKS = 8
+WEC_GTWc_WEIGHT = 0.7
+WEC_NON_GTWc_WEIGHT = 0.3
+
+TRACK_BLACKLIST = [
+    'drift', 'kart', 'oval', 'drag', 'hillclimb', 'rally', 'traffic', 'freeroam'
+]
+WEC_WHITELIST = [
+    'le_mans', 'lemans', 'la_sarthe'
+]
+GT_TRACK_MIN_M = 2500
+GT_TRACK_MAX_M = 8000
+
+def _track_is_blacklisted(track_id, name):
+    hay = f"{track_id} {name}".lower()
+    return any(k in hay for k in TRACK_BLACKLIST)
+
+def _track_is_wec_whitelisted(track_id, name):
+    hay = f"{track_id} {name}".lower()
+    return any(k in hay for k in WEC_WHITELIST)
+
+def _track_is_suitable_for_gt(track_id, name, length_m):
+    if _track_is_blacklisted(track_id, name):
+        return False
+    if _track_is_wec_whitelisted(track_id, name):
+        return True
+    if not length_m:
+        return False
+    return GT_TRACK_MIN_M <= length_m <= GT_TRACK_MAX_M
+
+def _normalize_track_token(value):
+    raw = str(value or '').strip().lower()
+    return raw.replace(' ', '_').replace('-', '_')
+
+def _track_root(track_id):
+    return str(track_id or '').split('/')[0].strip().lower()
+
+def _track_is_official(root_id):
+    if not root_id:
+        return False
+    root = root_id.lower()
+    return root.startswith('ks_') or root in OFFICIAL_TRACK_ROOTS
+
+def _id_matches_alias(track_id, alias):
+    tid = _normalize_track_token(track_id)
+    alias_n = _normalize_track_token(alias)
+    if tid == alias_n:
+        return True
+    if '/' in tid and alias_n == tid.split('/')[0]:
+        return True
+    if '/' not in alias_n and tid.startswith(alias_n + '/'):
+        return True
+    return False
+
+def _name_matches_alias(track_name, alias):
+    name_n = _normalize_track_token(track_name)
+    alias_n = _normalize_track_token(alias)
+    if not name_n or not alias_n:
+        return False
+    return alias_n in name_n
+
+def _gtwc_key_for_track(track_id, track_name=None):
+    for entry in GTWC_TEMPLATE:
+        for alias in entry['aliases']:
+            if _id_matches_alias(track_id, alias):
+                return entry['key']
+            if track_name and _name_matches_alias(track_name, alias):
+                return entry['key']
+    return None
+
+def _unique_list(values):
+    seen = set()
+    result = []
+    for v in values:
+        if v in seen:
+            continue
+        seen.add(v)
+        result.append(v)
+    return result
+
+def _seeded_rng(career_data, tier_key, salt='tracks'):
+    season = int(career_data.get('season', 1) or 1)
+    seed = int(career_data.get('driver_seed') or 0)
+    rng_seed = _seed_int(f'{salt}|{tier_key}|{season}|{seed}', 0, 2**31 - 1)
+    return random.Random(rng_seed)
+
+def _pick_from_pool(pool, used, rng):
+    available = [t for t in pool if t not in used]
+    if available:
+        return rng.choice(available)
+    if pool:
+        return rng.choice(pool)
+    return None
+
+def _weighted_pick_index(items, weights, rng):
+    total = sum(weights)
+    if total <= 0:
+        return 0
+    r = rng.random() * total
+    for i, w in enumerate(weights):
+        r -= w
+        if r <= 0:
+            return i
+    return max(0, len(items) - 1)
+
+def _build_gt3_schedule(pool, career_data):
+    rng = _seeded_rng(career_data, 'gt3')
+    pool_unique = _unique_list([t for t in pool if t])
+    if not pool_unique:
+        return []
+
+    def gtwc_type(track_id):
+        key = _gtwc_key_for_track(track_id)
+        if not key:
+            return None
+        return GTWC_BY_KEY.get(key, {}).get('type')
+
+    endurance_pool = [t for t in pool_unique if gtwc_type(t) == 'endurance']
+    sprint_pool = [t for t in pool_unique if gtwc_type(t) != 'endurance']
+    if not sprint_pool:
+        sprint_pool = pool_unique[:]
+
+    used = set()
+    schedule = []
+    for slot_type, key in GTWC_TEMPLATE_ORDER:
+        track = None
+        # Prefer the exact GTWC track for this slot if available
+        for t in pool_unique:
+            if _gtwc_key_for_track(t) == key and t not in used:
+                track = t
+                break
+        if not track:
+            for t in pool_unique:
+                if _gtwc_key_for_track(t) == key:
+                    track = t
+                    break
+        if not track:
+            pool_for_slot = endurance_pool if slot_type == 'endurance' else sprint_pool
+            track = _pick_from_pool(pool_for_slot, used, rng)
+        if not track:
+            track = rng.choice(pool_unique)
+        used.add(track)
+        schedule.append(track)
+        if slot_type == 'sprint':
+            schedule.append(track)
+    return schedule[:GT3_RACE_COUNT]
+
+def _build_gt4_schedule(pool, career_data, target_len):
+    rng = _seeded_rng(career_data, 'gt4')
+    pool_unique = _unique_list([t for t in pool if t])
+    if not pool_unique:
+        return []
+    weekends = max(1, target_len // 2)
+    used = set()
+    weekend_tracks = []
+    for _ in range(weekends):
+        track = _pick_from_pool(pool_unique, used, rng)
+        if not track:
+            track = rng.choice(pool_unique)
+        used.add(track)
+        weekend_tracks.append(track)
+    schedule = []
+    for t in weekend_tracks:
+        schedule.extend([t, t])
+    while len(schedule) < target_len:
+        schedule.append(rng.choice(pool_unique))
+    return schedule[:target_len]
+
+def _build_wec_schedule(pool, career_data, target_len):
+    rng = _seeded_rng(career_data, 'wec')
+    pool_unique = _unique_list([t for t in pool if t])
+    if not pool_unique:
+        return []
+
+    def weight_for(track_id):
+        return WEC_GTWc_WEIGHT if _gtwc_key_for_track(track_id) else WEC_NON_GTWc_WEIGHT
+
+    if len(pool_unique) >= target_len:
+        items = pool_unique[:]
+        weights = [weight_for(t) for t in items]
+        schedule = []
+        for _ in range(target_len):
+            idx = _weighted_pick_index(items, weights, rng)
+            schedule.append(items.pop(idx))
+            weights.pop(idx)
+        return schedule
+
+    weights = [weight_for(t) for t in pool_unique]
+    schedule = []
+    for _ in range(target_len):
+        idx = _weighted_pick_index(pool_unique, weights, rng)
+        schedule.append(pool_unique[idx])
+    return schedule
+
+def _gt3_race_types():
+    types = []
+    for slot_type, _ in GTWC_TEMPLATE_ORDER:
+        types.append(slot_type)
+        if slot_type == 'sprint':
+            types.append(slot_type)
+    return types[:GT3_RACE_COUNT]
+
+def _race_type_for_round(tier_key, round_index):
+    if tier_key == 'gt3':
+        types = _gt3_race_types()
+        if 0 <= round_index < len(types):
+            return types[round_index]
+        return 'sprint'
+    if tier_key == 'wec':
+        return 'endurance'
+    return 'sprint'
 
 def _is_allowed_web_origin(value):
     """Allow only local UI origins for API write requests."""
@@ -183,15 +482,11 @@ def _set_ac_install_path(cfg, path):
 def _recommended_ai_delta(position, margin_ms=None):
     """Simple adaptive AI adjustment based on result dominance."""
     if position == 1:
-        if margin_ms is not None and margin_ms >= 30000:
-            return 3
-        if margin_ms is not None and margin_ms >= 15000:
-            return 2
         if margin_ms is not None and margin_ms >= 7000:
             return 1
         return 1
     if position >= 10:
-        return -2
+        return -1
     if position >= 7:
         return -1
     return 0
@@ -319,6 +614,229 @@ def _advance_driver_progress_season(career_data):
         entry['season_start'] = {k: float(current.get(k, 70)) for k in DRIVER_SKILL_KEYS}
         entry['last_delta'] = {k: 0.0 for k in DRIVER_SKILL_KEYS}
 
+def _ensure_world_state(career_data):
+    world = career_data.setdefault('world', {})
+    world.setdefault('events', [])
+    world.setdefault('drivers', {})
+    world.setdefault('teams', {})
+    if 'next_event_id' not in world:
+        world['next_event_id'] = 1
+    changed = False
+
+    driver_state = world['drivers']
+    for name, base in career.DRIVER_PROFILES.items():
+        entry = driver_state.get(name)
+        if not isinstance(entry, dict):
+            rep = round((float(base.get('skill', 80)) - 80.0) / 5.0, 2)
+            driver_state[name] = {'form': 0.0, 'confidence': 0.0, 'reputation': rep}
+            changed = True
+            continue
+        if 'form' not in entry:
+            entry['form'] = 0.0
+            changed = True
+        if 'confidence' not in entry:
+            entry['confidence'] = 0.0
+            changed = True
+        if 'reputation' not in entry:
+            entry['reputation'] = 0.0
+            changed = True
+
+    team_state = world['teams']
+    for tk in career.tiers:
+        tier_info = career.config.get('tiers', {}).get(tk, {})
+        for team in tier_info.get('teams', []):
+            name = team.get('name')
+            if not name:
+                continue
+            entry = team_state.get(name)
+            if not isinstance(entry, dict):
+                rep = round(float(team.get('performance', 0)) * 2.0, 2)
+                team_state[name] = {'form': 0.0, 'momentum': 0.0, 'reputation': rep}
+                changed = True
+                continue
+            if 'form' not in entry:
+                entry['form'] = 0.0
+                changed = True
+            if 'momentum' not in entry:
+                entry['momentum'] = 0.0
+                changed = True
+            if 'reputation' not in entry:
+                entry['reputation'] = 0.0
+                changed = True
+
+    return changed
+
+def _get_driver_world_state(career_data, name):
+    _ensure_world_state(career_data)
+    world = career_data['world']
+    entry = world['drivers'].get(name)
+    if not isinstance(entry, dict):
+        entry = {'form': 0.0, 'confidence': 0.0, 'reputation': 0.0}
+        world['drivers'][name] = entry
+    return entry
+
+def _get_team_world_state(career_data, name):
+    _ensure_world_state(career_data)
+    world = career_data['world']
+    entry = world['teams'].get(name)
+    if not isinstance(entry, dict):
+        entry = {'form': 0.0, 'momentum': 0.0, 'reputation': 0.0}
+        world['teams'][name] = entry
+    return entry
+
+def _push_world_event(career_data, text, kind='race', tier=None, season=None, meta=None):
+    if not text:
+        return
+    _ensure_world_state(career_data)
+    world = career_data['world']
+    event_id = world.get('next_event_id', 1)
+    world['next_event_id'] = event_id + 1
+    event = {
+        'id': event_id,
+        'ts': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+        'kind': kind,
+        'text': text,
+    }
+    if tier:
+        event['tier'] = tier
+    if season:
+        event['season'] = season
+    if meta:
+        event['meta'] = meta
+    events = world.setdefault('events', [])
+    events.insert(0, event)
+    if len(events) > 40:
+        del events[40:]
+
+def _simulate_world_after_race(career_data, standings, result):
+    if not standings:
+        return
+    _ensure_world_state(career_data)
+    tier_index = career_data.get('tier', 0)
+    tier_key = career.tiers[tier_index]
+    tier_info = career.get_tier_info(tier_index) or {}
+    tier_name = tier_info.get('name') or career.tier_names.get(tier_key, tier_key)
+    season = career_data.get('season', 1)
+
+    player_name = (career_data.get('driver_name') or '').strip()
+    if player_name:
+        pos = int(result.get('position', 0) or 0)
+        delta = 0.1
+        if pos == 1:
+            delta = 0.6
+        elif pos <= 3:
+            delta = 0.3
+        elif pos >= 10:
+            delta = -0.4
+        elif pos >= 7:
+            delta = -0.2
+        state = _get_driver_world_state(career_data, player_name)
+        state['form'] = round(_clamp(state.get('form', 0.0) + delta, -5.0, 5.0), 2)
+        state['confidence'] = round(_clamp(state.get('confidence', 0.0) + delta * 0.8, -5.0, 5.0), 2)
+        _push_world_event(career_data, f"{player_name} finished P{pos} in {tier_name}.",
+                          kind='race', tier=tier_key, season=season)
+
+        # Rival check
+        rival = career_data.get('rival_name')
+        if rival:
+            me = next((s for s in standings if s.get('is_player')), None)
+            rv = next((s for s in standings if s.get('driver') == rival), None)
+            if me and rv:
+                if me['position'] < rv['position']:
+                    _push_world_event(
+                        career_data,
+                        f"{player_name} beat rival {rival} (P{me['position']} vs P{rv['position']}).",
+                        kind='race', tier=tier_key, season=season
+                    )
+                elif me['position'] > rv['position']:
+                    _push_world_event(
+                        career_data,
+                        f"{rival} beat {player_name} (P{rv['position']} vs P{me['position']}).",
+                        kind='race', tier=tier_key, season=season
+                    )
+
+        # Streaks
+        results = career_data.get('race_results', [])
+        if results:
+            podium_streak = 0
+            win_streak = 0
+            for r in reversed(results):
+                p = int(r.get('position', 99))
+                if p <= 3:
+                    podium_streak += 1
+                else:
+                    break
+            for r in reversed(results):
+                if int(r.get('position', 99)) == 1:
+                    win_streak += 1
+                else:
+                    break
+            if podium_streak in (2, 3, 5):
+                _push_world_event(
+                    career_data,
+                    f"{player_name} is on a podium streak: {podium_streak} races.",
+                    kind='race', tier=tier_key, season=season
+                )
+            if win_streak in (2, 3):
+                _push_world_event(
+                    career_data,
+                    f"{player_name} is on a winning streak: {win_streak} races.",
+                    kind='race', tier=tier_key, season=season
+                )
+
+    ai_entries = [s for s in standings if not s.get('is_player')]
+    if ai_entries:
+        best = ai_entries[0]
+        worst = ai_entries[-1]
+        for entry, delta, label in (
+            (best, 0.4, 'standout result'),
+            (worst, -0.3, 'tough result'),
+        ):
+            name = entry.get('driver')
+            if not name:
+                continue
+            state = _get_driver_world_state(career_data, name)
+            state['form'] = round(_clamp(state.get('form', 0.0) + delta, -5.0, 5.0), 2)
+            state['confidence'] = round(_clamp(state.get('confidence', 0.0) + delta * 0.6, -5.0, 5.0), 2)
+            _push_world_event(career_data, f"{name} had a {label} in {tier_name}.",
+                              kind='race', tier=tier_key, season=season)
+
+    team_name = career_data.get('team')
+    if team_name:
+        pos = int(result.get('position', 0) or 0)
+        team_delta = 0.05
+        if pos <= 3:
+            team_delta = 0.2
+        elif pos >= 10:
+            team_delta = -0.2
+        team_state = _get_team_world_state(career_data, team_name)
+        team_state['momentum'] = round(_clamp(team_state.get('momentum', 0.0) + team_delta, -5.0, 5.0), 2)
+
+def _simulate_world_after_season(career_data, standings, position):
+    _ensure_world_state(career_data)
+    tier_index = career_data.get('tier', 0)
+    tier_key = career.tiers[tier_index]
+    tier_info = career.get_tier_info(tier_index) or {}
+    tier_name = tier_info.get('name') or career.tier_names.get(tier_key, tier_key)
+    season = career_data.get('season', 1)
+
+    if standings:
+        champion = standings[0].get('driver')
+        if champion:
+            state = _get_driver_world_state(career_data, champion)
+            state['reputation'] = round(state.get('reputation', 0.0) + 0.6, 2)
+            _push_world_event(career_data, f"{champion} won the {tier_name} title.",
+                              kind='season', tier=tier_key, season=season)
+        last_place = standings[-1].get('driver')
+        if last_place:
+            state = _get_driver_world_state(career_data, last_place)
+            state['reputation'] = round(state.get('reputation', 0.0) - 0.4, 2)
+
+    player_name = (career_data.get('driver_name') or '').strip()
+    if player_name:
+        _push_world_event(career_data, f"{player_name} finished P{position} in {tier_name}.",
+                          kind='season', tier=tier_key, season=season)
+
 def _default_career():
     return {
         'tier':            0,
@@ -334,6 +852,12 @@ def _default_career():
         'player_history':  [],
         'driver_progress': {},
         'rival_name':      None,
+        'world': {
+            'events': [],
+            'drivers': {},
+            'teams': {},
+            'next_event_id': 1,
+        },
     }
 
 
@@ -343,11 +867,73 @@ def _fmt_track(track_id):
 
 def _get_career_tracks(tier_key, tier_info, career_data):
     """Return the effective track list for a tier.
-    Uses career_settings.custom_tracks[tier_key] if set, otherwise config defaults.
+    Uses career_settings.custom_tracks.pool if set, otherwise config defaults.
     """
     cs = career_data.get('career_settings') or {}
     ct = cs.get('custom_tracks') or {}
-    return ct.get(tier_key) or tier_info['tracks']
+    pool = None
+    if isinstance(ct, dict):
+        pool = ct.get('pool')
+    if pool:
+        pool = _unique_list([t for t in pool if t])
+    else:
+        # Backward-compatible: older saves with per-tier custom tracks
+        legacy = ct.get(tier_key)
+        if legacy:
+            pool = _unique_list([t for t in legacy if t])
+        else:
+            pool = _unique_list(tier_info.get('tracks', []))
+
+    if tier_key == 'gt3':
+        return _build_gt3_schedule(pool, career_data)
+    if tier_key == 'gt4':
+        return _build_gt4_schedule(pool, career_data, len(tier_info.get('tracks', [])))
+    if tier_key == 'wec':
+        return _build_wec_schedule(pool, career_data, len(tier_info.get('tracks', [])))
+    return tier_info['tracks']
+
+def _apply_custom_cars_to_tier(tier_key, tier_info, career_data):
+    cs = career_data.get('career_settings') or {}
+    custom_cars = cs.get('custom_cars') or {}
+    pool = custom_cars.get(tier_key) or []
+    if not pool:
+        return tier_info
+
+    teams = []
+    seed = int(career_data.get('driver_seed') or 0)
+    for t in tier_info.get('teams', []):
+        team = dict(t)
+        name = team.get('name', '')
+        idx = _seed_int(f'car|{tier_key}|{name}|{seed}', 0, max(0, len(pool) - 1))
+        team['car'] = pool[idx] if pool else team.get('car')
+        teams.append(team)
+
+    out = dict(tier_info)
+    out['teams'] = teams
+    return out
+
+def _copy_config_with_custom_cars(cfg, career_data):
+    cs = career_data.get('career_settings') or {}
+    custom_cars = cs.get('custom_cars') or {}
+    if not custom_cars:
+        return cfg
+    cloned = copy.deepcopy(cfg)
+    seed = int(career_data.get('driver_seed') or 0)
+    for tier_key, cars in custom_cars.items():
+        if not cars:
+            continue
+        tier_info = cloned.get('tiers', {}).get(tier_key)
+        if not tier_info:
+            continue
+        teams = []
+        for t in tier_info.get('teams', []):
+            team = dict(t)
+            name = team.get('name', '')
+            idx = _seed_int(f'car|{tier_key}|{name}|{seed}', 0, max(0, len(cars) - 1))
+            team['car'] = cars[idx] if cars else team.get('car')
+            teams.append(team)
+        tier_info['teams'] = teams
+    return cloned
 
 
 def _parse_length(raw):
@@ -428,10 +1014,10 @@ def _effective_tier_info(tier_key, tier_info, career_data):
     """Return a shallow copy of tier_info with tracks overridden from career_settings."""
     tracks = _get_career_tracks(tier_key, tier_info, career_data)
     if tracks is tier_info['tracks']:
-        return tier_info          # nothing to override, return original
+        return _apply_custom_cars_to_tier(tier_key, tier_info, career_data)
     info = dict(tier_info)
     info['tracks'] = tracks
-    return info
+    return _apply_custom_cars_to_tier(tier_key, info, career_data)
 
 
 # ---------------------------------------------------------------------------
@@ -494,17 +1080,30 @@ def save_ac_path():
 @app.route('/api/career-status')
 def get_career_status():
     career_data = load_career_data()
+    changed = _ensure_world_state(career_data)
     career_data['total_races'] = career.get_tier_races(career_data)
     cfg = load_config()
     ac_path = cfg.get('paths', {}).get('ac_install', '')
     career_data['csp_status'] = detect_csp(ac_path)
+    if changed:
+        save_career_data(career_data)
     return jsonify(career_data)
+
+
+@app.route('/api/world-feed')
+def get_world_feed():
+    career_data = load_career_data()
+    _ensure_world_state(career_data)
+    events = (career_data.get('world') or {}).get('events', [])
+    return jsonify({'events': events})
 
 
 @app.route('/api/standings')
 def get_standings():
     career_data = load_career_data()
-    tier_info   = career.get_tier_info(career_data['tier'])
+    tier_index  = career_data['tier']
+    tier_key    = career.tiers[tier_index]
+    tier_info   = _effective_tier_info(tier_key, career.get_tier_info(tier_index), career_data)
     standings   = career.generate_standings(tier_info, career_data)
     return jsonify({
         'standings':       standings,
@@ -552,6 +1151,7 @@ def get_season_calendar():
             'track_name': _fmt_track(track_id),
             'status':     status,
             'result':     result,
+            'race_type':  _race_type_for_round(tier_key, i),
         })
     return jsonify(cal)
 
@@ -866,9 +1466,14 @@ def finish_race():
     cur_ai_offset = _parse_optional_int(cs.get('ai_offset')) or 0
     ai_delta = _recommended_ai_delta(position, margin_ms=margin_ms)
     if ai_delta:
-        cs['ai_offset'] = max(-20, min(20, cur_ai_offset + ai_delta))
+        cs['ai_offset'] = max(-5, min(5, cur_ai_offset + ai_delta))
 
     _evolve_driver_progress_for_race(career_data, result['race_num'])
+    tier_index = career_data.get('tier', 0)
+    tier_key = career.tiers[tier_index]
+    tier_info = career.get_tier_info(tier_index)
+    standings = career.generate_standings(tier_info, career_data, tier_key=tier_key)
+    _simulate_world_after_race(career_data, standings, result)
     save_career_data(career_data)
     if career_data['races_completed'] >= career.get_tier_races(career_data):
         return _do_end_season()
@@ -925,10 +1530,14 @@ def _do_end_season():
         'wins':   wins,
     })
 
+    _simulate_world_after_season(career_data, standings, position)
+
+    cfg_with_cars = _copy_config_with_custom_cars(cfg, career_data)
     contracts   = career.generate_contract_offers(
-        position, tier_index + 1, cfg,
+        position, tier_index + 1, cfg_with_cars,
         current_tier=tier_index,
         team_count=team_count,
+        season=season + 1,
     )
     career_data['contracts']      = contracts
     career_data['final_position'] = position
@@ -1010,6 +1619,14 @@ def new_career():
     if name_mode not in {'curated', 'procedural'}:
         name_mode = 'curated'
     custom_tracks = data.get('custom_tracks') or None   # None → use config defaults
+    custom_cars   = data.get('custom_cars') or None
+    if isinstance(custom_tracks, dict) and custom_tracks.get('pool'):
+        unique_tracks = len(set(custom_tracks.get('pool') or []))
+        if unique_tracks < MIN_CUSTOM_TRACKS:
+            return jsonify({
+                'status': 'error',
+                'message': f'Please select at least {MIN_CUSTOM_TRACKS} unique tracks.'
+            }), 400
 
     ai_offsets = {'rookie': -10, 'amateur': -5, 'pro': 0, 'legend': 5}
     ai_offset  = ai_offsets.get(difficulty, 0)
@@ -1035,10 +1652,15 @@ def new_career():
             'weather_mode':  weather_mode,
             'name_mode':     name_mode,
             'custom_tracks': custom_tracks,
+            'custom_cars':   custom_cars,
         },
     }
     _ensure_driver_progress(initial)
     initial['rival_name'] = career.pick_rival('mx5_cup', 1, career_data=initial)
+    _ensure_world_state(initial)
+    tier_info = career.get_tier_info(0) or {}
+    tier_name = tier_info.get('name') or career.tier_names.get('mx5_cup', 'MX5 Cup')
+    _push_world_event(initial, f"Career started in {tier_name}.", kind='season', tier='mx5_cup', season=1)
     save_career_data(initial)
     return jsonify({'status': 'success', 'message': 'New career started!', 'career_data': initial})
 
@@ -1052,7 +1674,7 @@ def scan_content():
     if not os.path.exists(os.path.join(ac_path, 'acs.exe')):
         return jsonify({'error': 'AC installation not found. Check your AC path.'}), 400
 
-    result = {'cars': {'gt4': [], 'gt3': []}, 'tracks': []}
+    result = {'cars': {'gt4': [], 'gt3': []}, 'tracks': [], 'gtwc_tracks': []}
 
     # ── Cars ────────────────────────────────────────────────────────────────
     cars_dir = os.path.join(ac_path, 'content', 'cars')
@@ -1120,9 +1742,29 @@ def scan_content():
                         })
                     except Exception:
                         pass
-            result['tracks'].extend(layouts)
+            for t in layouts:
+                if _track_is_suitable_for_gt(t['id'], t['name'], t.get('length', 0)):
+                    root = _track_root(t['id'])
+                    t['source'] = 'official' if _track_is_official(root) else 'mod'
+                    t['is_gtwc'] = bool(_gtwc_key_for_track(t['id'], t.get('name')))
+                    result['tracks'].append(t)
 
     result['tracks'].sort(key=lambda t: t['length'])
+    # Build GTWC list (found/greyed)
+    found_by_key = {}
+    for t in result['tracks']:
+        key = _gtwc_key_for_track(t['id'], t.get('name'))
+        if key and key not in found_by_key:
+            found_by_key[key] = t['id']
+    for entry in GTWC_TEMPLATE:
+        key = entry['key']
+        found_id = found_by_key.get(key)
+        result['gtwc_tracks'].append({
+            'id': found_id or entry['aliases'][0],
+            'name': entry['name'],
+            'type': entry['type'],
+            'found': bool(found_id),
+        })
     return jsonify(result)
 
 

@@ -253,7 +253,14 @@ class CareerManager:
         tier_key  = self.tiers[career_data.get('tier', 0)]
         tier_info = self.config['tiers'][tier_key]
         cs        = career_data.get('career_settings') or {}
-        tracks    = (cs.get('custom_tracks') or {}).get(tier_key) or tier_info['tracks']
+        ct = cs.get('custom_tracks') or {}
+        if tier_key == 'gt3':
+            return 15
+        if tier_key == 'gt4':
+            return len(tier_info.get('tracks', []))
+        if tier_key == 'wec':
+            return len(tier_info.get('tracks', []))
+        tracks = ct.get(tier_key) or tier_info.get('tracks', [])
         return len(tracks)
 
     # ------------------------------------------------------------------
@@ -293,6 +300,7 @@ class CareerManager:
             'track':            track,
             'car':              car,
             'team':             team_name,
+            'season':           season,
             'ai_difficulty':    ai_difficulty,
             'opponents':        opponents,
             'laps':             laps,
@@ -346,10 +354,9 @@ class CareerManager:
     def _calculate_ai_difficulty(self, team_name, tier_info):
         base = self.config['difficulty']['base_ai_level']
         adj  = tier_info['ai_difficulty']
-        var  = random.uniform(
-            -self.config['difficulty']['ai_variance'],
-             self.config['difficulty']['ai_variance']
-        )
+        var_range = self.config['difficulty'].get('ai_variance', 1.5)
+        var_range = min(var_range, 1.0)
+        var  = random.uniform(-var_range, var_range)
         return max(60, min(100, base + adj + var))
 
     def _generate_opponent_field(self, tier_info, race_num, tier_key=None, season=1, career_data=None):
@@ -374,6 +381,37 @@ class CareerManager:
                 'global_slot': global_slot,
             })
         return opponents
+
+    def _team_skin_index(self, team_name, car, season, is_player=False):
+        if not car:
+            return 0
+        if is_player and car == 'ks_mazda_mx5_cup':
+            return 0
+        seed_str = f"skin|{team_name}|{car}|{season}"
+        return int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+
+    def _apply_custom_cars_to_tier(self, tier_key, tier_info, career_data):
+        if not career_data:
+            return tier_info
+        cs = career_data.get('career_settings') or {}
+        custom_cars = cs.get('custom_cars') or {}
+        pool = custom_cars.get(tier_key) or []
+        if not pool:
+            return tier_info
+
+        teams = []
+        seed = int(career_data.get('driver_seed') or 0)
+        for t in tier_info.get('teams', []):
+            team = dict(t)
+            name = team.get('name', '')
+            seed_str = f'car|{tier_key}|{name}|{seed}'
+            idx = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16) % max(1, len(pool))
+            team['car'] = pool[idx] if pool else team.get('car')
+            teams.append(team)
+
+        out = dict(tier_info)
+        out['teams'] = teams
+        return out
 
     # ------------------------------------------------------------------
     # Standings — deterministic AI, real player points
@@ -524,15 +562,15 @@ class CareerManager:
 
         entries.sort(key=lambda x: x['points'], reverse=True)
         leader = entries[0]['points'] if entries else 0
-        ai_skin = 1
         for i, s in enumerate(entries):
             s['position'] = i + 1
             s['gap']      = leader - s['points']
-            if s['is_player']:
-                s['skin_index'] = 0
-            else:
-                s['skin_index'] = ai_skin
-                ai_skin += 1
+            s['skin_index'] = self._team_skin_index(
+                s.get('team', ''),
+                s.get('car', ''),
+                season,
+                is_player=bool(s.get('is_player')),
+            )
 
         return entries
 
@@ -588,6 +626,7 @@ class CareerManager:
 
         for idx, tk in enumerate(self.tiers):
             tier_info = self.config['tiers'][tk]
+            tier_info = self._apply_custom_cars_to_tier(tk, tier_info, career_data)
             if idx == player_tier:
                 sim = career_data
             else:
@@ -667,7 +706,7 @@ class CareerManager:
     # ------------------------------------------------------------------
 
     def generate_contract_offers(self, player_position, next_tier, config,
-                                 current_tier=0, team_count=20):
+                                 current_tier=0, team_count=20, season=1):
         """Generate contract offers based on championship finish.
 
         Bottom 3 finishers get degradation risk: only the worst seat in the
@@ -695,6 +734,7 @@ class CareerManager:
                     'id':               f"contract_deg_0_{int(datetime.now().timestamp())}",
                     'team_name':        team['name'],
                     'car':              team['car'],
+                    'skin_index':       self._team_skin_index(team['name'], team['car'], season),
                     'tier_name':        self.tier_names[self.tiers[current_tier]],
                     'tier_level':       'customer',
                     'target_tier':      current_tier,          # stay in same tier
@@ -719,6 +759,7 @@ class CareerManager:
                         'id':               f"contract_deg_{j+1}_{int(datetime.now().timestamp())}",
                         'team_name':        team['name'],
                         'car':              team['car'],
+                        'skin_index':       self._team_skin_index(team['name'], team['car'], season),
                         'tier_name':        self.tier_names[lower_tier_key],
                         'tier_level':       team.get('tier', 'semi'),
                         'target_tier':      current_tier - 1,  # drop one tier
@@ -763,6 +804,7 @@ class CareerManager:
                 'id':               f"contract_{i}_{int(datetime.now().timestamp())}",
                 'team_name':        team['name'],
                 'car':              team['car'],
+                'skin_index':       self._team_skin_index(team['name'], team['car'], season),
                 'tier_name':        self.tier_names[self.tiers[next_tier]],
                 'tier_level':       team.get('tier', 'customer'),
                 'target_tier':      next_tier,                 # promote to next tier
@@ -899,8 +941,9 @@ class CareerManager:
         track_folder = parts[0]
         config_track = parts[1] if len(parts) > 1 else ''
 
-        # Player gets skin index 0; AI cars get 1, 2, 3… so each has a distinct livery
-        skin = self._get_car_skin(car, ac_path, index=0) if ac_path else ''
+        season          = int(race_data.get('season', 1))
+        player_skin_idx = self._team_skin_index(race_data.get('team', ''), car, season, is_player=True)
+        skin = self._get_car_skin(car, ac_path, index=player_skin_idx) if ac_path else ''
 
         lines = []
 
@@ -1022,11 +1065,13 @@ class CareerManager:
 
         # Base variance from config (used to scale per-driver consistency)
         base_variance = self.config.get('difficulty', {}).get('ai_level_variance', 1.5)
+        base_variance = min(base_variance, 1.0)
 
         # [CAR_N] — AI cars: per-driver skill/aggression/wet/consistency/ballast
         for i, opp in enumerate(ai_cars, start=1):
             opp_car  = opp.get('car', car)
-            opp_skin = self._get_car_skin(opp_car, ac_path, index=i) if ac_path else ''
+            opp_skin_idx = self._team_skin_index(opp.get('team', ''), opp_car, season, is_player=False)
+            opp_skin = self._get_car_skin(opp_car, ac_path, index=opp_skin_idx) if ac_path else ''
             name     = opp.get('driver_name') or self.DRIVER_NAMES[(i - 1) % len(self.DRIVER_NAMES)]
             profile  = self.get_driver_profile(name, career_data=career_data)
             nation   = profile['nationality']
@@ -1035,14 +1080,29 @@ class CareerManager:
             skill_offset = int((profile['skill'] - 80) * 0.2)
 
             # Wet skill modifier (only applied on wet weather presets)
-            wet_adj = round((profile.get('wet_skill', 60) - 50) * 0.06) if is_wet else 0
+            wet_adj = round((profile.get('wet_skill', 60) - 50) * 0.02) if is_wet else 0
 
             # Consistency-based variance: low consistency = larger AI level swings
             consistency     = profile.get('consistency', 75)
             driver_variance = base_variance * (1 + (50 - consistency) / 50)
+            driver_variance = min(driver_variance, 2.0)
+
+            # World state influence: small, capped adjustment to AI level and variance
+            world = (career_data or {}).get('world', {})
+            dstate = (world.get('drivers') or {}).get(name, {})
+            form = float(dstate.get('form', 0.0))
+            conf = float(dstate.get('confidence', 0.0))
+            form = max(-5.0, min(5.0, form))
+            conf = max(-5.0, min(5.0, conf))
+            world_adj = (form * 0.4) + (conf * 0.2)
+            world_adj = max(-2.0, min(2.0, world_adj))
+
+            variance_mult = 1.0 - (form / 25.0)
+            variance_mult = max(0.7, min(1.3, variance_mult))
+            driver_variance = min(2.0, driver_variance * variance_mult)
             variance_adj    = random.uniform(-driver_variance, driver_variance)
 
-            opp_ai_level = max(50, min(100, int(ai_lvl + skill_offset + wet_adj + variance_adj)))
+            opp_ai_level = max(50, min(100, int(ai_lvl + skill_offset + wet_adj + variance_adj + world_adj)))
 
             # Bump aggression slightly for very inconsistent drivers (nervous under pressure)
             opp_aggression = profile['aggression']

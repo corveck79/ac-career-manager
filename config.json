@@ -57,9 +57,9 @@
       "order": 2,
       "race_format": {
         "laps": 15,
-        "time_limit_minutes": 35,
         "practice_minutes": 30,
         "quali_minutes": 10,
+        "time_limit_minutes": 35,
         "weather": "variable",
         "weather_pool": [
           [
@@ -84,6 +84,23 @@
           ]
         ]
       },
+      "race_laps": [
+        30,
+        15,
+        15,
+        30,
+        40,
+        15,
+        15,
+        15,
+        15,
+        30,
+        15,
+        15,
+        15,
+        15,
+        30
+      ],
       "teams": [
         {
           "car": "ks_ferrari_488_gt3",
@@ -221,22 +238,6 @@
         "ks_barcelona/layout_gp",
         "ks_barcelona/layout_gp",
         "spa"
-      ],
-      "race_laps": [
-        15,
-        15,
-        15,
-        15,
-        30,
-        15,
-        15,
-        15,
-        15,
-        15,
-        15,
-        15,
-        15,
-        40
       ]
     },
     "gt4": {
@@ -246,9 +247,9 @@
       "order": 1,
       "race_format": {
         "laps": 15,
-        "time_limit_minutes": 35,
         "practice_minutes": 30,
         "quali_minutes": 10,
+        "time_limit_minutes": 35,
         "weather": "variable",
         "weather_pool": [
           [
@@ -393,9 +394,9 @@
       "order": 0,
       "race_format": {
         "laps": 10,
-        "time_limit_minutes": 20,
         "practice_minutes": 20,
         "quali_minutes": 10,
+        "time_limit_minutes": 20,
         "weather": "clear",
         "weather_pool": [
           [
@@ -516,9 +517,9 @@
       "order": 3,
       "race_format": {
         "laps": 30,
-        "time_limit_minutes": 60,
         "practice_minutes": 30,
         "quali_minutes": 15,
+        "time_limit_minutes": 60,
         "weather": "variable",
         "weather_pool": [
           [
@@ -543,6 +544,16 @@
           ]
         ]
       },
+      "race_laps": [
+        30,
+        40,
+        30,
+        30,
+        30,
+        30,
+        30,
+        50
+      ],
       "teams": [
         {
           "car": "ks_ferrari_488_gt3",
@@ -614,16 +625,6 @@
         "zandvoort",
         "ks_barcelona/layout_gp",
         "spa"
-      ],
-      "race_laps": [
-        30,
-        40,
-        30,
-        30,
-        30,
-        30,
-        30,
-        50
       ]
     }
   }

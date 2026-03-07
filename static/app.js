@@ -9,6 +9,7 @@ let allStandings  = {};       // { mx5_cup: [...], gt4: [...], ... }
 let standingsTier = 0;        // currently displayed tier index
 let champMode     = 'drivers'; // 'drivers' | 'teams'
 let calendar      = [];
+let worldFeed     = [];
 let pendingRace   = null;
 const THEME_PALETTE_KEY = 'ac-theme-palette';
 
@@ -95,7 +96,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await checkSetup();
     await Promise.all([loadCareer(), loadConfig()]);
-    await Promise.all([loadAllStandings(), loadCalendar()]);
+    await Promise.all([loadAllStandings(), loadCalendar(), loadWorldFeed()]);
     refresh();
     if (career) switchStandingsTier(career.tier || 0);
 
@@ -137,12 +138,20 @@ async function loadCalendar() {
         calendar = await r.json();
     } catch (e) { console.error('loadCalendar', e); }
 }
+async function loadWorldFeed() {
+    try {
+        const r  = await fetch('/api/world-feed');
+        const d  = await r.json();
+        worldFeed = d.events || [];
+    } catch (e) { console.error('loadWorldFeed', e); }
+}
 
 // ── Full refresh ───────────────────────────────────────────────────────────
 function refresh() {
     updateBranding();
     updateDriverCard();
     renderCalendar();
+    renderWorldFeed();
     renderStandings();
 }
 
@@ -233,10 +242,12 @@ function renderCalendar() {
         const resultHtml = (r.status === 'completed' && r.result)
             ? '<div class="rp-result">P' + r.result.position + '</div>'
             : '';
+        const typeLabel = r.race_type ? '<div class="rp-type ' + r.race_type + '">' + r.race_type + '</div>' : '';
 
         pill.innerHTML =
             '<div class="rp-icon">' + icon + '</div>' +
             '<div class="rp-track">' + shortTrack + '</div>' +
+            typeLabel +
             resultHtml;
 
         row.appendChild(pill);
@@ -261,12 +272,47 @@ function renderCalendar() {
 
         document.getElementById('nrb-track').textContent =
             fmtTrack(nextRound.track);
+        const typeText = nextRound.race_type ? ('  ·  ' + nextRound.race_type) : '';
         document.getElementById('nrb-meta').textContent  =
-            'Race ' + nextRound.round + ' / ' + total + '  ·  ' + laps + ' laps';
+            'Race ' + nextRound.round + ' / ' + total + '  ·  ' + laps + ' laps' + typeText;
         // AI level filled when race modal opens; show placeholder here
         const baseAi = config && config.difficulty ? (config.difficulty.base_ai_level || 85) : 85;
         document.getElementById('nrb-ai').textContent = '~' + (baseAi + (tierCfg ? tierCfg.ai_difficulty : 0));
     }
+}
+
+function fmtWorldTs(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString();
+}
+
+function renderWorldFeed() {
+    const el = document.getElementById('world-feed');
+    if (!el) return;
+    if (!worldFeed || worldFeed.length === 0) {
+        el.innerHTML = '<div class="empty-state">No world updates yet.</div>';
+        return;
+    }
+    const items = worldFeed.slice(0, 12).map(e => {
+        const bits = [];
+        if (e.season) bits.push('Season ' + e.season);
+        if (e.tier) {
+            const t = (config && config.tiers && config.tiers[e.tier]) ? config.tiers[e.tier].name : e.tier;
+            bits.push(t);
+        }
+        const ts = fmtWorldTs(e.ts);
+        if (ts) bits.push(ts);
+        const meta = bits.join(' • ');
+        return (
+            '<div class="world-item">' +
+              '<div class="world-item-text">' + escHtml(e.text || '') + '</div>' +
+              (meta ? '<div class="world-item-meta">' + escHtml(meta) + '</div>' : '') +
+            '</div>'
+        );
+    }).join('');
+    el.innerHTML = items;
 }
 
 // ── Standings tier / mode switching ────────────────────────────────────────
@@ -807,15 +853,22 @@ let wizardState = {
     difficulty:    'pro',
     weatherMode:   'realistic',
     customTracks:  null,   // null = use config defaults
+    customCars:    null,   // null = use config defaults
     scannedTracks: [],
+    gtwcTracks:    [],
+    scannedCars:   { gt4: [], gt3: [] },
     selectedIds:   new Set(),
+    selectedCarIds: { gt4: new Set(), gt3: new Set() },
 };
 
 function openNewCareer() {
     // Reset state
     wizardState = {
         page: 1, difficulty: 'pro', weatherMode: 'realistic',
-        customTracks: null, scannedTracks: [], selectedIds: new Set(),
+        customTracks: null, customCars: null,
+        scannedTracks: [], gtwcTracks: [], scannedCars: { gt4: [], gt3: [] },
+        selectedIds: new Set(),
+        selectedCarIds: { gt4: new Set(), gt3: new Set() },
     };
     showWizardPage(1);
     // Reset preset selections
@@ -881,6 +934,8 @@ async function scanLibrary() {
         if (data.error) { showToast(data.error, 'error'); return; }
 
         wizardState.scannedTracks = data.tracks || [];
+        wizardState.gtwcTracks    = data.gtwc_tracks || [];
+        wizardState.scannedCars   = data.cars || { gt4: [], gt3: [] };
 
         // Pre-select tracks that match the current config defaults
         const defaults = new Set();
@@ -891,10 +946,28 @@ async function scanLibrary() {
             wizardState.scannedTracks.map(t => t.id).filter(id => defaults.has(id))
         );
 
+        // Pre-select cars that match current defaults
+        const defGt4 = new Set();
+        const defGt3 = new Set();
+        if (config && config.tiers) {
+            (config.tiers.gt4?.teams || []).forEach(t => { if (t.car) defGt4.add(t.car); });
+            (config.tiers.gt3?.teams || []).forEach(t => { if (t.car) defGt3.add(t.car); });
+            (config.tiers.wec?.teams || []).forEach(t => { if (t.car) defGt3.add(t.car); });
+        }
+        wizardState.selectedCarIds.gt4 = new Set(
+            (wizardState.scannedCars.gt4 || []).map(c => c.id).filter(id => defGt4.has(id))
+        );
+        wizardState.selectedCarIds.gt3 = new Set(
+            (wizardState.scannedCars.gt3 || []).map(c => c.id).filter(id => defGt3.has(id))
+        );
+
         renderTrackChecklist('all');
+        renderCarChecklist('gt4');
+        renderCarChecklist('gt3');
         document.getElementById('scan-results').classList.remove('hidden');
         document.getElementById('btn-start-wizard').style.display = '';
         _updateTrackCount();
+        _updateCarCount();
     } catch (e) {
         showToast('Scan failed: ' + e.message, 'error');
     } finally {
@@ -916,20 +989,70 @@ function renderTrackChecklist(filter) {
         if (filter === 'long')   return t.length > 7000;
         return true;
     });
-    const list = document.getElementById('track-checklist');
-    if (!tracks.length) {
-        list.innerHTML = '<div class="form-hint" style="padding:.4rem 0">No tracks found for this filter.</div>';
+    const official = tracks.filter(t => t.source === 'official');
+    const mods = tracks.filter(t => t.source !== 'official');
+    const listOfficial = document.getElementById('track-checklist-official');
+    const listMods = document.getElementById('track-checklist-mods');
+    const listGtwc = document.getElementById('track-checklist-gtwc');
+
+    if (listGtwc) {
+        const gtwc = wizardState.gtwcTracks || [];
+        if (!gtwc.length) {
+            listGtwc.innerHTML = '<div class="form-hint" style="padding:.4rem 0">No GTWC data available.</div>';
+        } else {
+            listGtwc.innerHTML = gtwc.map(t => {
+                const found = !!t.found;
+                const checked = found && wizardState.selectedIds.has(t.id) ? 'checked' : '';
+                const disabled = found ? '' : 'disabled';
+                const cls = 'track-check-item' + (found ? '' : ' disabled');
+                const note = found ? 'Found' : 'Not found';
+                const onchange = found ? ' onchange="toggleTrack(\'' + t.id + '\',this.checked)"' : '';
+                return '<label class="' + cls + '">' +
+                    '<input type="checkbox" value="' + t.id + '" ' + checked + ' ' + disabled + onchange + '>' +
+                    '<span class="track-check-name">' + t.name + '</span>' +
+                    '<span class="track-check-len">' + note + '</span>' +
+                    '</label>';
+            }).join('');
+        }
+    }
+
+    const renderList = (list, items, emptyText) => {
+        if (!list) return;
+        if (!items.length) {
+            list.innerHTML = '<div class="form-hint" style="padding:.4rem 0">' + emptyText + '</div>';
+            return;
+        }
+        list.innerHTML = items.map(t => {
+            const checked = wizardState.selectedIds.has(t.id) ? 'checked' : '';
+            const lenStr  = t.length ? (t.length / 1000).toFixed(2) + ' km' : '–';
+            return '<label class="track-check-item">' +
+                '<input type="checkbox" value="' + t.id + '" ' + checked +
+                ' onchange="toggleTrack(\'' + t.id + '\',this.checked)">' +
+                '<span class="track-check-name">' + t.name + '</span>' +
+                '<span class="track-check-len">' + lenStr + '</span>' +
+                '</label>';
+        }).join('');
+    };
+
+    renderList(listOfficial, official, 'No AC/DLC tracks found for this filter.');
+    renderList(listMods, mods, 'No mod tracks found for this filter.');
+}
+
+function renderCarChecklist(tier) {
+    const list = document.getElementById('car-checklist-' + tier);
+    if (!list) return;
+    const cars = (wizardState.scannedCars && wizardState.scannedCars[tier]) || [];
+    if (!cars.length) {
+        list.innerHTML = '<div class="form-hint" style="padding:.2rem 0">No cars found for this tier.</div>';
         return;
     }
-    list.innerHTML = tracks.map(t => {
-        const checked = wizardState.selectedIds.has(t.id) ? 'checked' : '';
-        const lenStr  = t.length ? (t.length / 1000).toFixed(2) + ' km' : '–';
-        const safeId  = t.id.replace(/[^a-z0-9_\-\/]/gi, '_');
-        return '<label class="track-check-item">' +
-            '<input type="checkbox" value="' + t.id + '" ' + checked +
-            ' onchange="toggleTrack(\'' + t.id + '\',this.checked)">' +
-            '<span class="track-check-name">' + t.name + '</span>' +
-            '<span class="track-check-len">' + lenStr + '</span>' +
+    const selected = wizardState.selectedCarIds[tier] || new Set();
+    list.innerHTML = cars.map(c => {
+        const checked = selected.has(c.id) ? 'checked' : '';
+        return '<label class="car-check-item">' +
+            '<input type="checkbox" value="' + c.id + '" ' + checked +
+            ' onchange="toggleCar(\'' + c.id + '\',\'' + tier + '\',this.checked)">' +
+            '<span class="car-check-name">' + c.name + '</span>' +
             '</label>';
     }).join('');
 }
@@ -940,13 +1063,35 @@ function toggleTrack(id, checked) {
     _updateTrackCount();
 }
 
+function toggleCar(id, tier, checked) {
+    const set = wizardState.selectedCarIds[tier];
+    if (!set) return;
+    if (checked) set.add(id);
+    else         set.delete(id);
+    _updateCarCount();
+}
+
 function _updateTrackCount() {
     const el = document.getElementById('scan-track-count');
-    if (el) el.textContent = wizardState.selectedIds.size + ' track(s) selected for GT4 / GT3 / WEC';
+    if (el) {
+        const count = wizardState.selectedIds.size;
+        el.textContent = count + ' track(s) selected for GT4 / GT3 / WEC (min 8)';
+        el.classList.toggle('warn', count > 0 && count < 8);
+    }
+}
+
+function _updateCarCount() {
+    const el = document.getElementById('scan-car-count');
+    if (!el) return;
+    const gt4 = wizardState.selectedCarIds.gt4.size;
+    const gt3 = wizardState.selectedCarIds.gt3.size;
+    el.textContent = gt4 + ' GT4 cars, ' + gt3 + ' GT3/WEC cars selected';
 }
 
 function useDefaultTracks() {
     wizardState.customTracks = null;
+    wizardState.customCars = null;
+    wizardState.selectedIds = new Set();
     startCareerFromWizard();
 }
 
@@ -957,10 +1102,26 @@ async function startCareerFromWizard() {
     // Build custom_tracks from wizard selection (if user scanned)
     let customTracks = null;
     if (wizardState.selectedIds.size > 0) {
+        if (wizardState.selectedIds.size < 8) {
+            showToast('Select at least 8 unique tracks', 'error');
+            return;
+        }
         const selected = Array.from(wizardState.selectedIds);
-        // All selected tracks go to GT4 / GT3 / WEC (same pool)
+        // Shared pool for GT4 / GT3 / WEC
         // MX5 always uses config defaults — no custom track pool needed
-        customTracks = { gt4: selected, gt3: selected, wec: selected };
+        customTracks = { pool: selected };
+    }
+
+    // Build custom_cars from wizard selection (if user scanned)
+    let customCars = null;
+    const gt4Cars = Array.from(wizardState.selectedCarIds.gt4 || []);
+    const gt3Cars = Array.from(wizardState.selectedCarIds.gt3 || []);
+    if (gt4Cars.length || gt3Cars.length) {
+        customCars = {
+            gt4: gt4Cars,
+            gt3: gt3Cars,
+            wec: gt3Cars,
+        };
     }
 
     try {
@@ -972,13 +1133,14 @@ async function startCareerFromWizard() {
                 difficulty:    wizardState.difficulty,
                 weather_mode:  wizardState.weatherMode,
                 custom_tracks: customTracks,
+                custom_cars:   customCars,
             }),
         });
         const d = await r.json();
         closeModal('modal-new-career');
         if (d.status === 'success') {
             await Promise.all([loadCareer(), loadConfig()]);
-            await Promise.all([loadAllStandings(), loadCalendar()]);
+            await Promise.all([loadAllStandings(), loadCalendar(), loadWorldFeed()]);
             refresh();
             showView('standings');
             showToast('Career started! Good luck, ' + name + '! \uD83C\uDFC1');
@@ -1338,7 +1500,7 @@ async function _postFinishRace(pos, lapTime, marginMs) {
             const pts = d.result ? d.result.points : 0;
             const aiMsg = d.ai_change ? (' AI ' + (d.ai_change > 0 ? '+' : '') + d.ai_change + ' (offset ' + d.ai_offset + ')') : '';
             showToast(fmtPos(pos) + ' — +' + pts + ' pts!' + aiMsg);
-            await Promise.all([loadCareer(), loadAllStandings(), loadCalendar()]);
+            await Promise.all([loadCareer(), loadAllStandings(), loadCalendar(), loadWorldFeed()]);
             refresh();
             showView('standings');
         } else {
@@ -1349,7 +1511,7 @@ async function _postFinishRace(pos, lapTime, marginMs) {
 
 // ── Season Complete ────────────────────────────────────────────────────────
 async function handleSeasonComplete(data) {
-    await Promise.all([loadCareer(), loadAllStandings(), loadCalendar()]);
+    await Promise.all([loadCareer(), loadAllStandings(), loadCalendar(), loadWorldFeed()]);
     refresh();
 
     const posEl = document.getElementById('final-pos-text');
@@ -1405,7 +1567,7 @@ async function acceptContract(contractId) {
         if (d.status === 'success') {
             showToast('Welcome to ' + d.new_team + '! 🏎');
             await Promise.all([loadCareer(), loadConfig()]);
-            await Promise.all([loadAllStandings(), loadCalendar()]);
+            await Promise.all([loadAllStandings(), loadCalendar(), loadWorldFeed()]);
             refresh();
             showView('standings');
         } else {
