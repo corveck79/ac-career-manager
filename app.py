@@ -219,11 +219,22 @@ def _track_is_official(root_id):
 def _id_matches_alias(track_id, alias):
     tid = _normalize_track_token(track_id)
     alias_n = _normalize_track_token(alias)
+    # Allow matching when official tracks use a ks_ prefix
+    if tid.startswith('ks_'):
+        tid_wo = tid[3:]
+    else:
+        tid_wo = tid
     if tid == alias_n:
+        return True
+    if tid_wo == alias_n:
         return True
     if '/' in tid and alias_n == tid.split('/')[0]:
         return True
+    if '/' in tid_wo and alias_n == tid_wo.split('/')[0]:
+        return True
     if '/' not in alias_n and tid.startswith(alias_n + '/'):
+        return True
+    if '/' not in alias_n and tid_wo.startswith(alias_n + '/'):
         return True
     return False
 
