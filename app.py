@@ -230,7 +230,12 @@ def _id_matches_alias(track_id, alias):
         return True
     if '/' in tid and alias_n == tid.split('/')[0]:
         return True
+    # If alias is a specific layout, allow root-only IDs to match
+    if '/' in alias_n and tid == alias_n.split('/')[0]:
+        return True
     if '/' in tid_wo and alias_n == tid_wo.split('/')[0]:
+        return True
+    if '/' in alias_n and tid_wo == alias_n.split('/')[0]:
         return True
     if '/' not in alias_n and tid.startswith(alias_n + '/'):
         return True
