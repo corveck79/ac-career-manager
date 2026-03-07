@@ -16,3 +16,7 @@ career_data.json
 # Temp/junk
 nul
 *.log
+
+# Playwright
+/.playwright/
+/.playwright-cli/
