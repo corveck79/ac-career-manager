@@ -1904,6 +1904,9 @@ def scan_content():
                         continue
                     layout_ui = os.path.join(item_path, 'ui', 'ui_track.json')
                     if not os.path.exists(layout_ui):
+                        # Some tracks store layout UI under root/ui/<layout>/ui_track.json
+                        layout_ui = os.path.join(track_path, 'ui', item, 'ui_track.json')
+                    if not os.path.exists(layout_ui):
                         continue
                     try:
                         with open(layout_ui, 'r', encoding='utf-8', errors='ignore') as f:
@@ -1954,6 +1957,17 @@ def scan_content():
             'type': entry['type'],
             'found': bool(found_id),
         })
+    # Debug info for GTWC matching
+    result['gtwc_debug'] = [
+        {
+            'id': t['id'],
+            'name': t['name'],
+            'root': _track_root(t['id']),
+            'key': _gtwc_key_for_track(t['id'], t.get('name')),
+        }
+        for t in result['tracks']
+        if _gtwc_key_for_track(t['id'], t.get('name'))
+    ]
     return jsonify(result)
 
 
