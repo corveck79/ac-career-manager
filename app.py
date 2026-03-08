@@ -1957,17 +1957,6 @@ def scan_content():
             'type': entry['type'],
             'found': bool(found_id),
         })
-    # Debug info for GTWC matching
-    result['gtwc_debug'] = [
-        {
-            'id': t['id'],
-            'name': t['name'],
-            'root': _track_root(t['id']),
-            'key': _gtwc_key_for_track(t['id'], t.get('name')),
-        }
-        for t in result['tracks']
-        if _gtwc_key_for_track(t['id'], t.get('name'))
-    ]
     return jsonify(result)
 
 

@@ -757,6 +757,7 @@ td.col-name{font-family:var(--font);font-weight:650;letter-spacing:.1px}
 .rp-type.sprint{color:var(--accent)}
 .rp-type.endurance{color:#f5b942}
 .wizard-section-title{margin-top:1rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);font-size:.75rem}
+.track-gtwc-badge{margin-left:.45rem;font-size:.62rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff;background:rgba(217,30,45,.9);padding:.1rem .35rem;border-radius:999px}
 .car-checklists{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.4rem}
 @media(max-width:900px){.car-checklists{grid-template-columns:1fr}}
 .car-checklist-block{border:1px solid var(--border);border-radius:12px;padding:.5rem .6rem;background:var(--row-alt)}
