@@ -941,6 +941,13 @@ class CareerManager:
         practice_minutes = race_data.get('practice_minutes', 10)
         quali_minutes    = race_data.get('quali_minutes', 10)
         weather          = race_data.get('weather', '3_clear')
+        player_nation    = str(
+            race_data.get('driver_country')
+            or (career_data or {}).get('driver_country')
+            or 'NLD'
+        ).strip().upper()
+        if len(player_nation) != 3 or not player_nation.isalpha():
+            player_nation = 'NLD'
 
         # Limit to 19 AI cars (20 total including player)
         ai_cars = opponents[:19]
@@ -993,7 +1000,7 @@ class CareerManager:
             f"FIXED_SETUP=0",
             f"VIRTUAL_MIRROR=0",
             f"DRIVER_NAME={driver}",
-            f"NATIONALITY=",
+            f"NATIONALITY={player_nation}",
             "",
         ]
 
@@ -1075,7 +1082,7 @@ class CareerManager:
             f"SKIN={skin}",
             f"MODEL_CONFIG=",
             f"DRIVER_NAME={driver}",
-            f"NATIONALITY=",
+            f"NATION_CODE={player_nation}",
             f"AI_LEVEL=",
             f"AI_AGGRESSION=0",
             f"SETUP=",

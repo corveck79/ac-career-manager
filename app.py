@@ -447,7 +447,11 @@ def save_config(cfg):
 def load_career_data():
     if os.path.exists(DATA_PATH):
         with open(DATA_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            data = json.load(f)
+        if isinstance(data, dict):
+            data.setdefault('driver_country', 'NLD')
+            data.setdefault('driver_age', 22)
+        return data
     return _default_career()
 
 
@@ -471,16 +475,33 @@ def _get_race_out_path():
     return race_path if os.path.exists(race_path) else None
 
 
+def _subprocess_no_window_kwargs():
+    """Avoid console window flicker for background subprocess checks in EXE."""
+    if os.name != 'nt':
+        return {}
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    return {
+        'startupinfo': startupinfo,
+        'creationflags': subprocess.CREATE_NO_WINDOW,
+    }
+
+
 def _is_ac_running():
     """Best-effort check whether Assetto Corsa is still running."""
     try:
         if os.name == 'nt':
             cp = subprocess.run(
                 ['tasklist', '/FI', 'IMAGENAME eq acs.exe'],
-                capture_output=True, text=True, check=False
+                capture_output=True, text=True, check=False,
+                **_subprocess_no_window_kwargs()
             )
             return 'acs.exe' in (cp.stdout or '').lower()
-        cp = subprocess.run(['pgrep', '-f', 'acs'], capture_output=True, text=True, check=False)
+        cp = subprocess.run(
+            ['pgrep', '-f', 'acs'],
+            capture_output=True, text=True, check=False,
+            **_subprocess_no_window_kwargs()
+        )
         return cp.returncode == 0
     except Exception:
         return False
@@ -492,6 +513,39 @@ def _parse_optional_int(value):
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+COUNTRY_CODE_ALIASES = {
+    'NL': 'NLD', 'NED': 'NLD', 'NETHERLANDS': 'NLD',
+    'DE': 'GER', 'DEU': 'GER', 'GERMANY': 'GER',
+    'GB': 'GBR', 'UK': 'GBR', 'ENGLAND': 'GBR', 'GREAT BRITAIN': 'GBR',
+    'FR': 'FRA', 'FRA': 'FRA', 'FRANCE': 'FRA',
+    'IT': 'ITA', 'ITA': 'ITA', 'ITALY': 'ITA',
+    'ES': 'ESP', 'ESP': 'ESP', 'SPAIN': 'ESP',
+    'PT': 'PRT', 'PRT': 'PRT', 'PORTUGAL': 'PRT',
+    'BE': 'BEL', 'BEL': 'BEL', 'BELGIUM': 'BEL',
+    'US': 'USA', 'USA': 'USA', 'UNITED STATES': 'USA',
+}
+
+
+def _normalize_country_code(raw):
+    code = (str(raw or '').strip().upper())
+    if not code:
+        return 'NLD'
+    if code in COUNTRY_CODE_ALIASES:
+        return COUNTRY_CODE_ALIASES[code]
+    if len(code) == 3 and code.isalpha():
+        return code
+    if len(code) == 2 and code.isalpha():
+        return COUNTRY_CODE_ALIASES.get(code, 'NLD')
+    return 'NLD'
+
+
+def _normalize_driver_age(raw):
+    age = _parse_optional_int(raw)
+    if age is None:
+        return 22
+    return max(16, min(60, age))
 
 
 def _set_ac_install_path(cfg, path):
@@ -919,6 +973,8 @@ def _default_career():
         'team':            None,
         'car':             None,
         'driver_name':     '',
+        'driver_country':  'NLD',
+        'driver_age':      22,
         'races_completed': 0,
         'points':          0,
         'standings':       [],
@@ -1293,6 +1349,7 @@ def start_race():
     if cs.get('debug_one_lap'):
         race['laps'] = 1
     race['driver_name'] = career_data.get('driver_name', 'Player')
+    race['driver_country'] = _normalize_country_code(career_data.get('driver_country'))
     data, err = _require_json_object()
     if err:
         return err
@@ -1794,6 +1851,8 @@ def accept_contract():
 def new_career():
     data          = request.json or {}
     driver_name   = data.get('driver_name', '').strip() or 'Driver'
+    driver_country = _normalize_country_code(data.get('driver_country'))
+    driver_age = _normalize_driver_age(data.get('driver_age'))
     difficulty    = data.get('difficulty', 'pro')
     weather_mode  = data.get('weather_mode', 'realistic')
     name_mode     = str(data.get('name_mode', 'curated')).strip().lower()
@@ -1818,6 +1877,8 @@ def new_career():
         'team':            'Mazda Academy',
         'car':             'ks_mazda_mx5_cup',
         'driver_name':     driver_name,
+        'driver_country':  driver_country,
+        'driver_age':      driver_age,
         'races_completed': 0,
         'points':          0,
         'standings':       [],
@@ -2003,6 +2064,8 @@ def player_profile():
     avg      = round(sum(r['position'] for r in results) / len(results), 1) if results else None
     return jsonify({
         'driver_name': career_data.get('driver_name', 'Player'),
+        'driver_country': _normalize_country_code(career_data.get('driver_country')),
+        'driver_age': _normalize_driver_age(career_data.get('driver_age')),
         'team':        career_data.get('team'),
         'car':         career_data.get('car'),
         'season':      career_data.get('season', 1),

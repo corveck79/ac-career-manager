@@ -31,7 +31,7 @@
         <div class="topbar-sep"></div>
         <div class="tt-wrap" onclick="toggleTheme()" title="Toggle light/dark theme">
           <span class="tt-label" id="tt-label">Dark</span>
-          <div class="tt-track"><div class="tt-thumb">🌙</div></div>
+          <div class="tt-track"><div class="tt-thumb"></div></div>
         </div>
     </div>
   </div>
@@ -54,7 +54,7 @@
       </div>
     </div>
     <div class="card actions-card">
-      <button class="btn btn-race" id="btn-start-race" onclick="startRace()">&#127937; Start Race</button>
+      <button class="btn btn-race" id="btn-start-race" onclick="startRace()">Start Race</button>
       <div class="action-sep"></div>
       <button class="nav-btn" onclick="showView('standings')"><span class="nav-icon">&#127942;</span>Standings</button>
       <button class="nav-btn" onclick="openStats()"><span class="nav-icon">&#128200;</span>Statistics</button>
@@ -161,20 +161,20 @@
             <div class="rf-value" id="rf-laps">-</div>
           </div>
         </div>
-        <!-- Post-Race Debrief Panel — shown when AC lap data is available -->
+        <!-- Post-Race Debrief Panel - shown when AC lap data is available -->
         <div id="debrief-panel" class="debrief-panel hidden">
           <div class="debrief-header">
             <span class="debrief-title">Engineer Report</span>
             <div class="consistency-wrap">
               <span class="consistency-label">Consistency</span>
-              <span class="consistency-badge" id="debrief-consistency">–</span>
+              <span class="consistency-badge" id="debrief-consistency">-</span>
             </div>
           </div>
           <p class="debrief-report" id="debrief-report"></p>
           <div class="lap-sparkline" id="debrief-laps"></div>
-          <!-- Sector breakdown — shown when AC sector data is available -->
+          <!-- Sector breakdown - shown when AC sector data is available -->
           <div id="debrief-sectors" class="sector-grid hidden"></div>
-          <!-- Meta row: gap · tyre · cuts -->
+          <!-- Meta row: gap - tyre - cuts -->
           <div id="debrief-meta" class="debrief-meta hidden"></div>
         </div>
         <div class="form-actions" style="margin-top:1.25rem">
@@ -321,9 +321,9 @@
     <div id="race-details" class="race-detail-grid"></div>
     <div id="preflight-warnings" class="preflight-warnings hidden"></div>
     <div class="modal-actions">
-      <button class="btn btn-race" id="btn-start-fullweekend" onclick="confirmStartRace('full_weekend')">&#127937; Full Weekend</button>
+      <button class="btn btn-race" id="btn-start-fullweekend" onclick="confirmStartRace('full_weekend')">Full Weekend</button>
       <button class="btn btn-secondary" id="btn-start-raceonly" onclick="confirmStartRace('race_only')">&#9889; Race Only</button>
-      <button class="btn btn-race hidden" id="btn-start-practice" onclick="confirmStartRace('practice_only')">&#127937; Practice Only</button>
+      <button class="btn btn-race hidden" id="btn-start-practice" onclick="confirmStartRace('practice_only')">Practice Only</button>
       <button class="btn btn-ghost"     onclick="closeModal('modal-race')">Cancel</button>
     </div>
   </div>
@@ -356,6 +356,15 @@
         <label class="form-label">Driver Name</label>
         <input type="text" id="new-driver-name" class="form-input" placeholder="Your name (used in AC)" maxlength="30">
         <div class="form-hint">This name appears in Assetto Corsa as your driver.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Country (AC code)</label>
+        <input type="text" id="new-driver-country" class="form-input" placeholder="NLD / GER / GBR ..." maxlength="24">
+        <div class="form-hint">Use 3-letter AC country code (for example: NLD, GER, GBR, USA).</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Age</label>
+        <input type="number" id="new-driver-age" class="form-input" min="16" max="60" step="1" value="22">
       </div>
       <div class="modal-actions">
         <button class="btn btn-race"       onclick="wizardNext()">Next &#8594;</button>
@@ -482,7 +491,7 @@
         </div>
       </div>
       <div class="modal-actions" style="margin-top:1rem">
-        <button class="btn btn-race"       id="btn-start-wizard" onclick="startCareerFromWizard()" style="display:none">&#127937; Start Career</button>
+        <button class="btn btn-race"       id="btn-start-wizard" onclick="startCareerFromWizard()" style="display:none">Start Career</button>
         <button class="btn btn-race-ghost" onclick="wizardPrev()">&#8592; Back</button>
       </div>
     </div>
@@ -580,7 +589,7 @@
     <div class="dp-history" id="pp-history"></div>
   </div>
 </div>
-<!-- Setup overlay — shown when AC install path not set / invalid -->
+<!-- Setup overlay - shown when AC install path not set / invalid -->
 <div id="setup-overlay" class="setup-overlay hidden">
   <div class="setup-box">
     <div class="setup-icon">&#9889;</div>
