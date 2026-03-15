@@ -96,7 +96,7 @@ class SetupWizard:
         # Check common paths
         for path in common_paths:
             if os.path.exists(path):
-                if os.path.exists(os.path.join(path, 'AssettoCorsa.exe')):
+                if os.path.exists(os.path.join(path, 'acs.exe')):
                     return path
         
         # Ask user
@@ -108,7 +108,7 @@ class SetupWizard:
             user_path = input("AC Installation Path: ").strip().strip('"')
             
             if os.path.exists(user_path):
-                if os.path.exists(os.path.join(user_path, 'AssettoCorsa.exe')):
+                if os.path.exists(os.path.join(user_path, 'acs.exe')):
                     return user_path
             
             print("✗ Invalid path. Please try again.")

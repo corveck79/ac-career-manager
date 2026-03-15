@@ -1,0 +1,41 @@
+{
+  "refs": {
+    "GPT-5.1-Codex-Mini": "C:\\Users\\Sjack\\Documents\\Codex\\AC_Career_Manager\\tools\\codex_model_refs\\gpt_5_1_codex_mini.png",
+    "GPT-5.2-Codex": "C:\\Users\\Sjack\\Documents\\Codex\\AC_Career_Manager\\tools\\codex_model_refs\\gpt_5_2_codex.png",
+    "GPT-5.3-Codex": "C:\\Users\\Sjack\\Documents\\Codex\\AC_Career_Manager\\tools\\codex_model_refs\\gpt_5_3_codex.png",
+    "GPT-5.4": "C:\\Users\\Sjack\\Documents\\Codex\\AC_Career_Manager\\tools\\codex_model_refs\\gpt_5_4.png"
+  },
+  "last_model": "GPT-5.4",
+  "picker_pos": {
+    "x": 1231,
+    "y": 729
+  },
+  "prompt_pos": {
+    "x": 1166,
+    "y": 673
+  },
+  "label_region": {
+    "x": 1200,
+    "y": 718,
+    "width": 66,
+    "height": 18
+  },
+  "item_pos": {
+    "GPT-5.1-Codex-Mini": {
+      "x": 1256,
+      "y": 691
+    },
+    "GPT-5.2-Codex": {
+      "x": 1258,
+      "y": 612
+    },
+    "GPT-5.3-Codex": {
+      "x": 1260,
+      "y": 556
+    },
+    "GPT-5.4": {
+      "x": 1254,
+      "y": 582
+    }
+  }
+}

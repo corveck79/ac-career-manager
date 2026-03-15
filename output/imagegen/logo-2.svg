@@ -1,0 +1,17 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">AC Career Manager Logo Variant 2</title>
+  <desc id="desc">Horizontal wordmark with steering wheel icon.</desc>
+  <rect width="1600" height="900" fill="#ffffff"/>
+  <g transform="translate(110 185)">
+    <circle cx="250" cy="250" r="230" fill="#0b1220"/>
+    <circle cx="250" cy="250" r="170" fill="none" stroke="#f8fafc" stroke-width="26"/>
+    <circle cx="250" cy="250" r="34" fill="#38bdf8"/>
+    <path d="M250 80 V215 M120 320 L220 270 M380 320 L280 270" stroke="#f8fafc" stroke-width="24" stroke-linecap="round"/>
+    <text x="250" y="460" text-anchor="middle" fill="#f8fafc" font-size="108" font-family="Segoe UI, Arial, sans-serif" font-weight="800">AC</text>
+  </g>
+  <g transform="translate(560 295)">
+    <text x="0" y="150" fill="#0f172a" font-size="150" font-family="Segoe UI, Arial, sans-serif" font-weight="800" letter-spacing="3">CAREER</text>
+    <text x="0" y="300" fill="#334155" font-size="150" font-family="Segoe UI, Arial, sans-serif" font-weight="700" letter-spacing="3">MANAGER</text>
+    <rect x="0" y="340" width="760" height="14" fill="#38bdf8"/>
+  </g>
+</svg>

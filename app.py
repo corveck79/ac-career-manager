@@ -10,10 +10,18 @@ import os
 import sys
 import statistics
 import threading
+import hashlib
+import random
 from datetime import datetime
+from urllib.parse import urlsplit
 
 from career_manager import CareerManager
-from platform_paths import get_ac_docs_path, get_default_ac_install_path, get_webview_gui
+from platform_paths import (
+    detect_ac_install_path,
+    get_ac_docs_path,
+    get_default_ac_install_path,
+    get_webview_gui,
+)
 
 # ---------------------------------------------------------------------------
 # Path helpers — work both as script and as frozen EXE
@@ -49,7 +57,8 @@ ensure_config()
 # ---------------------------------------------------------------------------
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
-CORS(app)
+ALLOWED_WEB_ORIGINS = {'http://127.0.0.1:5000', 'http://localhost:5000'}
+CORS(app, resources={r'/api/*': {'origins': list(ALLOWED_WEB_ORIGINS)}})
 
 TRACK_NAMES = {
     'ks_silverstone/national':         'Silverstone National',
@@ -67,26 +76,225 @@ TRACK_NAMES = {
     'imola':                           'Imola',
 }
 
+def _is_allowed_web_origin(value):
+    """Allow only local UI origins for API write requests."""
+    if not value:
+        return False
+    try:
+        parsed = urlsplit(value)
+    except Exception:
+        return False
+    if parsed.scheme != 'http':
+        return False
+    return f'http://{parsed.netloc}' in ALLOWED_WEB_ORIGINS
+
+
+@app.before_request
+def guard_api_write_origin():
+    """Block cross-site write requests against localhost API."""
+    if request.method not in {'POST', 'PUT', 'PATCH', 'DELETE'}:
+        return None
+    if not request.path.startswith('/api/'):
+        return None
+
+    origin = request.headers.get('Origin')
+    referer = request.headers.get('Referer')
+    if origin and not _is_allowed_web_origin(origin):
+        return jsonify({'status': 'error', 'message': 'Forbidden origin'}), 403
+    if not origin and referer and not _is_allowed_web_origin(referer):
+        return jsonify({'status': 'error', 'message': 'Forbidden referer'}), 403
+    return None
+
 # ---------------------------------------------------------------------------
 # Data helpers
 # ---------------------------------------------------------------------------
 
 def load_config():
-    with open(CONFIG_PATH, 'r') as f:
+    with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
         return json.load(f)
+
+
+def save_config(cfg):
+    with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+        json.dump(cfg, f, indent=2)
 
 
 def load_career_data():
     if os.path.exists(DATA_PATH):
-        with open(DATA_PATH, 'r') as f:
+        with open(DATA_PATH, 'r', encoding='utf-8') as f:
             return json.load(f)
     return _default_career()
 
 
 def save_career_data(data):
-    with open(DATA_PATH, 'w') as f:
+    with open(DATA_PATH, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
 
+
+
+def _require_json_object():
+    """Return parsed JSON object or a 400 response tuple."""
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return None, (jsonify({'status': 'error', 'message': 'Invalid JSON body'}), 400)
+    return data, None
+
+def _parse_optional_int(value):
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _set_ac_install_path(cfg, path):
+    """Store AC install path and optional Content Manager path in config dict."""
+    paths = cfg.setdefault('paths', {})
+    paths['ac_install'] = path
+    cm = os.path.join(path, 'Content Manager.exe')
+    if os.path.exists(cm):
+        paths['content_manager'] = cm
+
+
+def _recommended_ai_delta(position, margin_ms=None):
+    """Simple adaptive AI adjustment based on result dominance."""
+    if position == 1:
+        if margin_ms is not None and margin_ms >= 30000:
+            return 3
+        if margin_ms is not None and margin_ms >= 15000:
+            return 2
+        if margin_ms is not None and margin_ms >= 7000:
+            return 1
+        return 1
+    if position >= 10:
+        return -2
+    if position >= 7:
+        return -1
+    return 0
+
+
+DRIVER_SKILL_KEYS = ['skill', 'aggression', 'wet_skill', 'quali_pace', 'consistency']
+
+def _clamp(value, low, high):
+    return max(low, min(high, value))
+
+def _seed_int(seed_text, low, high):
+    raw = int(hashlib.md5(seed_text.encode('utf-8')).hexdigest()[:8], 16)
+    span = max(1, (high - low + 1))
+    return low + (raw % span)
+
+def _compute_progress_deltas(entry):
+    current = entry.get('current') or {}
+    season_start = entry.get('season_start') or {}
+    career_start = entry.get('career_start') or {}
+    last_delta = entry.get('last_delta') or {}
+    season_delta = {}
+    career_delta = {}
+    race_delta = {}
+    for key in DRIVER_SKILL_KEYS:
+        cur = float(current.get(key, 0))
+        s0 = float(season_start.get(key, cur))
+        c0 = float(career_start.get(key, cur))
+        ld = float(last_delta.get(key, 0))
+        season_delta[key] = round(cur - s0, 1)
+        career_delta[key] = round(cur - c0, 1)
+        race_delta[key] = round(ld, 1)
+    return {'race': race_delta, 'season': season_delta, 'career': career_delta}
+
+def _driver_trend_label(entry):
+    deltas = _compute_progress_deltas(entry).get('season', {})
+    net = sum(float(deltas.get(k, 0)) for k in DRIVER_SKILL_KEYS)
+    if net >= 1.0:
+        return 'Rising'
+    if net <= -1.0:
+        return 'Declining'
+    return 'Stable'
+
+def _ensure_driver_progress(career_data):
+    roster = career_data.setdefault('driver_progress', {})
+    changed = False
+    for name, base in career.DRIVER_PROFILES.items():
+        entry = roster.get(name)
+        if not isinstance(entry, dict):
+            age = _seed_int(f'age|{name}', 19, 37)
+            potential = _seed_int(f'pot|{name}', 62, 96)
+            current = {k: float(base.get(k, 70)) for k in DRIVER_SKILL_KEYS}
+            roster[name] = {
+                'age': age,
+                'potential': potential,
+                'current': current,
+                'season_start': dict(current),
+                'career_start': dict(current),
+                'last_delta': {k: 0.0 for k in DRIVER_SKILL_KEYS},
+            }
+            changed = True
+            continue
+
+        current = entry.setdefault('current', {})
+        season_start = entry.setdefault('season_start', {})
+        career_start = entry.setdefault('career_start', {})
+        entry.setdefault('last_delta', {})
+        if 'age' not in entry:
+            entry['age'] = _seed_int(f'age|{name}', 19, 37)
+            changed = True
+        if 'potential' not in entry:
+            entry['potential'] = _seed_int(f'pot|{name}', 62, 96)
+            changed = True
+        for key in DRIVER_SKILL_KEYS:
+            base_val = float(base.get(key, 70))
+            if key not in current:
+                current[key] = base_val
+                changed = True
+            if key not in season_start:
+                season_start[key] = float(current[key])
+                changed = True
+            if key not in career_start:
+                career_start[key] = float(current[key])
+                changed = True
+            if key not in entry['last_delta']:
+                entry['last_delta'][key] = 0.0
+                changed = True
+    return changed
+
+def _evolve_driver_progress_for_race(career_data, race_num):
+    _ensure_driver_progress(career_data)
+    season = career_data.get('season', 1)
+    tier = career_data.get('tier', 0)
+    for name, entry in (career_data.get('driver_progress') or {}).items():
+        age = int(entry.get('age', 26))
+        potential = int(entry.get('potential', 75))
+        current = entry.get('current') or {}
+        last_delta = {}
+
+        if age <= 26:
+            age_factor = 0.8
+        elif age <= 31:
+            age_factor = 0.2
+        elif age <= 35:
+            age_factor = -0.25
+        else:
+            age_factor = -0.6
+        pot_factor = (potential - 75) / 25.0
+
+        for key in DRIVER_SKILL_KEYS:
+            noise_raw = _seed_int(f'{name}|{season}|{tier}|{race_num}|{key}', 0, 2000) / 1000.0 - 1.0
+            key_mult = 0.9 if key == 'skill' else 0.75
+            delta = key_mult * (0.028 * age_factor + 0.033 * pot_factor + 0.055 * noise_raw)
+            delta = _clamp(delta, -0.35, 0.35)
+            cur = float(current.get(key, 70))
+            cur = _clamp(cur + delta, 40.0, 99.0)
+            current[key] = round(cur, 2)
+            last_delta[key] = round(delta, 2)
+        entry['last_delta'] = last_delta
+
+def _advance_driver_progress_season(career_data):
+    _ensure_driver_progress(career_data)
+    for _, entry in (career_data.get('driver_progress') or {}).items():
+        entry['age'] = int(_clamp(int(entry.get('age', 25)) + 1, 18, 55))
+        current = entry.get('current') or {}
+        entry['season_start'] = {k: float(current.get(k, 70)) for k in DRIVER_SKILL_KEYS}
+        entry['last_delta'] = {k: 0.0 for k in DRIVER_SKILL_KEYS}
 
 def _default_career():
     return {
@@ -101,6 +309,7 @@ def _default_career():
         'race_results':    [],
         'contracts':       None,
         'player_history':  [],
+        'driver_progress': {},
         'rival_name':      None,
     }
 
@@ -221,26 +430,41 @@ def index():
 
 @app.route('/api/setup-status')
 def setup_status():
-    cfg          = load_config()
-    ac_path      = cfg.get('paths', {}).get('ac_install', '')
-    default_hint = get_default_ac_install_path() if not ac_path else ''
-    valid        = bool(ac_path) and os.path.exists(os.path.join(ac_path, 'acs.exe'))
-    return jsonify({'valid': valid, 'path': ac_path, 'default_hint': default_hint})
+    cfg = load_config()
+    ac_path = (cfg.get('paths', {}) or {}).get('ac_install', '').strip()
+    valid = bool(ac_path) and os.path.exists(os.path.join(ac_path, 'acs.exe'))
+    auto_detected = False
+
+    # First-run convenience: auto-detect and persist AC install when path is missing/invalid.
+    if not valid:
+        detected = detect_ac_install_path()
+        if detected:
+            _set_ac_install_path(cfg, detected)
+            save_config(cfg)
+            ac_path = detected
+            valid = True
+            auto_detected = True
+
+    default_hint = '' if ac_path else get_default_ac_install_path()
+    return jsonify({
+        'valid': valid,
+        'path': ac_path,
+        'default_hint': default_hint,
+        'auto_detected': auto_detected,
+    })
 
 
 @app.route('/api/save-ac-path', methods=['POST'])
 def save_ac_path():
-    data    = request.json
+    data, err = _require_json_object()
+    if err:
+        return err
     path    = data.get('path', '').strip()
     if not os.path.exists(os.path.join(path, 'acs.exe')):
         return jsonify({'status': 'error', 'message': 'acs.exe niet gevonden in die map'}), 400
     cfg = load_config()
-    cfg['paths']['ac_install'] = path
-    cm = os.path.join(path, 'Content Manager.exe')
-    if os.path.exists(cm):
-        cfg['paths']['content_manager'] = cm
-    with open(CONFIG_PATH, 'w') as f:
-        json.dump(cfg, f, indent=2)
+    _set_ac_install_path(cfg, path)
+    save_config(cfg)
     return jsonify({'status': 'success'})
 
 
@@ -325,7 +549,7 @@ def get_next_race():
     night_cycle  = cs.get('night_cycle', True)
     race = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
                                 tier_key=tier_key, season=season, weather_mode=weather_mode,
-                                night_cycle=night_cycle)
+                                night_cycle=night_cycle, career_data=career_data)
     ai_offset = cs.get('ai_offset', 0)
     if ai_offset:
         race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
@@ -348,13 +572,16 @@ def start_race():
     night_cycle  = cs.get('night_cycle', True)
     race         = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
                                         tier_key=tier_key, season=season, weather_mode=weather_mode,
-                                        night_cycle=night_cycle)
+                                        night_cycle=night_cycle, career_data=career_data)
     ai_offset = cs.get('ai_offset', 0)
     if ai_offset:
         race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
     race['driver_name'] = career_data.get('driver_name', 'Player')
-    mode    = (request.json or {}).get('mode', 'race_only')
-    success = career.launch_ac_race(race, cfg, mode=mode)
+    data, err = _require_json_object()
+    if err:
+        return err
+    mode    = data.get('mode', 'race_only')
+    success = career.launch_ac_race(race, cfg, mode=mode, career_data=career_data)
     if success:
         career_data['race_started_at'] = datetime.now().isoformat()
         save_career_data(career_data)
@@ -373,7 +600,12 @@ def read_race_result():
     if not race_started_at:
         return jsonify({'status': 'not_found', 'message': 'No race started'})
 
-    start_time = datetime.fromisoformat(race_started_at)
+    try:
+        # File mtimes may have second precision; normalize to avoid missing
+        # results created in the same second as race start.
+        start_time = datetime.fromisoformat(race_started_at).replace(microsecond=0)
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid race start timestamp'})
 
     tier_info     = career.get_tier_info(career_data['tier'])
     expected_laps = tier_info.get('race_format', {}).get('laps', 20)
@@ -388,36 +620,46 @@ def read_race_result():
             continue
         fpath = os.path.join(results_dir, fname)
         mtime = datetime.fromtimestamp(os.path.getmtime(fpath))
-        if mtime > start_time:
+        if mtime >= start_time:
             candidates.append((mtime, fpath))
 
     if not candidates:
         return jsonify({'status': 'not_found', 'message': 'No result file found yet'})
 
     candidates.sort(key=lambda x: x[0], reverse=True)
-    result_file = candidates[0][1]
-
-    try:
-        with open(result_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)})
-
-    if data.get('Type', '').upper() != 'RACE':
-        return jsonify({'status': 'not_found', 'message': 'Latest result is not a race session'})
-
-    results = data.get('Result', [])
-
-    player_result   = None
+    data = None
+    results = []
+    player_result = None
     player_position = None
-    for i, r in enumerate(results):
-        if r.get('DriverName', '').lower() == driver_name.lower():
-            player_result   = r
-            player_position = i + 1
+    race_seen = False
+
+    # Walk recent files newest -> oldest and pick the first race result
+    # that actually contains the active player.
+    for _, result_file in candidates:
+        try:
+            with open(result_file, 'r', encoding='utf-8') as f:
+                candidate_data = json.load(f)
+        except Exception:
+            continue
+
+        if candidate_data.get('Type', '').upper() != 'RACE':
+            continue
+
+        race_seen = True
+        candidate_results = candidate_data.get('Result', [])
+        for i, r in enumerate(candidate_results):
+            if r.get('DriverName', '').lower() == driver_name.lower():
+                data = candidate_data
+                results = candidate_results
+                player_result = r
+                player_position = i + 1
+                break
+        if player_result is not None:
             break
 
     if player_result is None:
-        return jsonify({'status': 'not_found', 'message': 'Driver not found in results'})
+        msg = 'Driver not found in results' if race_seen else 'No race session result found yet'
+        return jsonify({'status': 'not_found', 'message': msg})
 
     laps_completed = player_result.get('Laps', 0)
     total_time     = player_result.get('TotalTime', 0)
@@ -504,6 +746,17 @@ def read_race_result():
                 if gap_ms > 0:
                     lap_analysis['gap_to_leader_ms'] = gap_ms
 
+    margin_to_p2_ms = None
+    if player_position == 1 and len(results) > 1:
+        p1_time = player_result.get('TotalTime', 0)
+        p2_time = results[1].get('TotalTime', 0)
+        try:
+            gap_ms = int(p2_time) - int(p1_time)
+            if gap_ms > 0:
+                margin_to_p2_ms = gap_ms
+        except (TypeError, ValueError):
+            margin_to_p2_ms = None
+
     return jsonify({
         'status':         'incomplete' if incomplete else 'found',
         'position':       player_position,
@@ -511,17 +764,26 @@ def read_race_result():
         'laps_completed': laps_completed,
         'expected_laps':  expected_laps,
         'driver_name':    driver_name,
+        'margin_to_p2_ms': margin_to_p2_ms,
         'lap_analysis':   lap_analysis,
     })
 
 
 @app.route('/api/finish-race', methods=['POST'])
 def finish_race():
-    data        = request.json
+    data, err = _require_json_object()
+    if err:
+        return err
     career_data = load_career_data()
-    position    = data.get('position', 1)
+    try:
+        position = int(data.get('position', 1))
+    except (TypeError, ValueError):
+        return jsonify({'status': 'error', 'message': 'Invalid position'}), 400
+    if position < 1:
+        return jsonify({'status': 'error', 'message': 'Position must be >= 1'}), 400
     pts_table   = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
     pts         = pts_table[min(position - 1, 9)] if position <= 10 else 0
+    margin_ms   = _parse_optional_int(data.get('margin_ms'))
     result = {
         'race_num': career_data['races_completed'] + 1,
         'position': position,
@@ -531,10 +793,24 @@ def finish_race():
     career_data['races_completed'] += 1
     career_data['points']          += pts
     career_data['race_results'].append(result)
+
+    cs = career_data.setdefault('career_settings', {})
+    cur_ai_offset = _parse_optional_int(cs.get('ai_offset')) or 0
+    ai_delta = _recommended_ai_delta(position, margin_ms=margin_ms)
+    if ai_delta:
+        cs['ai_offset'] = max(-20, min(20, cur_ai_offset + ai_delta))
+
+    _evolve_driver_progress_for_race(career_data, result['race_num'])
     save_career_data(career_data)
-    if career_data['races_completed'] >= career.get_tier_races():
+    if career_data['races_completed'] >= career.get_tier_races(career_data):
         return _do_end_season()
-    return jsonify({'status': 'success', 'result': result, 'total_points': career_data['points']})
+    return jsonify({
+        'status': 'success',
+        'result': result,
+        'total_points': career_data['points'],
+        'ai_change': ai_delta,
+        'ai_offset': cs.get('ai_offset', 0),
+    })
 
 
 @app.route('/api/end-season', methods=['POST'])
@@ -599,10 +875,13 @@ def _do_end_season():
 
 @app.route('/api/accept-contract', methods=['POST'])
 def accept_contract():
-    data        = request.json
+    data, err = _require_json_object()
+    if err:
+        return err
     career_data = load_career_data()
     contract_id = data.get('contract_id')
-    selected    = next((c for c in career_data['contracts'] if c.get('id') == contract_id), None)
+    contracts = career_data.get('contracts') or []
+    selected    = next((c for c in contracts if c.get('id') == contract_id), None)
     if not selected:
         return jsonify({'status': 'error', 'message': 'Contract not found'}), 400
 
@@ -630,7 +909,8 @@ def accept_contract():
 
     # Pick new rival for the new tier/season
     new_tier_key              = career.tiers[new_tier]
-    career_data['rival_name'] = career.pick_rival(new_tier_key, career_data.get('season', 1))
+    _advance_driver_progress_season(career_data)
+    career_data['rival_name'] = career.pick_rival(new_tier_key, career_data.get('season', 1), career_data=career_data)
 
     save_career_data(career_data)
 
@@ -658,6 +938,9 @@ def new_career():
     driver_name   = data.get('driver_name', '').strip() or 'Driver'
     difficulty    = data.get('difficulty', 'pro')
     weather_mode  = data.get('weather_mode', 'realistic')
+    name_mode     = str(data.get('name_mode', 'curated')).strip().lower()
+    if name_mode not in {'curated', 'procedural'}:
+        name_mode = 'curated'
     custom_tracks = data.get('custom_tracks') or None   # None → use config defaults
 
     ai_offsets = {'rookie': -10, 'amateur': -5, 'pro': 0, 'legend': 5}
@@ -677,13 +960,17 @@ def new_career():
         'driver_history':  {},
         'player_history':  [],
         'rival_name':      career.pick_rival('mx5_cup', 1),
+        'driver_seed':     random.randint(0, 2**31 - 1),
         'career_settings': {
             'difficulty':    difficulty,
             'ai_offset':     ai_offset,
             'weather_mode':  weather_mode,
+            'name_mode':     name_mode,
             'custom_tracks': custom_tracks,
         },
     }
+    _ensure_driver_progress(initial)
+    initial['rival_name'] = career.pick_rival('mx5_cup', 1, career_data=initial)
     save_career_data(initial)
     return jsonify({'status': 'success', 'message': 'New career started!', 'career_data': initial})
 
@@ -775,13 +1062,19 @@ def scan_content():
 def driver_profile():
     name        = request.args.get('name', '')
     career_data = load_career_data()
-    profile     = career.get_driver_profile(name)
-    # Add new extended fields from raw DRIVER_PROFILES
-    raw = career.DRIVER_PROFILES.get(name, {})
-    profile['wet_skill']   = raw.get('wet_skill', 60)
-    profile['quali_pace']  = raw.get('quali_pace', 70)
-    profile['consistency'] = raw.get('consistency', 75)
-    profile['nickname']    = raw.get('nickname', None)
+    changed = _ensure_driver_progress(career_data)
+
+    profile = career.get_driver_profile(name, career_data=career_data)
+    progress = (career_data.get('driver_progress') or {}).get(name, {})
+    profile['age'] = progress.get('age')
+    profile['potential'] = progress.get('potential')
+    profile['skill_deltas'] = _compute_progress_deltas(progress) if progress else {
+        'race': {k: 0.0 for k in DRIVER_SKILL_KEYS},
+        'season': {k: 0.0 for k in DRIVER_SKILL_KEYS},
+        'career': {k: 0.0 for k in DRIVER_SKILL_KEYS},
+    }
+    profile['trend_label'] = _driver_trend_label(progress) if progress else 'Stable'
+
     history     = career_data.get('driver_history', {}).get(name, {'seasons': []})
     # Find current standings entry for this driver across all tiers
     all_s         = career.generate_all_standings(career_data)
@@ -793,8 +1086,11 @@ def driver_profile():
                 break
         if current_entry:
             break
-    return jsonify({'name': name, 'profile': profile, 'current': current_entry, 'history': history})
 
+    if changed:
+        save_career_data(career_data)
+
+    return jsonify({'name': name, 'profile': profile, 'current': current_entry, 'history': history})
 
 @app.route('/api/player-profile')
 def player_profile():
@@ -847,9 +1143,10 @@ def get_config():
 
 @app.route('/api/config', methods=['POST'])
 def update_config():
-    new_cfg = request.json
-    with open(CONFIG_PATH, 'w') as f:
-        json.dump(new_cfg, f, indent=2)
+    new_cfg, err = _require_json_object()
+    if err:
+        return err
+    save_config(new_cfg)
     return jsonify({'status': 'success', 'message': 'Configuration updated'})
 
 
@@ -935,7 +1232,9 @@ def _check_preflight(ac_path, track, car):
 @app.route('/api/career-settings', methods=['POST'])
 def update_career_settings():
     career_data = load_career_data()
-    patch       = request.json
+    patch, err = _require_json_object()
+    if err:
+        return err
     cs          = career_data.setdefault('career_settings', {})
     cs.update(patch)
     save_career_data(career_data)
@@ -959,12 +1258,42 @@ def server_error(e):
 if __name__ == '__main__':
     import time
     import webview
+    import ctypes
 
     class JsApi:
         """Python functions exposed to JavaScript via window.pywebview.api"""
         def browse_folder(self):
             result = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
             return result[0] if result else None
+
+    def _set_windows_titlebar_icon(title_text, icon_path):
+        """Set titlebar/taskbar icon for pywebview window when running as script on Windows."""
+        if sys.platform != 'win32' or not os.path.isfile(icon_path):
+            return
+        user32 = ctypes.windll.user32
+        IMAGE_ICON = 1
+        LR_LOADFROMFILE = 0x0010
+        LR_DEFAULTSIZE = 0x0040
+        WM_SETICON = 0x0080
+        ICON_SMALL = 0
+        ICON_BIG = 1
+
+        hicon = user32.LoadImageW(None, icon_path, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE)
+        if not hicon:
+            return
+
+        deadline = time.time() + 6.0
+        hwnd = None
+        while time.time() < deadline:
+            hwnd = user32.FindWindowW(None, title_text)
+            if hwnd:
+                break
+            time.sleep(0.1)
+        if not hwnd:
+            return
+
+        user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon)
+        user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon)
 
     def run_flask():
         app.run(debug=False, host='127.0.0.1', port=5000, use_reloader=False)
@@ -974,15 +1303,21 @@ if __name__ == '__main__':
     time.sleep(0.8)  # let Flask start up
 
     api    = JsApi()
+    window_title = 'AC Career GT Edition'
     window = webview.create_window(
-        'AC Career GT Edition',
+        window_title,
         'http://127.0.0.1:5000',
         width=1440, height=920,
         min_size=(1000, 700),
         js_api=api,
     )
+    icon_path = os.path.join(APP_DIR, 'static', 'logo.ico')
+
+    def on_webview_ready():
+        _set_windows_titlebar_icon(window_title, icon_path)
+
     gui_backend = get_webview_gui()   # 'gtk' on Linux, 'edgechromium' on Windows
     try:
-        webview.start(gui=gui_backend)
+        webview.start(func=on_webview_ready, gui=gui_backend)
     except Exception:
-        webview.start()               # last-resort fallback (auto-detect)
+        webview.start(func=on_webview_ready)  # last-resort fallback (auto-detect)

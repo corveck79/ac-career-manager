@@ -1,0 +1,57 @@
+﻿<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AC Career Mockup 3 - Pitwall Glass</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Manrope:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#11151d;--glass:rgba(255,255,255,.08);--line:rgba(255,255,255,.18);--text:#f2f6ff;--muted:#b8c2d8;--accent:#ff6e3b;--accent2:#ffd34e;--good:#70f0a0;--radius:18px}
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;padding:20px;font-family:"Outfit",system-ui,sans-serif;color:var(--text);background:linear-gradient(120deg,#1a2130,#101721 48%,#2a1a17)}
+    .noise:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.08;background-image:radial-gradient(#fff 1px,transparent 1px);background-size:3px 3px}
+    .layout{max-width:1220px;margin:0 auto;display:grid;gap:14px}
+    .top{display:grid;grid-template-columns:1fr auto;align-items:center}.logo{font-size:26px;font-weight:800;letter-spacing:.02em}
+    .glass{background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:var(--radius);padding:14px}
+    .hero{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}
+    .hero h2{margin:.2rem 0 .6rem;font-size:36px;line-height:1.02}
+    .sub{color:var(--muted);font-family:"Manrope",sans-serif}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.chip{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.1);font-size:12px}
+    .btns{display:flex;gap:9px;margin-top:12px}.btn{border:0;border-radius:11px;padding:10px 14px;font-weight:700}.btn.primary{background:linear-gradient(120deg,var(--accent),var(--accent2));color:#2d1408}.btn.ghost{background:rgba(255,255,255,.14);color:var(--text)}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{padding:12px;border-radius:12px;background:rgba(0,0,0,.14)}.stat b{display:block;font-size:24px}
+    .stack{display:grid;gap:10px}.line{height:8px;border-radius:8px;background:rgba(255,255,255,.14);overflow:hidden}.line span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#ffae47)}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media (max-width:960px){.hero,.two,.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body class="noise">
+  <div class="layout">
+    <div class="top glass"><div class="logo">AC Career Manager · Pitwall</div><div>Professional Concept 03</div></div>
+    <section class="hero">
+      <article class="glass">
+        <div class="sub">Weekend Command Center</div>
+        <h2>Monza · Sprint + Main</h2>
+        <div class="chips"><span class="chip">Tier: GT4</span><span class="chip">Weather: Variable</span><span class="chip">Night Cycle: On</span></div>
+        <div class="grid">
+          <div class="stat"><small>Player</small><b>P2</b></div>
+          <div class="stat"><small>Points</small><b>102</b></div>
+          <div class="stat"><small>AI Set</small><b>96%</b></div>
+        </div>
+        <div class="btns"><button class="btn primary">Start Full Weekend</button><button class="btn ghost">Open Strategy</button></div>
+      </article>
+      <article class="glass stack">
+        <div class="sub">Skill Momentum</div>
+        <div>Age 24 · Potential 89 · <span style="color:var(--good)">RISING</span></div>
+        <div>Pace +1.3<div class="line"><span style="width:88%"></span></div></div>
+        <div>Quali +0.8<div class="line"><span style="width:79%"></span></div></div>
+        <div>Consistency +0.4<div class="line"><span style="width:76%"></span></div></div>
+      </article>
+    </section>
+    <section class="two">
+      <article class="glass"><div class="sub">Calendar Pulse</div><p>R4 Monza, R5 Spa, R6 Silverstone GP. Layout met focus op planning en korte acties.</p></article>
+      <article class="glass"><div class="sub">Engineer Callout</div><p>Meer rotatie in T1/T2: brake bias -0.5 en rear rebound +1 stap voor racepace over 15 laps.</p></article>
+    </section>
+  </div>
+</body>
+</html>

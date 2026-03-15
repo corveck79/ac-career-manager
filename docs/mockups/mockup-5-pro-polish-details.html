@@ -1,0 +1,142 @@
+﻿<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AC Career - Pro Detail Mockup v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#0f141c;--panel:#192230;--panel2:#1d2838;--line:#2a374c;--text:#eef3fb;--muted:#9dafc9;--accent:#ff7a2f;--ok:#4fd18a;--radius:12px}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:"Manrope",system-ui,sans-serif;color:var(--text);background:radial-gradient(900px 380px at -5% -10%, #263246 0%, transparent 55%),radial-gradient(700px 260px at 100% 0%, #2f221a 0%, transparent 50%),var(--bg)}
+    .topbar{height:62px;border-bottom:1px solid var(--line);background:rgba(10,14,20,.72);display:flex;align-items:center;justify-content:space-between;padding:0 22px}
+    .layout{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:250px 1fr;gap:16px;padding:16px}
+    .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:var(--radius)}
+    .sidebar{padding:14px;display:grid;gap:12px;height:fit-content}
+    .driver{padding:14px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+    .driver .row{display:flex;align-items:center;gap:10px}.avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#ff9b50,#ff7a2f);display:grid;place-items:center;font-weight:800;color:#2e1308}
+    .driver .name{font-weight:800;font-size:17px}.driver .meta{color:var(--muted);font-size:12px}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:rgba(255,122,47,.14);color:#ffd5bf;font-size:11px;font-weight:700;margin-top:8px}
+    .nav a{display:block;text-decoration:none;color:var(--muted);padding:10px 11px;border-radius:8px;font-weight:700;font-size:14px}.nav a.active{background:rgba(255,122,47,.14);color:#ffd5bf}
+    .main{display:grid;gap:12px}.headline{padding:14px}.muted{color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:12px}.section{padding:14px}.section h2{margin:0 0 10px;font-size:16px}
+    .table{width:100%;border-collapse:collapse;font-size:13px}.table th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:left;padding:0 0 8px}
+    .table td{padding:10px 0;border-top:1px solid rgba(255,255,255,.06)}.pos{font-family:"JetBrains Mono",monospace;font-weight:700}.pts{font-family:"JetBrains Mono",monospace;text-align:right}
+    .calendar{display:grid;gap:8px}.race{padding:10px;border:1px solid var(--line);border-radius:9px;background:rgba(0,0,0,.12);display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+    .round{font-family:"JetBrains Mono",monospace;color:var(--muted);font-size:12px}.track{font-weight:700}
+    .status{font-size:11px;padding:4px 8px;border-radius:999px;font-weight:700}.status.done{background:rgba(79,209,138,.16);color:#93efbf}.status.next{background:rgba(255,122,47,.16);color:#ffd5bf}.status.upcoming{background:rgba(255,255,255,.12);color:var(--muted)}
+
+    .mods{display:grid;gap:12px}
+    .modal-preview{padding:12px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.16)}
+    .modal-title{font-size:15px;font-weight:800;margin:0 0 8px}
+
+    .livery-big{height:110px;border-radius:10px;border:1px solid var(--line);margin-bottom:10px;background-size:cover;background-position:center}
+    .livery-a{background-image:linear-gradient(140deg,#f8f8f8 0 36%,#db2f2f 36% 50%,#1e2e59 50% 100%),linear-gradient(20deg,rgba(255,255,255,.2),transparent)}
+    .livery-b{background-image:linear-gradient(140deg,#20242d 0 40%,#ff8f34 40% 56%,#f2f2f2 56% 100%),linear-gradient(20deg,rgba(255,255,255,.16),transparent)}
+    .livery-c{background-image:linear-gradient(140deg,#16322a 0 45%,#59d69d 45% 60%,#d9fff0 60% 100%),linear-gradient(20deg,rgba(255,255,255,.14),transparent)}
+
+    .stats{display:grid;gap:6px}.srow{display:grid;grid-template-columns:92px 1fr 56px;gap:8px;align-items:center;font-size:12px}
+    .srow label{color:var(--muted);text-transform:uppercase}.bar{height:7px;border-radius:999px;overflow:hidden;background:#111a27;border:1px solid var(--line)}.bar span{display:block;height:100%;background:linear-gradient(90deg,#ff9b50,var(--accent))}
+    .delta{font-family:"JetBrains Mono",monospace;text-align:right}.delta.up{color:var(--ok)}
+
+    .teamcars{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .car-card{padding:10px;border:1px solid var(--line);border-radius:9px;background:rgba(255,255,255,.03)}
+    .car-card h4{margin:0 0 6px;font-size:13px}
+    .thumb{height:90px;border-radius:8px;border:1px solid var(--line);margin-bottom:8px}
+    .drivers{display:grid;gap:6px}
+    .drv{display:flex;justify-content:space-between;align-items:center;padding:6px;border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.15);font-size:12px}
+
+    @media (max-width:1060px){.layout{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.teamcars{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <strong>AC Career Manager · Pro Polish Detail v2</strong>
+    <span class="muted" style="font-family:'JetBrains Mono',monospace;font-size:12px">Season 1 | MX5 Cup</span>
+  </header>
+
+  <div class="layout">
+    <aside class="card sidebar">
+      <div class="driver">
+        <div class="row"><div class="avatar">SJ</div><div><div class="name">Sjack Racing</div><div class="meta">Mazda Academy</div></div></div>
+        <div class="meta" style="margin-top:8px">Car: <strong style="color:var(--text)">Mazda MX-5 Cup</strong></div>
+        <span class="pill">Championship P1 · 43 pts</span>
+      </div>
+      <nav class="nav">
+        <a class="active" href="#">Dashboard</a><a href="#">Calendar</a><a href="#">Standings</a><a href="#">Drivers</a><a href="#">Teams</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <section class="card headline"><h2 style="margin:0">Details inclusief livery-modals</h2><div class="muted">Per driver eigen livery, en in team-modal beide auto’s met juiste rijders.</div></section>
+
+      <section class="grid">
+        <article class="card section">
+          <h2>Standings</h2>
+          <table class="table"><thead><tr><th>Pos</th><th>Driver</th><th>Team</th><th>Gap</th><th class="pts">Pts</th></tr></thead><tbody>
+            <tr><td class="pos">P1</td><td>Sjack Racing</td><td>Mazda Academy</td><td style="color:var(--ok)">Leader</td><td class="pts">43</td></tr>
+            <tr><td class="pos">P2</td><td>Kenji Tanaka</td><td>Elite Motorsports</td><td>-8</td><td class="pts">35</td></tr>
+            <tr><td class="pos">P3</td><td>Nico Berger</td><td>Apex Racing</td><td>-12</td><td class="pts">31</td></tr>
+            <tr><td class="pos">P4</td><td>Marco Rossi</td><td>Speed Demons</td><td>-15</td><td class="pts">28</td></tr>
+          </tbody></table>
+        </article>
+
+        <article class="card section">
+          <h2>Calendar</h2>
+          <div class="calendar">
+            <div class="race"><span class="round">R1</span><div><div class="track">Silverstone National</div><small class="muted">Best lap 1:07.214</small></div><span class="status done">DONE</span></div>
+            <div class="race"><span class="round">R2</span><div><div class="track">Brands Hatch Indy</div><small class="muted">Today · 10 laps</small></div><span class="status next">NEXT</span></div>
+            <div class="race"><span class="round">R3</span><div><div class="track">Magione</div><small class="muted">In 3 days</small></div><span class="status upcoming">UPCOMING</span></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="card section mods">
+          <h2>Driver Modal (met eigen livery)</h2>
+          <div class="modal-preview">
+            <div class="livery-big livery-a" title="Kenji Tanaka livery"></div>
+            <p class="modal-title">Kenji Tanaka · JPN</p>
+            <div class="muted" style="font-size:12px">P2 · Elite Motorsports · Mazda MX-5 Cup</div>
+            <div class="muted" style="font-size:12px;margin:6px 0 10px">Age 24 | Potential 88 | <span style="color:var(--ok);font-weight:700">RISING</span></div>
+            <div class="stats">
+              <div class="srow"><label>Pace</label><div class="bar"><span style="width:84%"></span></div><div class="delta up">+1.1</div></div>
+              <div class="srow"><label>Aggression</label><div class="bar"><span style="width:67%"></span></div><div class="delta">+0.1</div></div>
+              <div class="srow"><label>Wet Skill</label><div class="bar"><span style="width:70%"></span></div><div class="delta up">+0.4</div></div>
+              <div class="srow"><label>Quali</label><div class="bar"><span style="width:78%"></span></div><div class="delta up">+0.6</div></div>
+              <div class="srow"><label>Consistency</label><div class="bar"><span style="width:86%"></span></div><div class="delta up">+0.5</div></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card section mods">
+          <h2>Team Modal (2 auto's + juiste rijders)</h2>
+          <div class="modal-preview">
+            <p class="modal-title" style="margin-bottom:4px">Apex Racing</p>
+            <div class="muted" style="font-size:12px;margin-bottom:8px">Mazda MX-5 Cup · Class: Semi-Factory</div>
+            <div class="teamcars">
+              <div class="car-card">
+                <h4>Car #27</h4>
+                <div class="thumb livery-b"></div>
+                <div class="drivers">
+                  <div class="drv"><span>Nico Berger</span><span class="muted">P3 · 31 pts</span></div>
+                </div>
+              </div>
+              <div class="car-card">
+                <h4>Car #44</h4>
+                <div class="thumb livery-c"></div>
+                <div class="drivers">
+                  <div class="drv"><span>Luca Ferrari</span><span class="muted">P6 · 19 pts</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
+

@@ -1,0 +1,18 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">AC Career Manager Logo Variant 1</title>
+  <desc id="desc">Shield logo with AC monogram and speed stripe.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1f2937"/>
+    </linearGradient>
+  </defs>
+  <rect x="130" y="120" width="940" height="940" rx="220" fill="url(#bg)"/>
+  <path d="M220 860 L980 340 L980 480 L220 1000 Z" fill="#ff5a2a" opacity="0.95"/>
+  <g fill="none" stroke="#e5e7eb" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M360 770 L520 430 L620 430 L460 770 Z" stroke-width="58"/>
+    <path d="M580 770 L760 430 L860 430 L680 770 Z" stroke-width="58"/>
+    <path d="M540 620 H735" stroke-width="42"/>
+  </g>
+  <text x="600" y="1085" text-anchor="middle" fill="#e5e7eb" font-size="88" font-family="Segoe UI, Arial, sans-serif" font-weight="700" letter-spacing="4">AC CAREER MANAGER</text>
+</svg>

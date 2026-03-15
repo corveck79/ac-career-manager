@@ -1,0 +1,20 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">AC Career Manager Logo Variant 3</title>
+  <desc id="desc">Motorsport crest with track line and laurels.</desc>
+  <defs>
+    <linearGradient id="crest" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#030712"/>
+    </linearGradient>
+  </defs>
+  <path d="M600 90 L960 250 V560 C960 770 825 940 600 1070 C375 940 240 770 240 560 V250 Z" fill="url(#crest)" stroke="#cbd5e1" stroke-width="22"/>
+  <path d="M420 700 C470 560 560 520 655 430 C715 375 760 295 760 215" fill="none" stroke="#ef4444" stroke-width="28" stroke-linecap="round"/>
+  <g fill="none" stroke="#94a3b8" stroke-width="14" stroke-linecap="round">
+    <path d="M350 760 C300 700 280 620 280 560"/>
+    <path d="M850 760 C900 700 920 620 920 560"/>
+    <path d="M325 720 C285 670 268 615 268 560"/>
+    <path d="M875 720 C915 670 932 615 932 560"/>
+  </g>
+  <text x="600" y="530" text-anchor="middle" fill="#f8fafc" font-size="190" font-family="Segoe UI, Arial, sans-serif" font-weight="800" letter-spacing="7">AC</text>
+  <text x="600" y="640" text-anchor="middle" fill="#e2e8f0" font-size="58" font-family="Segoe UI, Arial, sans-serif" font-weight="700" letter-spacing="6">CAREER MANAGER</text>
+</svg>

@@ -10,6 +10,7 @@ let standingsTier = 0;        // currently displayed tier index
 let champMode     = 'drivers'; // 'drivers' | 'teams'
 let calendar      = [];
 let pendingRace   = null;
+const THEME_PALETTE_KEY = 'ac-theme-palette';
 
 // ── Track name map ──────────────────────────────────────────────────────────
 const TRACK_NAMES = {
@@ -70,12 +71,23 @@ function tierName(index) {
     const t = config.tiers[tierKey(index)];
     return t ? t.name : 'MX5 Cup';
 }
+function escHtml(v) {
+    return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 
 // ── Init ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
     // Restore saved theme before anything renders
     const savedTheme = localStorage.getItem('ac-theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
+    const savedPalette = localStorage.getItem(THEME_PALETTE_KEY) || 'current';
+    document.documentElement.setAttribute('data-theme-palette', savedPalette);
     const ttLbl = document.getElementById('tt-label');
     if (ttLbl) ttLbl.textContent = savedTheme === 'light' ? 'Light' : 'Dark';
     const ttThumb = document.querySelector('.tt-thumb');
@@ -128,9 +140,32 @@ async function loadCalendar() {
 
 // ── Full refresh ───────────────────────────────────────────────────────────
 function refresh() {
+    updateBranding();
     updateDriverCard();
     renderCalendar();
     renderStandings();
+}
+
+function updateBranding() {
+    if (!config || !config.app) return;
+
+    const appName = (config.app.name || 'AC Career GT Edition').trim();
+    const edition = (config.app.edition || 'GT').trim();
+
+    const topbarTitle = document.getElementById('topbar-title');
+    if (topbarTitle) {
+        const normalized = appName
+            .replace(new RegExp('\\s+' + edition + '\\s+edition$', 'i'), '')
+            .replace(/\s+edition$/i, '')
+            .trim()
+            .toUpperCase();
+        topbarTitle.textContent = normalized;
+    }
+
+    const editionBadge = document.getElementById('edition-badge');
+    if (editionBadge) {
+        editionBadge.textContent = edition.toUpperCase() + ' Edition';
+    }
 }
 
 // ── Driver card ────────────────────────────────────────────────────────────
@@ -292,6 +327,8 @@ function renderStandings() {
         const sub   = isDriverMode
             ? s.team
             : (s.driver2 ? s.driver + ' / ' + s.driver2 : (s.driver || ''));
+        const mainSafe = escHtml(main);
+        const subSafe  = escHtml(sub);
         const star      = s.is_player ? '★ ' : '';
         const rivalBadge = isRival ? '⚔ ' : '';
         const driverName = (s.driver || '').replace(/'/g, "\\'");
@@ -315,8 +352,8 @@ function renderStandings() {
         return (
             '<tr class="' + rowClass + '"' + clickable + '>' +
             '<td class="col-pos ' + posClass + '">' + liveryImg + s.position + '</td>' +
-            '<td class="col-name">' + star + rivalBadge + main +
-              (sub ? '<div class="sub-name">' + sub + '</div>' : '') +
+            '<td class="col-name">' + star + rivalBadge + mainSafe +
+              (sub ? '<div class="sub-name">' + subSafe + '</div>' : '') +
             '</td>' +
             '<td class="col-pts">' + s.points + '</td>' +
             '<td class="col-gap">' + gap + '</td>' +
@@ -330,9 +367,12 @@ async function checkSetup() {
     try {
         const r = await fetch('/api/setup-status');
         const d = await r.json();
+        if (d.auto_detected) {
+            showToast('Assetto Corsa installatie automatisch gevonden.');
+        }
         if (!d.valid) {
             const input = document.getElementById('setup-ac-path');
-            if (input && d.path) input.value = d.path;
+            if (input) input.value = d.path || d.default_hint || '';
             document.getElementById('setup-overlay').classList.remove('hidden');
         }
     } catch (e) { /* server not ready yet, ignore */ }
@@ -434,6 +474,7 @@ function openConfig() {
     if (bPure) bPure.classList.toggle('csp-found', !!cspStatus.pure);
     const ncHint = document.getElementById('night-cycle-csp-hint');
     if (ncHint) ncHint.classList.toggle('hidden', !!cspStatus.csp);
+    syncThemePaletteButtons();
 
     showView('config');
 }
@@ -448,6 +489,21 @@ function toggleTheme() {
     const thumb = document.querySelector('.tt-thumb');
     if (lbl)   lbl.textContent   = next === 'light' ? 'Light' : 'Dark';
     if (thumb) thumb.textContent = next === 'light' ? '☀️' : '🌙';
+}
+
+function setThemePalette(palette) {
+    const next = (palette === 'motorsport') ? 'motorsport' : 'current';
+    document.documentElement.setAttribute('data-theme-palette', next);
+    localStorage.setItem(THEME_PALETTE_KEY, next);
+    syncThemePaletteButtons();
+}
+
+function syncThemePaletteButtons() {
+    const current = document.documentElement.getAttribute('data-theme-palette') || 'current';
+    const bCurrent = document.getElementById('s-palette-current');
+    const bMoto = document.getElementById('s-palette-motorsport');
+    if (bCurrent) bCurrent.classList.toggle('active', current === 'current');
+    if (bMoto) bMoto.classList.toggle('active', current === 'motorsport');
 }
 
 // ── Stats page ──────────────────────────────────────────────────────────────
@@ -530,6 +586,46 @@ const NATIONALITY_FLAGS = {
 function nationalityFlag(code) { return NATIONALITY_FLAGS[code] || '🏁'; }
 
 const TIER_LABELS = {mx5_cup:'MX5 Cup', gt4:'GT4', gt3:'GT3', wec:'WEC'};
+let driverDeltaMode = 'season';
+let _driverProfileData = null;
+
+function _fmtSkillDelta(v) {
+    const n = Number(v || 0);
+    if (!Number.isFinite(n) || Math.abs(n) < 0.05) return '0.0';
+    return (n > 0 ? '+' : '') + n.toFixed(1);
+}
+
+function _setDeltaBadge(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const n = Number(value || 0);
+    el.textContent = _fmtSkillDelta(n);
+    el.classList.remove('up', 'down', 'flat');
+    if (n > 0.05) el.classList.add('up');
+    else if (n < -0.05) el.classList.add('down');
+    else el.classList.add('flat');
+}
+
+function renderDriverDeltas() {
+    const p = (_driverProfileData && _driverProfileData.profile) ? _driverProfileData.profile : {};
+    const deltas = p.skill_deltas || {};
+    const modeSet = deltas[driverDeltaMode] || {};
+    _setDeltaBadge('dp-skill-delta', modeSet.skill);
+    _setDeltaBadge('dp-aggr-delta', modeSet.aggression);
+    _setDeltaBadge('dp-wet-delta', modeSet.wet_skill);
+    _setDeltaBadge('dp-quali-delta', modeSet.quali_pace);
+    _setDeltaBadge('dp-cons-delta', modeSet.consistency);
+
+    ['season', 'race', 'career'].forEach((mode) => {
+        const btn = document.getElementById('dp-mode-' + mode);
+        if (btn) btn.classList.toggle('active', mode === driverDeltaMode);
+    });
+}
+
+function setDriverDeltaMode(mode) {
+    driverDeltaMode = mode || 'season';
+    renderDriverDeltas();
+}
 
 async function showDriverProfile(name, car, skinIndex) {
     try {
@@ -548,6 +644,7 @@ async function showDriverProfile(name, car, skinIndex) {
         const p    = data.profile  || {};
         const cur  = data.current  || null;
         const hist = (data.history && data.history.seasons) ? data.history.seasons : [];
+        _driverProfileData = data;
 
         document.getElementById('dp-nationality').textContent =
             nationalityFlag(p.nationality) + '  ' + (p.nationality || '');
@@ -555,6 +652,18 @@ async function showDriverProfile(name, car, skinIndex) {
         document.getElementById('dp-team').textContent  =
             cur ? (cur.team || '') + (cur.car ? '  ·  ' + fmtCar(cur.car) : '') : '';
         // Nickname — show only when present
+        const metaEl = document.getElementById('dp-meta');
+        if (metaEl) {
+            const ageTxt = (p.age !== undefined && p.age !== null) ? ('Age ' + p.age) : 'Age ?';
+            const potTxt = (p.potential !== undefined && p.potential !== null) ? ('Potential ' + p.potential) : 'Potential ?';
+            metaEl.textContent = ageTxt + ' | ' + potTxt;
+        }
+        const trendEl = document.getElementById('dp-trend');
+        if (trendEl) {
+            const t = (p.trend_label || 'Stable');
+            trendEl.textContent = t.toUpperCase();
+            trendEl.className = 'dp-trend ' + t.toLowerCase();
+        }
         const nickEl = document.getElementById('dp-nickname');
         if (nickEl) {
             if (p.nickname) {
@@ -577,6 +686,7 @@ async function showDriverProfile(name, car, skinIndex) {
         setDpBar('dp-wet-bar',    'dp-wet-val',    p.wet_skill);
         setDpBar('dp-quali-bar',  'dp-quali-val',  p.quali_pace);
         setDpBar('dp-cons-bar',   'dp-cons-val',   p.consistency);
+        renderDriverDeltas();
 
         // Current season
         document.getElementById('dp-current').innerHTML = cur
@@ -950,6 +1060,30 @@ function rdItem(label, value) {
 let _resultPollTimer  = null;
 const POLL_INTERVAL_MS  = 5000;   // check every 5 s
 const POLL_MAX_ATTEMPTS = 360;    // give up after 30 min
+function resumeResultCheckOnReturn() {
+    if (document.hidden) return;
+    const resultView = document.getElementById('view-result');
+    if (!resultView || resultView.style.display === 'none') return;
+    if (_resultPollTimer) return;
+
+    const autoEl   = document.getElementById('result-auto');
+    const foundEl  = document.getElementById('result-found');
+    const manualEl = document.getElementById('result-manual');
+    if (!autoEl || !foundEl || !manualEl) return;
+
+    const waitingForAutoResult =
+        autoEl.style.display !== 'none' &&
+        foundEl.classList.contains('hidden') &&
+        manualEl.classList.contains('hidden');
+
+    if (waitingForAutoResult) {
+        fetchRaceResult();
+        startResultPolling();
+    }
+}
+
+document.addEventListener('visibilitychange', resumeResultCheckOnReturn);
+window.addEventListener('focus', resumeResultCheckOnReturn);
 
 function startResultPolling() {
     if (_resultPollTimer) clearInterval(_resultPollTimer);
@@ -1181,7 +1315,8 @@ async function submitAutoResult() {
     const d       = pendingRace._autoResult;
     const pos     = d.position;
     const lapTime = d.best_lap || '';
-    await _postFinishRace(pos, lapTime);
+    const marginMs = Number.isFinite(d.margin_to_p2_ms) ? d.margin_to_p2_ms : null;
+    await _postFinishRace(pos, lapTime, marginMs);
 }
 
 // ── Submit Race Result (manual form) ──────────────────────────────────────
@@ -1189,15 +1324,15 @@ async function submitResult(e) {
     e.preventDefault();
     const pos     = parseInt(document.getElementById('finish-position').value);
     const lapTime = document.getElementById('best-lap').value;
-    await _postFinishRace(pos, lapTime);
+    await _postFinishRace(pos, lapTime, null);
 }
 
-async function _postFinishRace(pos, lapTime) {
+async function _postFinishRace(pos, lapTime, marginMs) {
     try {
         const r = await fetch('/api/finish-race', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ position: pos, lap_time: lapTime }),
+            body: JSON.stringify({ position: pos, lap_time: lapTime, margin_ms: marginMs }),
         });
         const d = await r.json();
 
@@ -1205,7 +1340,8 @@ async function _postFinishRace(pos, lapTime) {
             await handleSeasonComplete(d);
         } else if (d.status === 'success') {
             const pts = d.result ? d.result.points : 0;
-            showToast(fmtPos(pos) + ' — +' + pts + ' pts!');
+            const aiMsg = d.ai_change ? (' AI ' + (d.ai_change > 0 ? '+' : '') + d.ai_change + ' (offset ' + d.ai_offset + ')') : '';
+            showToast(fmtPos(pos) + ' — +' + pts + ' pts!' + aiMsg);
             await Promise.all([loadCareer(), loadAllStandings(), loadCalendar()]);
             refresh();
             showView('standings');
@@ -1253,11 +1389,11 @@ function renderContracts(contracts) {
 
     el.innerHTML = banner + contracts.map(c =>
         '<div class="contract-card' + (c.degradation_risk ? ' contract-deg' : '') + '">' +
-        '<div class="contract-team">'     + c.team_name   + '</div>' +
-        '<div class="contract-tier-lbl">' + (c.tier_level || '') + ' · ' + (c.tier_name || '') + '</div>' +
-        '<div class="contract-car-lbl">'  + fmtCar(c.car) + '</div>' +
-        '<p class="contract-desc">'       + (c.description || '') + '</p>' +
-        '<button class="btn btn-race" onclick="acceptContract(\'' + c.id + '\')">Sign Contract</button>' +
+        '<div class="contract-team">'     + escHtml(c.team_name) + '</div>' +
+        '<div class="contract-tier-lbl">' + escHtml(c.tier_level || '') + ' · ' + escHtml(c.tier_name || '') + '</div>' +
+        '<div class="contract-car-lbl">'  + escHtml(fmtCar(c.car)) + '</div>' +
+        '<p class="contract-desc">'       + escHtml(c.description || '') + '</p>' +
+        '<button class="btn btn-race" onclick=\'acceptContract(' + JSON.stringify(String(c.id || '')) + ')\'>Sign Contract</button>' +
         '</div>'
     ).join('');
 }
