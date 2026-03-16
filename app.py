@@ -7,6 +7,7 @@ from flask import Flask, render_template, jsonify, request, send_file, abort
 from flask_cors import CORS
 import json
 import os
+import subprocess
 import sys
 import statistics
 import threading
@@ -130,6 +131,21 @@ def save_career_data(data):
     with open(DATA_PATH, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
 
+
+
+def _is_ac_running():
+    """Best-effort check whether Assetto Corsa is still running."""
+    try:
+        if os.name == 'nt':
+            cp = subprocess.run(
+                ['tasklist', '/FI', 'IMAGENAME eq acs.exe'],
+                capture_output=True, text=True, check=False
+            )
+            return 'acs.exe' in (cp.stdout or '').lower()
+        cp = subprocess.run(['pgrep', '-f', 'acs'], capture_output=True, text=True, check=False)
+        return cp.returncode == 0
+    except Exception:
+        return False
 
 
 def _require_json_object():
@@ -789,6 +805,9 @@ def read_race_result():
         start_time = datetime.fromisoformat(race_started_at).replace(microsecond=0)
     except ValueError:
         return jsonify({'status': 'error', 'message': 'Invalid race start timestamp'})
+
+    if _is_ac_running():
+        return jsonify({'status': 'waiting', 'message': 'Race in progress. Close AC to import result.'})
 
     tier_info     = career.get_tier_info(career_data['tier'])
     expected_laps = tier_info.get('race_format', {}).get('laps', 20)
