@@ -1189,6 +1189,11 @@ class CareerManager:
                 opp_car  = opp.get('car', car)
                 opp_skin = self._get_car_skin(opp_car, ac_path, index=i) if ac_path else ''
                 name     = opp.get('driver_name') or self.DRIVER_NAMES[i % len(self.DRIVER_NAMES)]
+                # Prevent name collision with player: if an AI driver shares the player's
+                # career name, read_race_result() would return the AI's result instead of
+                # the player's actual result (the first match wins).
+                if name.lower() == driver.lower():
+                    name = name + ' II'
                 profile  = self.get_driver_profile(name, career_data=career_data)
                 nation   = profile['nationality']
 
