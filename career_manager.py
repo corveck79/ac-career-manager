@@ -1129,19 +1129,8 @@ class CareerManager:
                 "",
             ]
         elif session_type == 'race':
-            # Add a 0-minute QUALIFY session before RACE so AC reads the
-            # simulated qualifying JSON to order the starting grid.
-            # Without SESSION TYPE=2, AC ignores any qualifying result file
-            # and falls back to default order (player last).
             lines += [
                 "[SESSION_0]",
-                "NAME=QUALIFY",
-                "TYPE=2",
-                "SPAWN_SET=PIT",
-                "DURATION_MINUTES=0",
-                "LAPS=0",
-                "",
-                "[SESSION_1]",
                 "NAME=RACE",
                 "TYPE=3",
                 "SPAWN_SET=START",
@@ -1176,13 +1165,6 @@ class CareerManager:
         else:
             lines += [
                 "[SESSION_0]",
-                "NAME=QUALIFY",
-                "TYPE=2",
-                "SPAWN_SET=PIT",
-                "DURATION_MINUTES=0",
-                "LAPS=0",
-                "",
-                "[SESSION_1]",
                 "NAME=RACE",
                 "TYPE=3",
                 "SPAWN_SET=START",
@@ -1269,14 +1251,50 @@ class CareerManager:
                 if not (player_team and opp.get('team') == player_team)
             ]
 
-        # AC identifies the player via CAR_0 with MODEL=- (confirmed from AC's own race.ini format).
-        # Ensure the player entry is always at index 0, AI cars fill indices 1..N in grid order.
-        # In Race Only mode this means the player starts last (no qualifying data for AC to use).
-        # In Full Weekend mode, AC reorders the grid from qualifying results automatically.
-        player_idx = next((i for i, e in enumerate(car_entries) if e['type'] == 'player'), None)
-        if player_idx is not None and player_idx != 0:
-            player_entry = car_entries.pop(player_idx)
-            car_entries.insert(0, player_entry)
+        # Grid ordering for car entries:
+        # AC uses the CAR_N order in race.ini as the starting grid for RACE sessions
+        # (CAR_0 = P1, CAR_1 = P2, …). The player is identified by MODEL=- in their
+        # [CAR_N] block regardless of position — MODEL=- tells AC "this is the player's
+        # car, use the model/skin from [DRIVE]".
+        #
+        # When a simulated qualifying grid is provided, reorder car_entries to match:
+        # P1 qualifier → CAR_0, P2 → CAR_1, player at their qualifying spot (e.g. CAR_5).
+        # Without a grid, player defaults to CAR_0 (pole) as a safe fallback.
+        if grid:
+            # Build lookup: lower-case driver name → car_entry for AI cars
+            ai_lookup    = {}
+            player_entry = None
+            for ce in car_entries:
+                if ce['type'] == 'player':
+                    player_entry = ce
+                else:
+                    key = (ce['opp'].get('driver_name') or '').lower()
+                    ai_lookup[key] = ce
+
+            ordered = []
+            for g in grid:
+                if g.get('is_player'):
+                    if player_entry:
+                        ordered.append(player_entry)
+                else:
+                    key = (g.get('name') or '').lower()
+                    ce  = ai_lookup.get(key)
+                    if ce:
+                        ordered.append(ce)
+
+            # Append any unmatched entries (safety net) at the back
+            used = {id(e) for e in ordered}
+            for ce in car_entries:
+                if id(ce) not in used:
+                    ordered.append(ce)
+
+            car_entries = ordered
+        else:
+            # No grid: place player at CAR_0 (default — player starts from pole)
+            player_idx = next((i for i, e in enumerate(car_entries) if e['type'] == 'player'), None)
+            if player_idx is not None and player_idx != 0:
+                player_entry = car_entries.pop(player_idx)
+                car_entries.insert(0, player_entry)
 
         # Write [CAR_N] blocks in grid order
         # AI skins start at index 1 to reserve index 0 (00_official) exclusively for the player.
