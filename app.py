@@ -36,12 +36,14 @@ def get_app_dir():
 
 
 def ensure_config():
-    """On first EXE run, copy bundled config template to app dir."""
+    """Copy config template to app dir if config.json is missing."""
     if not os.path.exists(CONFIG_PATH):
         if getattr(sys, 'frozen', False):
             bundled = os.path.join(sys._MEIPASS, 'config.json')
         else:
-            bundled = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+            # Dev mode: fall back to config_example.json next to app.py
+            base = os.path.dirname(os.path.abspath(__file__))
+            bundled = os.path.join(base, 'config_example.json')
         if os.path.exists(bundled) and os.path.abspath(bundled) != os.path.abspath(CONFIG_PATH):
             import shutil
             shutil.copy(bundled, CONFIG_PATH)
@@ -781,7 +783,15 @@ def start_race():
     if err:
         return err
     mode    = data.get('mode', 'race_only')
-    success = career.launch_ac_race(race, cfg, mode=mode, career_data=career_data)
+
+    # Simulate qualifying so AC receives a results file and can order the starting grid.
+    # Without this, Race Only always puts the player last (no qualifying data in results/).
+    opponents     = race.get('opponents', [])
+    ai_lvl        = int(race['ai_difficulty'])
+    quali_grid    = career.simulate_qualifying(opponents, ai_lvl, career_data=career_data)
+
+    success = career.launch_ac_race(race, cfg, mode=mode, career_data=career_data,
+                                    grid=quali_grid)
     if success:
         career_data['race_started_at'] = datetime.now().isoformat()
         save_career_data(career_data)
