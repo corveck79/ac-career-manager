@@ -16,3 +16,4 @@ career_data.json
 # Temp/junk
 nul
 *.log
+tmp/
