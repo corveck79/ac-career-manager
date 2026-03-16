@@ -139,7 +139,8 @@ def _is_ac_running():
         if os.name == 'nt':
             cp = subprocess.run(
                 ['tasklist', '/FI', 'IMAGENAME eq acs.exe'],
-                capture_output=True, text=True, check=False
+                capture_output=True, text=True, check=False,
+                creationflags=subprocess.CREATE_NO_WINDOW,
             )
             return 'acs.exe' in (cp.stdout or '').lower()
         cp = subprocess.run(['pgrep', '-f', 'acs'], capture_output=True, text=True, check=False)
