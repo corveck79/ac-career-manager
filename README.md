@@ -294,3 +294,4 @@ P1: 25 · P2: 18 · P3: 15 · P4: 12 · P5: 10 · P6: 8 · P7: 6 · P8: 4 · P9:
 ## LICENSE
 
 Open source — feel free to modify and distribute.
+If you build on this, a credit to [AC Career GT Edition](https://github.com/corveck79/ac-career-manager) is appreciated (not required).
