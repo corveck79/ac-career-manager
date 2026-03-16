@@ -856,6 +856,66 @@ class CareerManager:
     # AC launch
     # ------------------------------------------------------------------
 
+    def _write_simulated_quali_result(self, grid, race_data):
+        """Write a fake qualifying result JSON to the AC results folder.
+
+        AC reads the newest QUALIFY-type result file to determine starting grid.
+        Without this, Race Only mode always puts the player last (no qualifying data).
+        By writing this file before launching the race, AC places every driver at
+        their simulated qualifying position.
+
+        grid:      sorted list from simulate_qualifying() — P1 first.
+        race_data: dict with 'driver_name', 'car', 'track', 'config_track'.
+        """
+        if not grid:
+            return
+
+        results_dir = get_ac_docs_path('results')
+        os.makedirs(results_dir, exist_ok=True)
+
+        driver_name  = race_data.get('driver_name', 'Player')
+        car_model    = race_data.get('car', '')
+        track_raw    = race_data.get('track', '')
+        track_folder = track_raw.split('/')[0] if '/' in track_raw else track_raw
+        config_track = track_raw.split('/')[1] if '/' in track_raw else race_data.get('config_track', '')
+
+        # Lap times: P1 gets BASE_LAP_MS, each subsequent position is GAP_PER_POS ms slower.
+        # Absolute values don't matter — AC sorts ascending; only the order counts.
+        BASE_LAP_MS = 84000   # 1m24s — plausible for any career track
+        GAP_PER_POS = 400     # ms per qualifying position
+
+        result_entries = []
+        for i, entry in enumerate(grid):
+            is_player = entry.get('is_player', False)
+            name = driver_name if is_player else entry.get('name', f'Driver_{i+1}')
+            car  = car_model   if is_player else entry.get('car', car_model)
+            result_entries.append({
+                "DriverName": name,
+                "CarModel":   car,
+                "BestLap":    BASE_LAP_MS + i * GAP_PER_POS,
+                "TotalTime":  BASE_LAP_MS + i * GAP_PER_POS,
+                "BallastKG":  0,
+            })
+
+        quali_json = {
+            "Type":         "QUALIFY",
+            "TrackName":    track_folder,
+            "TrackConfig":  config_track,
+            "Description":  "Simulated qualifying — AC Career GT Edition",
+            "Date":         int(datetime.now().timestamp()),
+            "DurationSecs": 600,
+            "RaceLaps":     0,
+            "Result":       result_entries,
+            "Laps":         [],
+            "Events":       [],
+        }
+
+        fname = datetime.now().strftime('%Y_%m_%d_%H_%M_%S') + '.json'
+        fpath = os.path.join(results_dir, fname)
+        with open(fpath, 'w', encoding='utf-8') as f:
+            json.dump(quali_json, f, indent=2)
+        print(f"Wrote simulated qualifying result: {fpath}")
+
     def _get_ac_docs_cfg(self):
         """Return path to AC's config folder where AC actually reads race.ini.
         Windows: ~/Documents/Assetto Corsa/cfg
@@ -885,6 +945,11 @@ class CareerManager:
         race_cfg_path = os.path.join(docs_cfg, 'race.ini')
         self._write_race_config(race_cfg_path, race_config, ac_path, mode=mode,
                                 career_data=career_data, session_type=session_type, grid=grid)
+
+        # 1b. For race sessions with a simulated grid, write a qualifying result JSON
+        #     so AC uses the correct starting grid order instead of defaulting to last.
+        if grid and (session_type == 'race' or mode == 'race_only'):
+            self._write_simulated_quali_result(grid, race_config)
 
         # 2. Patch launcher.ini in Documents so AC starts in race mode
         launcher_path = os.path.join(docs_cfg, 'launcher.ini')
@@ -1018,18 +1083,27 @@ class CareerManager:
         lines.append("")
 
         # [DRIVE] — player config
+        # AI_LEVEL must be empty — a non-empty value tells AC to control this car as AI.
         lines += [
             "[DRIVE]",
             f"MODEL={car}",
             f"SKIN={skin}",
             f"MODEL_CONFIG=",
-            f"AI_LEVEL={ai_lvl}",
+            f"AI_LEVEL=",
             f"AI_AGGRESSION=0",
             f"SETUP=",
             f"FIXED_SETUP=0",
             f"VIRTUAL_MIRROR=0",
             f"DRIVER_NAME={driver}",
             f"NATIONALITY=",
+            "",
+        ]
+
+        # [HEADER] — AC uses VERSION=2 to signal post-qualifying grid format.
+        # Without this, AC may misread the file and misidentify the player car.
+        lines += [
+            "[HEADER]",
+            "VERSION=2",
             "",
         ]
 
@@ -1055,8 +1129,19 @@ class CareerManager:
                 "",
             ]
         elif session_type == 'race':
+            # Add a 0-minute QUALIFY session before RACE so AC reads the
+            # simulated qualifying JSON to order the starting grid.
+            # Without SESSION TYPE=2, AC ignores any qualifying result file
+            # and falls back to default order (player last).
             lines += [
                 "[SESSION_0]",
+                "NAME=QUALIFY",
+                "TYPE=2",
+                "SPAWN_SET=PIT",
+                "DURATION_MINUTES=0",
+                "LAPS=0",
+                "",
+                "[SESSION_1]",
                 "NAME=RACE",
                 "TYPE=3",
                 "SPAWN_SET=START",
@@ -1091,10 +1176,17 @@ class CareerManager:
         else:
             lines += [
                 "[SESSION_0]",
+                "NAME=QUALIFY",
+                "TYPE=2",
+                "SPAWN_SET=PIT",
+                "DURATION_MINUTES=0",
+                "LAPS=0",
+                "",
+                "[SESSION_1]",
                 "NAME=RACE",
-                f"LAPS={laps}",
                 "TYPE=3",
                 "SPAWN_SET=START",
+                f"LAPS={laps}",
                 "DURATION_MINUTES=0",
                 "",
             ]
@@ -1177,28 +1269,42 @@ class CareerManager:
                 if not (player_team and opp.get('team') == player_team)
             ]
 
+        # AC identifies the player via CAR_0 with MODEL=- (confirmed from AC's own race.ini format).
+        # Ensure the player entry is always at index 0, AI cars fill indices 1..N in grid order.
+        # In Race Only mode this means the player starts last (no qualifying data for AC to use).
+        # In Full Weekend mode, AC reorders the grid from qualifying results automatically.
+        player_idx = next((i for i, e in enumerate(car_entries) if e['type'] == 'player'), None)
+        if player_idx is not None and player_idx != 0:
+            player_entry = car_entries.pop(player_idx)
+            car_entries.insert(0, player_entry)
 
         # Write [CAR_N] blocks in grid order
+        # AI skins start at index 1 to reserve index 0 (00_official) exclusively for the player.
+        # Using index=i would give CAR_0 skin index 0, colliding with the player livery and
+        # causing AC to misidentify which car is the player.
+        ai_skin_counter = 1
         for i, entry in enumerate(car_entries):
             if entry['type'] == 'player':
+                # AC identifies the player slot via MODEL=- (a literal dash).
+                # This is the format AC itself writes after a qualifying session.
+                # AI_LEVEL and AI_AGGRESSION are omitted entirely for the player block.
                 lines += [
                     f"[CAR_{i}]",
-                    f"MODEL={car}",
-                    f"SKIN={skin}",
-                    f"MODEL_CONFIG=",
-                    f"DRIVER_NAME={driver}",
-                    f"NATIONALITY=",
-                    f"AI_LEVEL=",
-                    f"AI_AGGRESSION=0",
                     f"SETUP=",
+                    f"SKIN={skin}",
+                    f"MODEL=-",
+                    f"MODEL_CONFIG=",
                     f"BALLAST={player_ballast}",
                     f"RESTRICTOR=0",
+                    f"DRIVER_NAME={driver}",
+                    f"NATIONALITY=",
                     "",
                 ]
             else:
                 opp      = entry['opp']
                 opp_car  = opp.get('car', car)
-                opp_skin = self._get_car_skin(opp_car, ac_path, index=i) if ac_path else ''
+                opp_skin = self._get_car_skin(opp_car, ac_path, index=ai_skin_counter) if ac_path else ''
+                ai_skin_counter += 1
                 name     = opp.get('driver_name') or self.DRIVER_NAMES[i % len(self.DRIVER_NAMES)]
                 # Prevent name collision with player: if an AI driver shares the player's
                 # career name, read_race_result() would return the AI's result instead of
