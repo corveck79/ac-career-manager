@@ -388,8 +388,11 @@ class CareerManager:
         Returns list sorted P1→last:
             [{'name', 'car', 'team', 'is_player', 'pace_score', 'position'}, ...]
         """
+        player_team = (career_data or {}).get('team')
         results = []
         for opp in opponents[:19]:
+            if player_team and opp.get('team') == player_team:
+                continue  # player fills this slot — skip the AI stand-in
             name    = opp.get('driver_name') or ''
             profile = self.get_driver_profile(name, career_data=career_data)
             base    = opp.get('performance', 0) + (profile.get('quali_pace', 75) - 75) * 0.4
@@ -421,8 +424,11 @@ class CareerManager:
         Returns list sorted P1→last:
             [{'name', 'car', 'team', 'is_player', 'pace_score', 'position'}, ...]
         """
+        player_team = (career_data or {}).get('team')
         results = []
         for opp in opponents[:19]:
+            if player_team and opp.get('team') == player_team:
+                continue  # player fills this slot — skip the AI stand-in
             name    = opp.get('driver_name') or ''
             profile = self.get_driver_profile(name, career_data=career_data)
             base    = opp.get('performance', 0) + (profile.get('skill', 80) - 80) * 0.3
