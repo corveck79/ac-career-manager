@@ -978,7 +978,6 @@ class CareerManager:
 
         # Limit to 19 AI cars (20 total including player)
         ai_cars = opponents[:19]
-        total_cars = len(ai_cars) + 1  # +1 for player
 
         # Track can be "folder/layout" or just "folder"
         track_raw    = race_data['track']
@@ -1152,9 +1151,12 @@ class CareerManager:
             v_adj = random.uniform(-dvar, dvar)
             return max(50, min(100, int(ai_lvl + s_off + w_adj + n_adj + v_adj)))
 
-        # Build ordered car list: grid order if provided, otherwise player P1 then AI
-        # grid entries: {'name', 'car', 'team', 'is_player', ...} sorted P1→last
-        opp_by_name = {(opp.get('driver_name') or ''): opp for opp in ai_cars}
+        # Build ordered car list: grid order if provided, otherwise player P1 then AI.
+        # grid entries: {'name', 'car', 'team', 'is_player', ...} sorted P1→last.
+        # The player occupies one team slot, so that team must NOT also get an AI entry —
+        # otherwise CARS count and actual CAR blocks diverge, producing a ghost "No name" car.
+        opp_by_name  = {(opp.get('driver_name') or ''): opp for opp in ai_cars}
+        player_team  = (career_data or {}).get('team')
 
         if grid:
             car_entries = []
@@ -1165,7 +1167,13 @@ class CareerManager:
                     opp = opp_by_name.get(g['name'], {'car': g.get('car', car), 'driver_name': g['name']})
                     car_entries.append({'type': 'ai', 'opp': opp})
         else:
-            car_entries = [{'type': 'player'}] + [{'type': 'ai', 'opp': opp} for opp in ai_cars]
+            # Skip the AI stand-in for the player's own team slot (ghost driver fix).
+            car_entries = [{'type': 'player'}] + [
+                {'type': 'ai', 'opp': opp} for opp in ai_cars
+                if not (player_team and opp.get('team') == player_team)
+            ]
+
+        total_cars = len(car_entries)  # must be set after building car_entries
 
         # Write [CAR_N] blocks in grid order
         for i, entry in enumerate(car_entries):
