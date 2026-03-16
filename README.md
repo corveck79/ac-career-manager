@@ -17,7 +17,7 @@ AC Career GT Edition adds a full career mode to Assetto Corsa. It runs in its ow
 - Career Wizard: choose difficulty (Rookie/Amateur/Pro/Legend), weather mode, and scan your AC library for custom track pools
 
 **On Track**
-- Full Race Weekend (Practice + Qualifying + Race) or Race Only, one AC launch
+- Race Weekend panel: run Practice, Qualifying, and Race as separate AC sessions — play or skip each one individually
 - 120 unique AI drivers with individual skill, aggression, and personality archetypes
 - Post-race engineer debrief: consistency score, lap sparkline, pace trend analysis
 - Pre-flight check warns if a track/car mod is missing before launch
@@ -126,6 +126,7 @@ On first run, a setup screen appears — enter your Assetto Corsa install path (
 ac-career-manager/
 ├── app.py                    # Flask backend + pywebview window
 ├── career_manager.py         # Career logic & game rules
+├── platform_paths.py         # OS-specific path helpers (Windows vs Linux Proton)
 ├── config.json              # All configuration (tunable!)
 ├── requirements.txt         # Python dependencies
 ├── start.bat               # Quick start script (auto-creates venv)
@@ -197,14 +198,12 @@ The app detects [Custom Shader Patch (CSP)](https://acstuff.ru/patch/) and [Pure
 4. Dashboard shows your team, points, and next race
 
 ### Race Workflow
-1. Click **"START RACE"** button
-2. Review race details in modal
-3. Choose **Full Weekend** (Practice + Qualifying + Race) or **Race Only**
-4. Assetto Corsa opens and runs all sessions automatically
-5. **Drive** in AC — AC handles session transitions
-6. Close AC when done, then return to the app
-7. Click **"Fetch Result from AC"** — position and best lap are read automatically
-8. Confirm the result (or enter manually if needed)
+1. Click **"START RACE"** to open the Race Weekend panel
+2. **Practice** — click Play to launch AC, or Skip to use a simulated result
+3. **Qualifying** — Play (your actual grid) or Skip (simulated grid shown); grid carries into the race
+4. **Race** — click Play to launch AC; result is read automatically when you return
+5. Post-race debrief appears inline: consistency score, lap sparkline, sector analysis
+6. Confirm the result to record points — or enter manually as a fallback
 
 ### End of Season
 After completing all races:
