@@ -13,7 +13,10 @@ AC Career GT Edition adds a full career mode to Assetto Corsa. It runs in its ow
 
 **Career & Progression**
 - 4-tier ladder: MX5 Cup (12 races) → GT4 (12 races) → GT3 (14 races) → WEC (8 races)
-- End-of-season contracts based on championship finish; real promotion and relegation
+- End-of-season **contract offers** based on championship finish:
+  - Top finishers receive promotion offers from higher-tier teams (Factory / Semi-Factory / Customer)
+  - Bottom finishers face relegation risk: stay at a worse seat or drop to the tier below
+  - Each offer shows the team, car, tier badge, and class (Factory/Semi/Customer)
 - Career Wizard: choose difficulty (Rookie/Amateur/Pro/Legend), weather mode, and scan your AC library for custom track pools
 
 **On Track**
@@ -211,12 +214,16 @@ The app detects [Custom Shader Patch (CSP)](https://acstuff.ru/patch/) and [Pure
 
 ### End of Season
 After completing all races:
-1. Season completes automatically
-2. You receive contract offers based on your championship position:
-   - **Top finishers** → promotion offers from higher-tier teams
-   - **Bottom 3 finishers** → stay offers (worst seat in current tier) and/or relegation offers (top teams in tier below)
-3. Choose which team/car you want next season
-4. Your difficulty/weather settings carry over automatically
+1. Season completes automatically with a summary: final position, points, and season stats
+2. You receive **contract offers** based on your championship position:
+   - **Top finishers** (P1-P5) → 3 promotion offers from higher-tier teams: Factory, Semi-Factory, and Customer seats
+   - **Mid-field** → lateral offers within your current tier
+   - **Bottom 3 finishers** → relegation risk: worst seat in current tier + offers from the best teams in the tier below
+   - At WEC (top tier): no promotion possible, only retention or relegation
+   - At MX5 Cup (bottom tier): no relegation possible, only promotion
+3. Each contract card shows: team name, car, tier badge with class label (Factory / Semi / Customer)
+4. Choose which team/car you want next season
+5. Your difficulty, weather settings, and custom track pools carry over automatically
 
 ### Championship Points (F1 standard)
 P1: 25 · P2: 18 · P3: 15 · P4: 12 · P5: 10 · P6: 8 · P7: 6 · P8: 4 · P9: 2 · P10: 1
