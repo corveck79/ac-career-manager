@@ -4,7 +4,7 @@
     {
       "name": "ac-career",
       "runtimeExecutable": "venv/Scripts/python.exe",
-      "runtimeArgs": ["-c", "import types,sys; sys.modules['webview']=types.ModuleType('webview'); from app import app; app.run(host='127.0.0.1',port=5000,debug=False,use_reloader=False)"],
+      "runtimeArgs": ["-c", "import types,sys; sys.modules['webview']=types.ModuleType('webview'); from app import app; app.jinja_env.auto_reload=True; app.config['TEMPLATES_AUTO_RELOAD']=True; app.run(host='127.0.0.1',port=5000,debug=False,use_reloader=False)"],
       "port": 5000
     }
   ]

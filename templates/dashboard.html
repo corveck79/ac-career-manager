@@ -55,8 +55,10 @@
     <div class="card actions-card">
       <button class="btn btn-race" onclick="startRace()">&#127937; Start Race</button>
       <div class="action-sep"></div>
+      <button class="nav-btn" onclick="showView('main')"><span class="nav-icon">&#127968;</span>Home</button>
       <button class="nav-btn" onclick="showView('standings')"><span class="nav-icon">&#127942;</span>Standings</button>
       <button class="nav-btn" onclick="openStats()"><span class="nav-icon">&#128200;</span>Statistics</button>
+      <button class="nav-btn" onclick="showView('paddock'); loadPaddockNews()"><span class="nav-icon">&#128240;</span>Paddock</button>
       <button class="nav-btn" onclick="openConfig()"><span class="nav-icon">&#9881;</span>Settings</button>
       <div class="action-sep"></div>
       <button class="btn-ghost-sm" onclick="openNewCareer()">&#128260; New Career</button>
@@ -85,7 +87,30 @@
         &#127942; Season complete - check your contract offers below!
       </div>
     </div>
-    <div id="view-standings" class="card view-card active">
+    <!-- Main page: news ticker + mini standings side by side -->
+    <div class="dashboard-grid">
+      <div class="card news-ticker-card" id="news-ticker-card" style="display:none">
+        <div class="news-ticker-header">
+          <span class="news-ticker-title">&#128240; Paddock News</span>
+          <button class="btn-ticker-link" onclick="showView('paddock'); loadPaddockNews()">View all &rsaquo;</button>
+        </div>
+        <div id="news-ticker-items" class="news-ticker-items"></div>
+      </div>
+      <div class="card mini-standings-card" id="mini-standings-card">
+        <div class="news-ticker-header">
+          <span class="news-ticker-title">&#127942; Standings</span>
+          <span class="mini-standings-subtitle" id="mini-standings-subtitle"></span>
+          <button class="btn-ticker-link" onclick="showView('standings')">Full table &rsaquo;</button>
+        </div>
+        <table class="mini-standings-table">
+          <thead><tr><th class="col-pos">Pos</th><th class="col-name">Driver</th><th class="col-pts">Pts</th></tr></thead>
+          <tbody id="mini-standings-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Full standings (hidden, opened via menu) -->
+    <div id="view-standings" class="card view-card hidden">
+      <h2 class="section-title">&#127942; Championship Standings</h2>
       <!-- Tier tabs -->
       <div class="tier-tabs" id="tier-tabs">
         <button class="tier-tab" data-tier="0" onclick="switchStandingsTier(0)">MX5 Cup</button>
@@ -180,7 +205,7 @@
           </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-race">Save</button>
-            <button type="button" class="btn btn-secondary" onclick="showView('standings')">Cancel</button>
+            <button type="button" class="btn btn-secondary" onclick="showView('main')">Cancel</button>
           </div>
         </form>
       </div>
@@ -191,10 +216,14 @@
       <h3 class="subsection-title">Contract Offers</h3>
       <div id="contracts-list" class="contracts-grid"></div>
     </div>
+    <div id="view-paddock" class="card view-card hidden">
+      <h2 class="section-title">&#128240; Paddock News</h2>
+      <div id="paddock-feed" class="paddock-feed"></div>
+    </div>
     <div id="view-config" class="card view-card hidden">
       <div class="view-header">
         <h2 class="section-title">&#9881; Settings</h2>
-        <button class="close-btn" onclick="showView('standings')" title="Close">&#10005;</button>
+        <button class="close-btn" onclick="showView('main')" title="Close">&#10005;</button>
       </div>
 
       <div class="settings-section">
@@ -288,7 +317,7 @@
 
       <div class="form-actions" style="margin-top:1.5rem">
         <button class="btn btn-race"      onclick="saveSettings()">Save</button>
-        <button class="btn btn-race-ghost" onclick="showView('standings')">Cancel</button>
+        <button class="btn btn-race-ghost" onclick="showView('main')">Cancel</button>
       </div>
     </div>
   </main>
@@ -296,72 +325,14 @@
 <div id="modal-race" class="modal-overlay hidden">
   <div class="modal-box modal-box-wide">
     <div class="modal-header">
-      <h2 class="modal-title" id="modal-race-title">Race Weekend</h2>
+      <h2 class="modal-title" id="modal-race-title">Next Race</h2>
       <button class="close-btn" onclick="closeModal('modal-race')">&#10005;</button>
     </div>
     <div id="race-details" class="race-detail-grid"></div>
     <div id="preflight-warnings" class="preflight-warnings hidden"></div>
 
-    <!-- Split weekend session panel -->
-    <div id="weekend-panel" class="weekend-panel hidden">
-
-      <!-- Left: session list -->
-      <div class="ws-sessions">
-        <!-- Free Practice -->
-        <div class="weekend-session" id="ws-practice">
-          <div class="ws-info">
-            <span class="ws-icon" id="ws-icon-practice">○</span>
-            <span class="ws-name">Free Practice</span>
-            <span class="ws-dur" id="ws-dur-practice"></span>
-            <span class="ws-pos hidden" id="ws-pos-practice"></span>
-          </div>
-          <div class="ws-actions" id="ws-actions-practice">
-            <button class="btn btn-sm btn-race"  onclick="weekendStartSession('practice')">Start</button>
-            <button class="btn btn-sm btn-ghost" onclick="weekendSkipSession('practice')">Skip</button>
-          </div>
-        </div>
-
-        <!-- Qualifying -->
-        <div class="weekend-session" id="ws-qualifying">
-          <div class="ws-info">
-            <span class="ws-icon" id="ws-icon-qualifying">○</span>
-            <span class="ws-name">Qualifying</span>
-            <span class="ws-dur" id="ws-dur-qualifying"></span>
-            <span class="ws-pos hidden" id="ws-pos-qualifying"></span>
-          </div>
-          <div class="ws-actions" id="ws-actions-qualifying">
-            <button class="btn btn-sm btn-race"  onclick="weekendStartSession('qualifying')">Start</button>
-            <button class="btn btn-sm btn-ghost" onclick="weekendSkipSession('qualifying')">Skip</button>
-          </div>
-        </div>
-
-        <!-- Race -->
-        <div class="weekend-session" id="ws-race">
-          <div class="ws-info">
-            <span class="ws-icon" id="ws-icon-race">○</span>
-            <span class="ws-name">Race</span>
-            <span class="ws-dur" id="ws-dur-race"></span>
-            <span class="ws-pos hidden" id="ws-pos-race"></span>
-          </div>
-          <div class="ws-actions" id="ws-actions-race">
-            <button class="btn btn-sm btn-race" onclick="weekendStartSession('race')">Start</button>
-          </div>
-        </div>
-
-        <!-- Engineer debrief — shown below race card after race completes -->
-        <div class="ws-debrief-inline hidden" id="ws-debrief-inline"></div>
-
-      </div><!-- /.ws-sessions -->
-
-      <!-- Right: shared grid results panel -->
-      <div class="ws-grid-panel" id="ws-grid-panel">
-        <div class="ws-grid-panel-empty">Click a session result badge to view the grid</div>
-      </div>
-
-    </div><!-- /#weekend-panel -->
-
     <div class="modal-actions" id="modal-race-actions">
-      <button class="btn btn-race"      onclick="openWeekendPanel()">&#127937; Race Weekend</button>
+      <button class="btn btn-race"      onclick="confirmStartRace('full_weekend')">&#127937; Full Weekend</button>
       <button class="btn btn-secondary" onclick="confirmStartRace('race_only')">&#9889; Race Only</button>
       <button class="btn btn-ghost"     onclick="closeModal('modal-race')">Cancel</button>
     </div>
@@ -395,6 +366,36 @@
         <label class="form-label">Driver Name</label>
         <input type="text" id="new-driver-name" class="form-input" placeholder="Your name (used in AC)" maxlength="30">
         <div class="form-hint">This name appears in Assetto Corsa as your driver.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nationality</label>
+        <select id="new-driver-nationality" class="form-input">
+          <option value="">-- Select country --</option>
+          <option value="AUS">🇦🇺 Australia</option>
+          <option value="BRA">🇧🇷 Brazil</option>
+          <option value="CHN">🇨🇳 China</option>
+          <option value="CRO">🇭🇷 Croatia</option>
+          <option value="CZE">🇨🇿 Czech Republic</option>
+          <option value="ESP">🇪🇸 Spain</option>
+          <option value="FRA">🇫🇷 France</option>
+          <option value="GBR">🇬🇧 United Kingdom</option>
+          <option value="GER">🇩🇪 Germany</option>
+          <option value="GHA">🇬🇭 Ghana</option>
+          <option value="IND">🇮🇳 India</option>
+          <option value="IRL">🇮🇪 Ireland</option>
+          <option value="ITA">🇮🇹 Italy</option>
+          <option value="JPN">🇯🇵 Japan</option>
+          <option value="KEN">🇰🇪 Kenya</option>
+          <option value="MAR">🇲🇦 Morocco</option>
+          <option value="NLD">🇳🇱 Netherlands</option>
+          <option value="POL">🇵🇱 Poland</option>
+          <option value="ROU">🇷🇴 Romania</option>
+          <option value="RUS">🇷🇺 Russia</option>
+          <option value="SWE">🇸🇪 Sweden</option>
+          <option value="TUR">🇹🇷 Turkey</option>
+          <option value="USA">🇺🇸 United States</option>
+        </select>
+        <div class="form-hint">Your flag on the driver card and in AC race sessions.</div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-race"       onclick="wizardNext()">Next &#8594;</button>
@@ -559,6 +560,7 @@
     <img id="pp-livery" class="dp-livery hidden" alt="Livery preview">
     <div class="modal-header">
       <div>
+        <span class="driver-nationality" id="pp-nationality"></span>
         <h2 class="modal-title" id="pp-name"></h2>
         <div class="modal-subtitle" id="pp-team"></div>
       </div>

@@ -6,6 +6,7 @@ let career        = null;
 let config        = null;
 let standings     = [];
 let allStandings  = {};       // { mx5_cup: [...], gt4: [...], ... }
+let tierProgress  = {};       // { mx5_cup: {done:5, total:12}, ... }
 let standingsTier = 0;        // currently displayed tier index
 let champMode     = 'drivers'; // 'drivers' | 'teams'
 let calendar      = [];
@@ -97,6 +98,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([loadCareer(), loadConfig()]);
     await Promise.all([loadAllStandings(), loadCalendar()]);
     refresh();
+    loadNewsTicker();
+    showView('main');
     if (career) switchStandingsTier(career.tier || 0);
 
     // Auto-open New Career wizard if no active career exists
@@ -127,6 +130,7 @@ async function loadAllStandings() {
         const d       = await r.json();
         // allStandings[tier_key] = { drivers: [...], teams: [...] }
         allStandings  = d.all_standings || {};
+        tierProgress  = d.tier_progress || {};
         standingsTier = career ? (career.tier || 0) : 0;
         standings     = (allStandings[tierKey(standingsTier)] || {}).drivers || [];
     } catch (e) { console.error('loadAllStandings', e); }
@@ -143,7 +147,47 @@ function refresh() {
     updateBranding();
     updateDriverCard();
     renderCalendar();
+    updateTierTabLabels();
     renderStandings();
+    renderMiniStandings();
+}
+
+function renderMiniStandings() {
+    const body = document.getElementById('mini-standings-body');
+    if (!body) return;
+    const tier = career ? (career.tier || 0) : 0;
+    const tk = tierKey(tier);
+    const drivers = (allStandings[tk] || {}).drivers || [];
+
+    // Update subtitle with race progress
+    const sub = document.getElementById('mini-standings-subtitle');
+    if (sub) {
+        const tp = tierProgress[tk];
+        sub.textContent = tp ? `Race ${tp.done} / ${tp.total}` : '';
+    }
+
+    if (!drivers.length) { body.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted)">No data yet</td></tr>'; return; }
+
+    // Sort by points descending
+    const sorted = [...drivers].sort((a, b) => (b.points || 0) - (a.points || 0));
+
+    // Show top 10 + player if outside top 10
+    const top = sorted.slice(0, 10);
+    const playerIdx = sorted.findIndex(d => d.is_player);
+    const showPlayerSep = playerIdx >= 10;
+
+    let html = '';
+    for (let i = 0; i < top.length; i++) {
+        const d = top[i];
+        const cls = d.is_player ? ' class="ms-player"' : '';
+        html += `<tr${cls}><td class="col-pos">${i + 1}</td><td>${d.driver}</td><td class="col-pts">${d.points}</td></tr>`;
+    }
+    if (showPlayerSep && playerIdx < sorted.length) {
+        const p = sorted[playerIdx];
+        html += `<tr class="ms-sep"><td colspan="3">...</td></tr>`;
+        html += `<tr class="ms-player"><td class="col-pos">${playerIdx + 1}</td><td>${p.driver}</td><td class="col-pts">${p.points}</td></tr>`;
+    }
+    body.innerHTML = html;
 }
 
 function updateBranding() {
@@ -270,10 +314,22 @@ function renderCalendar() {
 }
 
 // ── Standings tier / mode switching ────────────────────────────────────────
+function updateTierTabLabels() {
+    const names = ['MX5 Cup', 'GT4', 'GT3', 'WEC'];
+    document.querySelectorAll('.tier-tab').forEach(t => {
+        const ti = parseInt(t.dataset.tier);
+        const tk = tierKey(ti);
+        const tp = tierProgress[tk];
+        const label = names[ti] || tk;
+        t.textContent = tp ? `${label} ${tp.done}/${tp.total}` : label;
+    });
+}
+
 function switchStandingsTier(idx) {
     standingsTier = idx;
     standings     = (allStandings[tierKey(idx)] || {}).drivers || [];
     const playerTier = career ? (career.tier || 0) : 0;
+    updateTierTabLabels();
     document.querySelectorAll('.tier-tab').forEach(t => {
         const ti = parseInt(t.dataset.tier);
         t.classList.toggle('active',       ti === idx);
@@ -415,7 +471,8 @@ async function browseFolder() {
 }
 
 // ── View management ────────────────────────────────────────────────────────
-const ALL_VIEWS = ['standings', 'stats', 'result', 'contracts', 'config'];
+const ALL_VIEWS = ['standings', 'stats', 'result', 'contracts', 'config', 'paddock'];
+// 'main' is the default home state: no view-card active, calendar + dashboard grid visible
 
 function showView(name) {
     // Stop auto-polling when navigating away from the result view
@@ -423,10 +480,11 @@ function showView(name) {
         clearInterval(_resultPollTimer);
         _resultPollTimer = null;
     }
+    const isHome = (name === 'main');
     ALL_VIEWS.forEach(v => {
         const el = document.getElementById('view-' + v);
         if (!el) return;
-        if (v === name) {
+        if (!isHome && v === name) {
             el.style.display = '';
             el.classList.add('active');
             el.classList.remove('hidden');
@@ -436,9 +494,11 @@ function showView(name) {
             el.classList.add('hidden');
         }
     });
-    // Hide calendar card on non-standings views
+    // Calendar + dashboard grid visible only on home ('main')
     const cal = document.querySelector('.calendar-card');
-    if (cal) cal.classList.toggle('hidden', name !== 'standings');
+    if (cal) cal.classList.toggle('hidden', !isHome);
+    const grid = document.querySelector('.dashboard-grid');
+    if (grid) grid.classList.toggle('hidden', !isHome);
 }
 
 function openConfig() {
@@ -510,6 +570,58 @@ function syncThemePaletteButtons() {
 function openStats() {
     renderStats();
     showView('stats');
+}
+
+const _TICKER_ICONS = {
+    flag: '🏁', trophy: '🏆', chart_up: '📈', chart_down: '📉',
+    clipboard: '📋', swords: '⚔️', form_hot: '🔥', form_cold: '❄️',
+    new_season: '🏎️', standings: '📊', rain: '🌧️', star: '⭐',
+    race_result: '🏁'
+};
+
+async function loadNewsTicker() {
+    const card  = document.getElementById('news-ticker-card');
+    const items = document.getElementById('news-ticker-items');
+    if (!card || !items) return;
+    try {
+        const news = await fetch('/api/paddock-news').then(r => r.json());
+        if (!news || news.length === 0) { card.style.display = 'none'; return; }
+        // Show only the 4 most recent, skip standings_update (they're boring on main page)
+        const filtered = news.filter(n => n.type !== 'standings_update').slice(0, 4);
+        if (filtered.length === 0) { card.style.display = 'none'; return; }
+        items.innerHTML = filtered.map(n => {
+            const icon = _TICKER_ICONS[n.icon] || '📌';
+            return `<div class="news-item"><span class="news-icon">${icon}</span><span class="news-text">${n.text}</span></div>`;
+        }).join('');
+        card.style.display = '';
+    } catch (e) { card.style.display = 'none'; }
+}
+
+async function loadPaddockNews() {
+    const feed = document.getElementById('paddock-feed');
+    if (!feed) return;
+    try {
+        const news = await fetch('/api/paddock-news').then(r => r.json());
+        let html = '';
+        let lastHeader = '';
+        for (const item of news) {
+            const header = item.race > 0
+                ? `Season ${item.season}, Race ${item.race}`
+                : `Season ${item.season}, Pre-Season`;
+            if (header !== lastHeader) {
+                html += `<div class="news-header">${header}</div>`;
+                lastHeader = header;
+            }
+            const icon = _TICKER_ICONS[item.icon] || '📌';
+            html += `<div class="news-item">
+                <span class="news-icon">${icon}</span>
+                <span class="news-text">${item.text}</span>
+            </div>`;
+        }
+        feed.innerHTML = html || '<p class="muted">No news yet. Complete some races first.</p>';
+    } catch (e) {
+        feed.innerHTML = '<p class="muted">Could not load paddock news.</p>';
+    }
 }
 
 function renderStats() {
@@ -771,6 +883,8 @@ async function showPlayerProfile() {
             }
         }
 
+        const ppNat = document.getElementById('pp-nationality');
+        if (ppNat) ppNat.textContent = data.nationality ? nationalityFlag(data.nationality) : '';
         document.getElementById('pp-name').textContent = data.driver_name || 'Player';
         document.getElementById('pp-team').textContent =
             (data.team || '') + (data.car ? '  ·  ' + fmtCar(data.car) : '');
@@ -969,6 +1083,7 @@ async function startCareerFromWizard() {
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({
                 driver_name:   name,
+                nationality:   document.getElementById('new-driver-nationality').value || '',
                 difficulty:    wizardState.difficulty,
                 weather_mode:  wizardState.weatherMode,
                 custom_tracks: customTracks,
@@ -980,7 +1095,7 @@ async function startCareerFromWizard() {
             await Promise.all([loadCareer(), loadConfig()]);
             await Promise.all([loadAllStandings(), loadCalendar()]);
             refresh();
-            showView('standings');
+            showView('main');
             showToast('Career started! Good luck, ' + name + '! \uD83C\uDFC1');
         } else {
             showToast(d.message || 'Error starting career', 'error');
@@ -996,7 +1111,7 @@ async function startRace() {
     }
     const total = (career && career.total_races) || (config && config.seasons && config.seasons.races_per_tier) || 10;
     if ((career.races_completed || 0) >= total) {
-        showToast('Season complete — check your contract offers!', 'warning');
+        showToast('Season complete! Check your contract offers.', 'warning');
         showView('contracts');
         return;
     }
@@ -1099,7 +1214,7 @@ function startResultPolling() {
             clearInterval(_resultPollTimer);
             _resultPollTimer = null;
             if (statusEl) {
-                statusEl.textContent = 'Timed out — click the button to try again.';
+                statusEl.textContent = 'Timed out. Click the button to try again.';
                 statusEl.className   = 'result-auto-status warning';
             }
             return;
@@ -1159,238 +1274,6 @@ async function confirmStartRace(mode) {
     } catch (e) { showToast('Error: ' + e.message, 'error'); }
 }
 
-// ── Race Weekend Panel ─────────────────────────────────────────────────────
-let _weekend     = null;  // current weekend state from /api/weekend/init
-let _weekendGrids = {};   // { practice: {grid, source}, qualifying: {grid, source} }
-
-async function openWeekendPanel() {
-    try {
-        const r = await fetch('/api/weekend/init', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
-        const d = await r.json();
-        if (d.status !== 'ok') { showToast('Failed to initialise weekend', 'error'); return; }
-        _weekend = d;
-        _renderWeekendPanel(d);
-        document.getElementById('modal-race-actions').classList.add('hidden');
-        document.getElementById('weekend-panel').classList.remove('hidden');
-    } catch(e) { showToast('Error: ' + e.message, 'error'); }
-}
-
-function _renderWeekendPanel(d) {
-    const race = d.race;
-    document.getElementById('modal-race-title').textContent =
-        'Race Weekend — ' + fmtTrack(race.track);
-
-    document.getElementById('ws-dur-practice').textContent  = (race.practice_minutes || 10) + ' min';
-    document.getElementById('ws-dur-qualifying').textContent = (race.quali_minutes || 10) + ' min';
-    document.getElementById('ws-dur-race').textContent       = race.laps + ' laps';
-
-    // Reset position badges
-    ['practice', 'qualifying'].forEach(s => {
-        const posEl = document.getElementById('ws-pos-' + s);
-        if (posEl) { posEl.textContent = ''; posEl.classList.add('hidden'); posEl.onclick = null; }
-    });
-
-    // Clear stored grids and grid panel
-    _weekendGrids = {};
-    const gridPanel = document.getElementById('ws-grid-panel');
-    if (gridPanel) gridPanel.innerHTML = '<div class="ws-grid-panel-empty">Click a session result badge to view the grid</div>';
-
-    // Remove weekend-review close button and debrief from a previous run
-    const prev = document.getElementById('ws-review-actions');
-    if (prev) prev.remove();
-    const debriefEl = document.getElementById('ws-debrief-inline');
-    if (debriefEl) { debriefEl.innerHTML = ''; debriefEl.classList.add('hidden'); }
-
-    // Practice unlocked, qualifying + race locked initially
-    _setSessionState('practice', 'pending');
-    _setSessionState('qualifying', 'locked');
-    _setSessionState('race', 'locked');
-}
-
-function _setSessionState(session, state) {
-    const el      = document.getElementById('ws-' + session);
-    const iconEl  = document.getElementById('ws-icon-' + session);
-    const actEl   = document.getElementById('ws-actions-' + session);
-    el.classList.remove('ws-done', 'ws-locked');
-    if (state === 'done') {
-        el.classList.add('ws-done');
-        iconEl.textContent = '✓';
-        iconEl.className   = 'ws-icon done';
-        actEl.innerHTML    = '';
-    } else if (state === 'locked') {
-        el.classList.add('ws-locked');
-        iconEl.textContent = '○';
-        iconEl.className   = 'ws-icon';
-    } else {
-        iconEl.textContent = '○';
-        iconEl.className   = 'ws-icon';
-    }
-}
-
-async function weekendStartSession(session) {
-    try {
-        const r = await fetch('/api/weekend/start-session', {
-            method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ session }),
-        });
-        const d = await r.json();
-        if (d.status !== 'success') { showToast(d.message || 'Failed to launch AC', 'error'); return; }
-        showToast('AC launched — ' + session + ' session starting…');
-        // After AC closes, player clicks "Done" to complete the session
-        const actEl = document.getElementById('ws-actions-' + session);
-        actEl.innerHTML =
-            '<button class="btn btn-sm btn-secondary" onclick="weekendDoneSession(\'' + session + '\', false)">Done (read result)</button>' +
-            '<button class="btn btn-sm btn-ghost"     onclick="weekendDoneSession(\'' + session + '\', true)">Use Simulated</button>';
-    } catch(e) { showToast('Error: ' + e.message, 'error'); }
-}
-
-async function weekendSkipSession(session) {
-    // Mark session done using simulated results
-    await _completeSession(session, true);
-    _advanceWeekend(session);
-}
-
-async function weekendDoneSession(session, useSim) {
-    await _completeSession(session, useSim);
-    _advanceWeekend(session);
-}
-
-async function _completeSession(session, useSim) {
-    try {
-        const r = await fetch('/api/weekend/complete-session', {
-            method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ session, use_sim: useSim }),
-        });
-        const d = await r.json();
-        if (d.status !== 'ok') { showToast('Error completing session', 'error'); return; }
-
-        _setSessionState(session, 'done');
-
-        // Show result grid for practice, qualifying, and race
-        if (session === 'practice' || session === 'qualifying' || session === 'race') {
-            const result = d.result || {};
-            const grid   = result.grid || (_weekend && (
-                session === 'practice'   ? _weekend.practice_sim :
-                session === 'qualifying' ? _weekend.quali_sim    :
-                // race_sim doesn't exist in init response — fall back to qualifying grid
-                session === 'race'       ? (_weekendGrids['qualifying']?.grid || _weekend.quali_sim || []) : []
-            )) || [];
-            _showSessionGrid(session, grid, result.source);
-        }
-    } catch(e) { showToast('Error: ' + e.message, 'error'); }
-}
-
-function _showSessionGrid(session, grid, source) {
-    const posEl    = document.getElementById('ws-pos-' + session);
-    const gridPanel = document.getElementById('ws-grid-panel');
-    if (!gridPanel || !grid || !grid.length) return;
-
-    // Store grid for replay when badge is clicked again
-    _weekendGrids[session] = { grid, source };
-
-    // Update the compact position badge
-    const player   = grid.find(g => g.is_player);
-    const srcShort = source === 'actual' ? '' : ' · sim';
-    if (player && posEl) {
-        posEl.textContent = 'P' + player.position + srcShort;
-        posEl.classList.remove('hidden');
-        posEl.title = 'Click to view grid';
-        posEl.onclick = () => _showSessionGrid(session, _weekendGrids[session].grid, _weekendGrids[session].source);
-    }
-
-    // Render full grid in the right panel
-    const sessionLabel = session === 'practice' ? 'Free Practice' : session === 'race' ? 'Race Result' : 'Qualifying';
-    const srcLabel     = source === 'actual' ? 'Actual result' : 'Simulated';
-    const rows = grid.map(g => {
-        const cls  = g.is_player ? ' class="ws-player"' : '';
-        const name = g.is_player ? '&#128100; YOU' : (g.name || '—');
-        return '<tr' + cls + '><td>P' + g.position + '</td><td>' + name + '</td><td>' + (g.team || '—') + '</td></tr>';
-    });
-    gridPanel.innerHTML =
-        '<div class="ws-grid-panel-header">' + sessionLabel + ' Results</div>' +
-        '<table class="ws-grid-table"><thead><tr><th>Pos</th><th>Driver</th><th>Team</th></tr></thead>' +
-        '<tbody>' + rows.join('') + '</tbody></table>' +
-        '<div class="ws-grid-source">' + srcLabel + '</div>';
-}
-
-function _advanceWeekend(completedSession) {
-    if (completedSession === 'practice')   _setSessionState('qualifying', 'pending');
-    if (completedSession === 'qualifying') _setSessionState('race', 'pending');
-    if (completedSession === 'race') {
-        // Race done — switch to Weekend Review mode; user closes when ready
-        document.getElementById('modal-race-title').textContent = '&#127937; Weekend Review';
-
-        // Race grid is already shown in the right panel (populated by _completeSession).
-        // If somehow missing, fall back to qualifying/practice.
-        if (!_weekendGrids['race']) {
-            const fallback = ['qualifying', 'practice'].find(s => _weekendGrids[s]);
-            if (fallback) _showSessionGrid(fallback, _weekendGrids[fallback].grid, _weekendGrids[fallback].source);
-        }
-
-        // Inject "View Race Result" button below the weekend panel
-        let reviewActions = document.getElementById('ws-review-actions');
-        if (!reviewActions) {
-            reviewActions = document.createElement('div');
-            reviewActions.id = 'ws-review-actions';
-            reviewActions.className = 'modal-actions';
-            reviewActions.style.marginTop = '.75rem';
-            document.getElementById('weekend-panel').after(reviewActions);
-        }
-        reviewActions.innerHTML =
-            '<button class="btn btn-race" onclick="_weekendClose()">&#9654; View Race Result</button>';
-
-        // Fetch engineer debrief and show it below the race card (left column)
-        _fetchWeekendDebrief();
-    }
-}
-
-async function _fetchWeekendDebrief() {
-    const el = document.getElementById('ws-debrief-inline');
-    if (!el) return;
-    el.innerHTML = '<div class="ws-debrief-title">&#128269; Engineer Debrief</div><div style="color:var(--text-faint);font-size:.75rem">Reading race data…</div>';
-    el.classList.remove('hidden');
-    try {
-        const r = await fetch('/api/read-race-result');
-        const d = await r.json();
-        if ((d.status === 'found' || d.status === 'incomplete') && d.lap_analysis) {
-            const a   = d.lap_analysis;
-            const con = a.consistency ?? null;
-            let conBadge = '';
-            if (con !== null) {
-                const conColor = con >= 80 ? '#3cc850' : con >= 60 ? '#e8b45a' : '#FF4757';
-                conBadge = '<span class="ws-debrief-consistency" style="background:' + conColor + '22;color:' + conColor + ';border:1px solid ' + conColor + '55">' +
-                           'Consistency ' + con + '/100</span><br>';
-            }
-            const report = a.engineer_report ? '<div class="ws-debrief-report">' + a.engineer_report + '</div>' : '';
-            el.innerHTML = '<div class="ws-debrief-title">&#128269; Engineer Debrief</div>' + conBadge + report;
-        } else {
-            el.innerHTML = '<div class="ws-debrief-title">&#128269; Engineer Debrief</div>' +
-                           '<div class="ws-debrief-report">Result file not yet available — check the full debrief after closing.</div>';
-        }
-    } catch(e) {
-        el.innerHTML = '<div class="ws-debrief-title">&#128269; Engineer Debrief</div>' +
-                       '<div class="ws-debrief-report">Could not read race result.</div>';
-    }
-}
-
-function _weekendClose() {
-    closeModal('modal-race');
-    const reviewActions = document.getElementById('ws-review-actions');
-    if (reviewActions) reviewActions.remove();
-    document.getElementById('weekend-panel').classList.add('hidden');
-    document.getElementById('modal-race-actions').classList.remove('hidden');
-    _weekend      = null;
-    _weekendGrids = {};
-    if (_resultPollTimer) { clearInterval(_resultPollTimer); _resultPollTimer = null; }
-    document.getElementById('result-auto').style.display     = '';
-    document.getElementById('result-auto-status').textContent = '';
-    document.getElementById('result-auto-status').className   = 'result-auto-status';
-    document.getElementById('result-found').classList.add('hidden');
-    document.getElementById('result-manual').classList.add('hidden');
-    document.getElementById('debrief-panel').classList.add('hidden');
-    setTimeout(() => { showView('result'); startResultPolling(); }, 600);
-}
-
 // ── Auto-read AC result ────────────────────────────────────────────────────
 async function fetchRaceResult() {
     const statusEl = document.getElementById('result-auto-status');
@@ -1415,7 +1298,7 @@ async function fetchRaceResult() {
             statusEl.textContent = 'Race not completed (' + d.laps_completed + '/' + d.expected_laps +
                 ' laps). Please enter the result manually.';
             statusEl.className = 'result-auto-status warning';
-            showManualForm('Race ended early — please enter result manually.');
+            showManualForm('Race ended early. Please enter result manually.');
             if (d.position) document.getElementById('finish-position').value = d.position;
             if (d.best_lap) document.getElementById('best-lap').value         = d.best_lap;
 
@@ -1576,7 +1459,8 @@ async function _postFinishRace(pos, lapTime, marginMs) {
             showToast(fmtPos(pos) + ' — +' + pts + ' pts!' + aiMsg);
             await Promise.all([loadCareer(), loadAllStandings(), loadCalendar()]);
             refresh();
-            showView('standings');
+            loadNewsTicker();
+            showView('main');
         } else {
             showToast('Error submitting result', 'error');
         }
@@ -1587,6 +1471,7 @@ async function _postFinishRace(pos, lapTime, marginMs) {
 async function handleSeasonComplete(data) {
     await Promise.all([loadCareer(), loadAllStandings(), loadCalendar()]);
     refresh();
+    loadNewsTicker();
 
     const posEl = document.getElementById('final-pos-text');
     if (posEl) {
@@ -1616,7 +1501,7 @@ function renderContracts(contracts) {
     }
     const hasDegRisk = contracts.some(c => c.degradation_risk);
     const banner = hasDegRisk
-        ? '<div class="deg-risk-banner">⚠ Poor season results — your seat is at risk. Limited offers available.</div>'
+        ? '<div class="deg-risk-banner">⚠ Poor season results. Your seat is at risk. Limited offers available.</div>'
         : '';
 
     el.innerHTML = banner + contracts.map(c =>
@@ -1643,7 +1528,8 @@ async function acceptContract(contractId) {
             await Promise.all([loadCareer(), loadConfig()]);
             await Promise.all([loadAllStandings(), loadCalendar()]);
             refresh();
-            showView('standings');
+            loadNewsTicker();
+            showView('main');
         } else {
             showToast(d.message || 'Error accepting contract', 'error');
         }
@@ -1698,7 +1584,7 @@ async function saveSettings() {
             }
             renderCalendar();  // refresh next-race bar with new AI level
             showToast('Settings saved!');
-            showView('standings');
+            showView('main');
         } else {
             showToast('Save failed', 'error');
         }

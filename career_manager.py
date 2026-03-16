@@ -11,206 +11,39 @@ import subprocess
 import os
 
 from platform_paths import get_ac_docs_path, is_linux
+from driver_data import (DRIVER_NAMES, DRIVER_PROFILES, DRIVERS_PER_TEAM,
+                         TIER_SLOT_OFFSET, TRACK_PREFERENCES, get_driver_style)
 
 
 class CareerManager:
     """Main career management system"""
 
-    # 120 globally unique driver names (covers all 106 driver slots across all tiers)
-    DRIVER_NAMES = [
-        # 0-9
-        "Marco Rossi",       "James Hunt",        "Pierre Dupont",     "Hans Mueller",
-        "Carlos Rivera",     "Tom Bradley",       "Luca Ferrari",      "Alex Chen",
-        "David Williams",    "Raj Patel",
-        # 10-19
-        "Sven Johansson",    "Omar Hassan",       "Kenji Tanaka",      "Igor Petrov",
-        "Fabio Romano",      "Ethan Clark",       "Nina Kovac",        "Lucas Petit",
-        "Aiden Burke",       "Zara Osman",
-        # 20-29
-        "Felipe Rodrigues",  "Jan van der Berg",  "Mikael Lindqvist",  "Antoine Moreau",
-        "Sebastian Richter", "Takumi Nakamura",   "Ryan O'Connor",     "Dimitri Volkov",
-        "Wei Zhang",         "Emre Yilmaz",
-        # 30-39
-        "Stefan Baumann",    "Liam Fitzgerald",   "Pablo Sanchez",     "Yuki Hashimoto",
-        "Cristian Popescu",  "Max Hartmann",      "Nico Berger",       "Andre Hoffmann",
-        "Kofi Mensah",       "Ravi Sharma",
-        # 40-49
-        "Jake Morrison",     "Thomas Leclerc",    "Giulio Conti",      "Magnus Eriksson",
-        "Aleksei Nikitin",   "Hiro Matsuda",      "Kevin Walsh",       "Leon Braun",
-        "Samir Khalil",      "Dante Moraes",
-        # 50-59
-        "Felix Bauer",       "Connor MacLeod",    "Victor Blanc",      "Matteo Gallo",
-        "Oskar Wiklund",     "Tariq Nasser",      "Samuel Obi",        "Dario Conti",
-        "Erik Larsen",       "Julian Richter",
-        # 60-69
-        "Baptiste Renard",   "Kai Nakamura",      "Tobias Schreiber",  "Lorenzo Marini",
-        "Jack Thornton",     "Vladimir Kozlov",   "Yasuhiro Ito",      "Patrick Brennan",
-        "Roberto Mancini",   "Hugo Lefevre",
-        # 70-79
-        "Christoph Weber",   "Nils Gunnarsson",   "Mehmet Ozkan",      "Benedikt Fischer",
-        "Alvaro Delgado",    "Finn Andersen",     "Artem Sokolov",     "Raul Jimenez",
-        "Enzo Palermo",      "Timothy Hooper",
-        # 80-89
-        "Francois Girard",   "Kazuki Yamamoto",   "Benjamin Koch",     "Cian Murphy",
-        "Mateus Costa",      "Tomas Novak",       "Rafael Torres",     "Pieter de Vries",
-        "Duncan Fraser",     "Alexei Morozov",
-        # 90-99
-        "Simon Bertrand",    "Stephan Kramer",    "Mattias Svensson",  "Davide Russo",
-        "Callum Stewart",    "Timur Bakirov",     "Marco Bianchi",     "Arnaud Leblanc",
-        "Hiroshi Watanabe",  "Edward Collins",
-        # 100-109
-        "Gerhard Mayer",     "Luca Gentile",      "Frederick Larsson", "Alistair Young",
-        "Marco Colombo",     "Jean-Paul Tissot",  "Adriano Ferretti",  "Sebastian Vallet",
-        "Diego Morales",     "Andrei Popov",
-        # 110-119
-        "Josef Novotny",     "Henryk Kowalski",   "Kwame Asante",      "Taiki Oshima",
-        "Brenden Walsh",     "Giacomo Vietti",    "Emilio Fernandez",  "Lars Petersen",
-        "Nikolai Volkov",    "Kim Andersen",
-    ]
+    # Data constants imported from driver_data.py (kept as class attrs for backward compat)
+    DRIVER_NAMES     = DRIVER_NAMES
+    DRIVER_PROFILES  = DRIVER_PROFILES
+    DRIVERS_PER_TEAM = DRIVERS_PER_TEAM
+    TIER_SLOT_OFFSET = TIER_SLOT_OFFSET
 
-    # Per-driver personality profiles.
-    # skill (70-95):      maps to AI_LEVEL offset in race.ini
-    # aggression (0-100): maps directly to AI_AGGRESSION in race.ini
-    # wet_skill (0-100):  AI_LEVEL bonus/penalty in wet weather (factor 0.06)
-    # quali_pace (0-100): displayed on driver card; gameplay effect reserved for future
-    # consistency (0-100): drives per-driver AI_LEVEL variance; low = more volatile
-    # nickname (str|None): paddock name shown on driver card; ~37 drivers have one
-    # nationality: 3-letter AC NATION_CODE, shown on profile card + race UI
-    # Style derived: skill>=85+aggr>=60=Charger, skill>=85+aggr<60=Tactician,
-    #                skill<85+aggr>=60=Wildcard, else=Journeyman
-    DRIVER_PROFILES = {
-        # name                  nat    skill  aggr   wet   quali  cons  night  nickname
-        "Marco Rossi":       {"nationality": "ITA", "skill": 88, "aggression": 72, "wet_skill": 62, "quali_pace": 80, "consistency": 52, "night_skill": 51, "nickname": "Red Mist"},
-        "James Hunt":        {"nationality": "GBR", "skill": 91, "aggression": 85, "wet_skill": 55, "quali_pace": 94, "consistency": 48, "night_skill": 47, "nickname": "Apex Predator"},
-        "Pierre Dupont":     {"nationality": "FRA", "skill": 76, "aggression": 30, "wet_skill": 72, "quali_pace": 68, "consistency": 85, "night_skill": 67, "nickname": None},
-        "Hans Mueller":      {"nationality": "GER", "skill": 82, "aggression": 45, "wet_skill": 58, "quali_pace": 75, "consistency": 80, "night_skill": 62, "nickname": None},
-        "Carlos Rivera":     {"nationality": "ESP", "skill": 79, "aggression": 60, "wet_skill": 50, "quali_pace": 72, "consistency": 60, "night_skill": 53, "nickname": None},
-        "Tom Bradley":       {"nationality": "GBR", "skill": 74, "aggression": 20, "wet_skill": 65, "quali_pace": 55, "consistency": 88, "night_skill": 68, "nickname": None},
-        "Luca Ferrari":      {"nationality": "ITA", "skill": 85, "aggression": 55, "wet_skill": 70, "quali_pace": 85, "consistency": 82, "night_skill": 64, "nickname": "Cold Blood"},
-        "Alex Chen":         {"nationality": "CHN", "skill": 83, "aggression": 40, "wet_skill": 75, "quali_pace": 78, "consistency": 86, "night_skill": 67, "nickname": None},
-        "David Williams":    {"nationality": "GBR", "skill": 70, "aggression": 15, "wet_skill": 78, "quali_pace": 55, "consistency": 90, "night_skill": 72, "nickname": None},
-        "Raj Patel":         {"nationality": "IND", "skill": 77, "aggression": 50, "wet_skill": 55, "quali_pace": 65, "consistency": 72, "night_skill": 58, "nickname": None},
-        "Sven Johansson":    {"nationality": "SWE", "skill": 80, "aggression": 35, "wet_skill": 82, "quali_pace": 70, "consistency": 84, "night_skill": 78, "nickname": "Rain King"},
-        "Omar Hassan":       {"nationality": "MAR", "skill": 78, "aggression": 65, "wet_skill": 42, "quali_pace": 68, "consistency": 55, "night_skill": 49, "nickname": None},
-        "Kenji Tanaka":      {"nationality": "JPN", "skill": 84, "aggression": 25, "wet_skill": 70, "quali_pace": 76, "consistency": 91, "night_skill": 85, "nickname": "Metronome"},
-        "Igor Petrov":       {"nationality": "RUS", "skill": 86, "aggression": 70, "wet_skill": 60, "quali_pace": 82, "consistency": 55, "night_skill": 52, "nickname": None},
-        "Fabio Romano":      {"nationality": "ITA", "skill": 89, "aggression": 80, "wet_skill": 45, "quali_pace": 86, "consistency": 52, "night_skill": 47, "nickname": "Last Lap Lunatic"},
-        "Ethan Clark":       {"nationality": "GBR", "skill": 73, "aggression": 30, "wet_skill": 60, "quali_pace": 58, "consistency": 82, "night_skill": 64, "nickname": None},
-        "Nina Kovac":        {"nationality": "CRO", "skill": 81, "aggression": 45, "wet_skill": 68, "quali_pace": 74, "consistency": 80, "night_skill": 64, "nickname": None},
-        "Lucas Petit":       {"nationality": "FRA", "skill": 75, "aggression": 55, "wet_skill": 52, "quali_pace": 63, "consistency": 68, "night_skill": 56, "nickname": None},
-        "Aiden Burke":       {"nationality": "IRL", "skill": 72, "aggression": 60, "wet_skill": 70, "quali_pace": 60, "consistency": 55, "night_skill": 55, "nickname": None},
-        "Zara Osman":        {"nationality": "KEN", "skill": 77, "aggression": 40, "wet_skill": 58, "quali_pace": 65, "consistency": 78, "night_skill": 62, "nickname": None},
-        "Felipe Rodrigues":  {"nationality": "BRA", "skill": 85, "aggression": 75, "wet_skill": 48, "quali_pace": 80, "consistency": 50, "night_skill": 48, "nickname": "Full Send"},
-        "Jan van der Berg":  {"nationality": "NLD", "skill": 82, "aggression": 35, "wet_skill": 80, "quali_pace": 78, "consistency": 87, "night_skill": 69, "nickname": None},
-        "Mikael Lindqvist":  {"nationality": "SWE", "skill": 79, "aggression": 20, "wet_skill": 85, "quali_pace": 65, "consistency": 91, "night_skill": 82, "nickname": "Wet Line"},
-        "Antoine Moreau":    {"nationality": "FRA", "skill": 83, "aggression": 50, "wet_skill": 65, "quali_pace": 80, "consistency": 78, "night_skill": 62, "nickname": None},
-        "Sebastian Richter": {"nationality": "GER", "skill": 90, "aggression": 65, "wet_skill": 68, "quali_pace": 88, "consistency": 60, "night_skill": 70, "nickname": "Precision"},
-        "Takumi Nakamura":   {"nationality": "JPN", "skill": 87, "aggression": 30, "wet_skill": 82, "quali_pace": 70, "consistency": 94, "night_skill": 90, "nickname": "Clockwork"},
-        "Ryan O'Connor":     {"nationality": "IRL", "skill": 76, "aggression": 70, "wet_skill": 72, "quali_pace": 65, "consistency": 48, "night_skill": 52, "nickname": "Risk Factor"},
-        "Dimitri Volkov":    {"nationality": "RUS", "skill": 84, "aggression": 80, "wet_skill": 55, "quali_pace": 75, "consistency": 45, "night_skill": 47, "nickname": "Boom or Bust"},
-        "Wei Zhang":         {"nationality": "CHN", "skill": 80, "aggression": 45, "wet_skill": 62, "quali_pace": 72, "consistency": 76, "night_skill": 61, "nickname": None},
-        "Emre Yilmaz":       {"nationality": "TUR", "skill": 74, "aggression": 55, "wet_skill": 48, "quali_pace": 60, "consistency": 65, "night_skill": 54, "nickname": None},
-        "Stefan Baumann":    {"nationality": "GER", "skill": 86, "aggression": 40, "wet_skill": 72, "quali_pace": 90, "consistency": 86, "night_skill": 67, "nickname": "Mr. Saturday"},
-        "Liam Fitzgerald":   {"nationality": "IRL", "skill": 71, "aggression": 25, "wet_skill": 66, "quali_pace": 52, "consistency": 85, "night_skill": 67, "nickname": None},
-        "Pablo Sanchez":     {"nationality": "ESP", "skill": 83, "aggression": 70, "wet_skill": 50, "quali_pace": 78, "consistency": 52, "night_skill": 49, "nickname": None},
-        "Yuki Hashimoto":    {"nationality": "JPN", "skill": 78, "aggression": 35, "wet_skill": 75, "quali_pace": 68, "consistency": 86, "night_skill": 68, "nickname": None},
-        "Cristian Popescu":  {"nationality": "ROU", "skill": 76, "aggression": 50, "wet_skill": 55, "quali_pace": 62, "consistency": 70, "night_skill": 58, "nickname": None},
-        "Max Hartmann":      {"nationality": "GER", "skill": 85, "aggression": 60, "wet_skill": 65, "quali_pace": 85, "consistency": 68, "night_skill": 58, "nickname": None},
-        "Nico Berger":       {"nationality": "GER", "skill": 88, "aggression": 50, "wet_skill": 70, "quali_pace": 92, "consistency": 82, "night_skill": 78, "nickname": "Ice Brain"},
-        "Andre Hoffmann":    {"nationality": "GER", "skill": 77, "aggression": 35, "wet_skill": 60, "quali_pace": 65, "consistency": 80, "night_skill": 63, "nickname": None},
-        "Kofi Mensah":       {"nationality": "GHA", "skill": 81, "aggression": 55, "wet_skill": 52, "quali_pace": 70, "consistency": 72, "night_skill": 57, "nickname": None},
-        "Ravi Sharma":       {"nationality": "IND", "skill": 75, "aggression": 40, "wet_skill": 45, "quali_pace": 60, "consistency": 75, "night_skill": 58, "nickname": None},
-        "Jake Morrison":     {"nationality": "GBR", "skill": 73, "aggression": 65, "wet_skill": 60, "quali_pace": 58, "consistency": 50, "night_skill": 51, "nickname": None},
-        "Thomas Leclerc":    {"nationality": "FRA", "skill": 87, "aggression": 45, "wet_skill": 78, "quali_pace": 88, "consistency": 88, "night_skill": 82, "nickname": "The Surgeon"},
-        "Giulio Conti":      {"nationality": "ITA", "skill": 82, "aggression": 75, "wet_skill": 45, "quali_pace": 75, "consistency": 48, "night_skill": 46, "nickname": "Chaos Engine"},
-        "Magnus Eriksson":   {"nationality": "SWE", "skill": 79, "aggression": 20, "wet_skill": 80, "quali_pace": 62, "consistency": 90, "night_skill": 72, "nickname": None},
-        "Aleksei Nikitin":   {"nationality": "RUS", "skill": 84, "aggression": 60, "wet_skill": 58, "quali_pace": 78, "consistency": 58, "night_skill": 54, "nickname": None},
-        "Hiro Matsuda":      {"nationality": "JPN", "skill": 88, "aggression": 35, "wet_skill": 85, "quali_pace": 82, "consistency": 90, "night_skill": 82, "nickname": "Storm Pace"},
-        "Kevin Walsh":       {"nationality": "IRL", "skill": 71, "aggression": 50, "wet_skill": 62, "quali_pace": 55, "consistency": 72, "night_skill": 60, "nickname": None},
-        "Leon Braun":        {"nationality": "GER", "skill": 76, "aggression": 30, "wet_skill": 58, "quali_pace": 62, "consistency": 82, "night_skill": 64, "nickname": None},
-        "Samir Khalil":      {"nationality": "MAR", "skill": 80, "aggression": 65, "wet_skill": 38, "quali_pace": 68, "consistency": 55, "night_skill": 48, "nickname": None},
-        "Dante Moraes":      {"nationality": "BRA", "skill": 83, "aggression": 85, "wet_skill": 88, "quali_pace": 80, "consistency": 42, "night_skill": 52, "nickname": "Storm"},
-        "Felix Bauer":       {"nationality": "GER", "skill": 86, "aggression": 40, "wet_skill": 68, "quali_pace": 88, "consistency": 85, "night_skill": 66, "nickname": None},
-        "Connor MacLeod":    {"nationality": "GBR", "skill": 74, "aggression": 55, "wet_skill": 65, "quali_pace": 60, "consistency": 68, "night_skill": 58, "nickname": None},
-        "Victor Blanc":      {"nationality": "FRA", "skill": 81, "aggression": 30, "wet_skill": 70, "quali_pace": 75, "consistency": 88, "night_skill": 75, "nickname": "Zero Drama"},
-        "Matteo Gallo":      {"nationality": "ITA", "skill": 85, "aggression": 70, "wet_skill": 52, "quali_pace": 80, "consistency": 55, "night_skill": 50, "nickname": None},
-        "Oskar Wiklund":     {"nationality": "SWE", "skill": 77, "aggression": 20, "wet_skill": 82, "quali_pace": 60, "consistency": 90, "night_skill": 72, "nickname": None},
-        "Tariq Nasser":      {"nationality": "MAR", "skill": 79, "aggression": 60, "wet_skill": 38, "quali_pace": 65, "consistency": 58, "night_skill": 50, "nickname": None},
-        "Samuel Obi":        {"nationality": "GBR", "skill": 72, "aggression": 45, "wet_skill": 60, "quali_pace": 55, "consistency": 75, "night_skill": 61, "nickname": None},
-        "Dario Conti":       {"nationality": "ITA", "skill": 87, "aggression": 75, "wet_skill": 50, "quali_pace": 82, "consistency": 52, "night_skill": 49, "nickname": "The Enforcer"},
-        "Erik Larsen":       {"nationality": "SWE", "skill": 80, "aggression": 30, "wet_skill": 80, "quali_pace": 68, "consistency": 86, "night_skill": 69, "nickname": None},
-        "Julian Richter":    {"nationality": "GER", "skill": 84, "aggression": 55, "wet_skill": 62, "quali_pace": 80, "consistency": 78, "night_skill": 61, "nickname": None},
-        "Baptiste Renard":   {"nationality": "FRA", "skill": 78, "aggression": 40, "wet_skill": 65, "quali_pace": 70, "consistency": 80, "night_skill": 64, "nickname": None},
-        "Kai Nakamura":      {"nationality": "JPN", "skill": 82, "aggression": 25, "wet_skill": 78, "quali_pace": 72, "consistency": 90, "night_skill": 71, "nickname": None},
-        "Tobias Schreiber":  {"nationality": "GER", "skill": 75, "aggression": 50, "wet_skill": 55, "quali_pace": 62, "consistency": 72, "night_skill": 58, "nickname": None},
-        "Lorenzo Marini":    {"nationality": "ITA", "skill": 89, "aggression": 80, "wet_skill": 48, "quali_pace": 88, "consistency": 50, "night_skill": 92, "nickname": "Night Hunter"},
-        "Jack Thornton":     {"nationality": "GBR", "skill": 83, "aggression": 65, "wet_skill": 62, "quali_pace": 75, "consistency": 58, "night_skill": 54, "nickname": "Late Charge"},
-        "Vladimir Kozlov":   {"nationality": "RUS", "skill": 77, "aggression": 85, "wet_skill": 52, "quali_pace": 60, "consistency": 40, "night_skill": 44, "nickname": "The Gambler"},
-        "Yasuhiro Ito":      {"nationality": "JPN", "skill": 86, "aggression": 20, "wet_skill": 88, "quali_pace": 78, "consistency": 95, "night_skill": 88, "nickname": "Iron Pace"},
-        "Patrick Brennan":   {"nationality": "IRL", "skill": 74, "aggression": 45, "wet_skill": 68, "quali_pace": 58, "consistency": 75, "night_skill": 62, "nickname": None},
-        "Roberto Mancini":   {"nationality": "ITA", "skill": 80, "aggression": 60, "wet_skill": 55, "quali_pace": 70, "consistency": 60, "night_skill": 54, "nickname": None},
-        "Hugo Lefevre":      {"nationality": "FRA", "skill": 73, "aggression": 35, "wet_skill": 62, "quali_pace": 55, "consistency": 80, "night_skill": 63, "nickname": None},
-        "Christoph Weber":   {"nationality": "GER", "skill": 88, "aggression": 50, "wet_skill": 72, "quali_pace": 90, "consistency": 84, "night_skill": 78, "nickname": "The Mastermind"},
-        "Nils Gunnarsson":   {"nationality": "SWE", "skill": 82, "aggression": 25, "wet_skill": 85, "quali_pace": 68, "consistency": 92, "night_skill": 73, "nickname": None},
-        "Mehmet Ozkan":      {"nationality": "TUR", "skill": 79, "aggression": 70, "wet_skill": 42, "quali_pace": 65, "consistency": 50, "night_skill": 47, "nickname": None},
-        "Benedikt Fischer":  {"nationality": "GER", "skill": 85, "aggression": 40, "wet_skill": 70, "quali_pace": 86, "consistency": 85, "night_skill": 66, "nickname": None},
-        "Alvaro Delgado":    {"nationality": "ESP", "skill": 83, "aggression": 65, "wet_skill": 48, "quali_pace": 75, "consistency": 55, "night_skill": 50, "nickname": None},
-        "Finn Andersen":     {"nationality": "SWE", "skill": 76, "aggression": 30, "wet_skill": 80, "quali_pace": 60, "consistency": 86, "night_skill": 69, "nickname": None},
-        "Artem Sokolov":     {"nationality": "RUS", "skill": 87, "aggression": 75, "wet_skill": 55, "quali_pace": 82, "consistency": 50, "night_skill": 49, "nickname": "Iron Fist"},
-        "Raul Jimenez":      {"nationality": "ESP", "skill": 81, "aggression": 55, "wet_skill": 52, "quali_pace": 72, "consistency": 72, "night_skill": 57, "nickname": None},
-        "Enzo Palermo":      {"nationality": "ITA", "skill": 84, "aggression": 80, "wet_skill": 45, "quali_pace": 76, "consistency": 45, "night_skill": 45, "nickname": "Raw Speed"},
-        "Timothy Hooper":    {"nationality": "GBR", "skill": 70, "aggression": 20, "wet_skill": 68, "quali_pace": 48, "consistency": 88, "night_skill": 69, "nickname": None},
-        "Francois Girard":   {"nationality": "FRA", "skill": 86, "aggression": 45, "wet_skill": 75, "quali_pace": 88, "consistency": 84, "night_skill": 66, "nickname": None},
-        "Kazuki Yamamoto":   {"nationality": "JPN", "skill": 91, "aggression": 30, "wet_skill": 80, "quali_pace": 90, "consistency": 92, "night_skill": 85, "nickname": "Ice Cold"},
-        "Benjamin Koch":     {"nationality": "GER", "skill": 78, "aggression": 60, "wet_skill": 55, "quali_pace": 65, "consistency": 58, "night_skill": 53, "nickname": None},
-        "Cian Murphy":       {"nationality": "IRL", "skill": 73, "aggression": 50, "wet_skill": 68, "quali_pace": 55, "consistency": 72, "night_skill": 61, "nickname": None},
-        "Mateus Costa":      {"nationality": "BRA", "skill": 82, "aggression": 70, "wet_skill": 60, "quali_pace": 75, "consistency": 52, "night_skill": 51, "nickname": None},
-        "Tomas Novak":       {"nationality": "CZE", "skill": 79, "aggression": 35, "wet_skill": 65, "quali_pace": 65, "consistency": 82, "night_skill": 65, "nickname": None},
-        "Rafael Torres":     {"nationality": "ESP", "skill": 85, "aggression": 75, "wet_skill": 52, "quali_pace": 82, "consistency": 52, "night_skill": 49, "nickname": "Frontline"},
-        "Pieter de Vries":   {"nationality": "NLD", "skill": 83, "aggression": 40, "wet_skill": 82, "quali_pace": 78, "consistency": 84, "night_skill": 68, "nickname": None},
-        "Duncan Fraser":     {"nationality": "GBR", "skill": 77, "aggression": 55, "wet_skill": 70, "quali_pace": 65, "consistency": 74, "night_skill": 61, "nickname": None},
-        "Alexei Morozov":    {"nationality": "RUS", "skill": 80, "aggression": 65, "wet_skill": 48, "quali_pace": 68, "consistency": 55, "night_skill": 50, "nickname": None},
-        "Simon Bertrand":    {"nationality": "FRA", "skill": 86, "aggression": 35, "wet_skill": 78, "quali_pace": 88, "consistency": 88, "night_skill": 78, "nickname": "Clean Air"},
-        "Stephan Kramer":    {"nationality": "GER", "skill": 88, "aggression": 60, "wet_skill": 65, "quali_pace": 90, "consistency": 68, "night_skill": 58, "nickname": "The Dominator"},
-        "Mattias Svensson":  {"nationality": "SWE", "skill": 82, "aggression": 25, "wet_skill": 85, "quali_pace": 68, "consistency": 90, "night_skill": 72, "nickname": None},
-        "Davide Russo":      {"nationality": "ITA", "skill": 84, "aggression": 70, "wet_skill": 50, "quali_pace": 75, "consistency": 55, "night_skill": 50, "nickname": None},
-        "Callum Stewart":    {"nationality": "GBR", "skill": 76, "aggression": 45, "wet_skill": 65, "quali_pace": 62, "consistency": 76, "night_skill": 62, "nickname": None},
-        "Timur Bakirov":     {"nationality": "RUS", "skill": 79, "aggression": 80, "wet_skill": 45, "quali_pace": 62, "consistency": 42, "night_skill": 44, "nickname": "The Maverick"},
-        "Marco Bianchi":     {"nationality": "ITA", "skill": 87, "aggression": 55, "wet_skill": 68, "quali_pace": 84, "consistency": 82, "night_skill": 63, "nickname": None},
-        "Arnaud Leblanc":    {"nationality": "FRA", "skill": 81, "aggression": 35, "wet_skill": 72, "quali_pace": 72, "consistency": 84, "night_skill": 67, "nickname": None},
-        "Hiroshi Watanabe":  {"nationality": "JPN", "skill": 85, "aggression": 20, "wet_skill": 88, "quali_pace": 75, "consistency": 95, "night_skill": 90, "nickname": "Stint Master"},
-        "Edward Collins":    {"nationality": "GBR", "skill": 73, "aggression": 50, "wet_skill": 60, "quali_pace": 58, "consistency": 72, "night_skill": 59, "nickname": None},
-        "Gerhard Mayer":     {"nationality": "GER", "skill": 83, "aggression": 45, "wet_skill": 65, "quali_pace": 78, "consistency": 80, "night_skill": 63, "nickname": None},
-        "Luca Gentile":      {"nationality": "ITA", "skill": 89, "aggression": 70, "wet_skill": 55, "quali_pace": 86, "consistency": 58, "night_skill": 92, "nickname": "Night Hawk"},
-        "Frederick Larsson": {"nationality": "SWE", "skill": 80, "aggression": 30, "wet_skill": 82, "quali_pace": 68, "consistency": 87, "night_skill": 70, "nickname": None},
-        "Alistair Young":    {"nationality": "GBR", "skill": 76, "aggression": 55, "wet_skill": 62, "quali_pace": 62, "consistency": 70, "night_skill": 58, "nickname": None},
-        "Marco Colombo":     {"nationality": "ITA", "skill": 85, "aggression": 65, "wet_skill": 58, "quali_pace": 82, "consistency": 62, "night_skill": 54, "nickname": None},
-        "Jean-Paul Tissot":  {"nationality": "FRA", "skill": 82, "aggression": 40, "wet_skill": 68, "quali_pace": 75, "consistency": 82, "night_skill": 65, "nickname": None},
-        "Adriano Ferretti":  {"nationality": "ITA", "skill": 87, "aggression": 80, "wet_skill": 45, "quali_pace": 84, "consistency": 48, "night_skill": 46, "nickname": "The Predator"},
-        "Sebastian Vallet":  {"nationality": "FRA", "skill": 78, "aggression": 35, "wet_skill": 65, "quali_pace": 68, "consistency": 82, "night_skill": 65, "nickname": None},
-        "Diego Morales":     {"nationality": "ESP", "skill": 83, "aggression": 60, "wet_skill": 48, "quali_pace": 72, "consistency": 58, "night_skill": 52, "nickname": None},
-        "Andrei Popov":      {"nationality": "RUS", "skill": 81, "aggression": 50, "wet_skill": 55, "quali_pace": 70, "consistency": 72, "night_skill": 58, "nickname": None},
-        "Josef Novotny":     {"nationality": "CZE", "skill": 75, "aggression": 40, "wet_skill": 62, "quali_pace": 60, "consistency": 78, "night_skill": 62, "nickname": None},
-        "Henryk Kowalski":   {"nationality": "POL", "skill": 79, "aggression": 55, "wet_skill": 60, "quali_pace": 65, "consistency": 72, "night_skill": 59, "nickname": None},
-        "Kwame Asante":      {"nationality": "GHA", "skill": 82, "aggression": 45, "wet_skill": 50, "quali_pace": 72, "consistency": 78, "night_skill": 59, "nickname": None},
-        "Taiki Oshima":      {"nationality": "JPN", "skill": 86, "aggression": 30, "wet_skill": 85, "quali_pace": 82, "consistency": 92, "night_skill": 82, "nickname": "The Closer"},
-        "Brenden Walsh":     {"nationality": "IRL", "skill": 71, "aggression": 65, "wet_skill": 70, "quali_pace": 55, "consistency": 48, "night_skill": 52, "nickname": "Raw Talent"},
-        "Giacomo Vietti":    {"nationality": "ITA", "skill": 84, "aggression": 75, "wet_skill": 48, "quali_pace": 75, "consistency": 48, "night_skill": 47, "nickname": None},
-        "Emilio Fernandez":  {"nationality": "ESP", "skill": 80, "aggression": 60, "wet_skill": 45, "quali_pace": 68, "consistency": 58, "night_skill": 51, "nickname": None},
-        "Lars Petersen":     {"nationality": "SWE", "skill": 77, "aggression": 25, "wet_skill": 80, "quali_pace": 62, "consistency": 88, "night_skill": 70, "nickname": None},
-        "Nikolai Volkov":    {"nationality": "RUS", "skill": 83, "aggression": 70, "wet_skill": 50, "quali_pace": 72, "consistency": 52, "night_skill": 49, "nickname": None},
-        "Kim Andersen":      {"nationality": "SWE", "skill": 78, "aggression": 35, "wet_skill": 78, "quali_pace": 65, "consistency": 84, "night_skill": 68, "nickname": None},
+    # Track type classification for track affinity system.
+    # 'technical' = short/twisty (< ~3.5 km), 'fast' = long/high-speed (> ~5 km).
+    # Omitted tracks default to 'balanced' (no bonus/penalty for anyone).
+    TRACK_TYPE = {
+        # Technical tracks (short, twisty)
+        'ks_brands_hatch/indy':           'technical',
+        'ks_vallelunga/club_circuit':     'technical',
+        'magione':                         'technical',
+        'ks_silverstone/national':        'technical',
+        'ks_red_bull_ring/layout_national':'technical',
+        'ks_black_cat_county/layout_long':'technical',
+        'ks_brands_hatch/gp':            'technical',
+        # Fast tracks (long, high-speed)
+        'monza':                          'fast',
+        'spa':                            'fast',
+        'ks_silverstone/gp':             'fast',
+        'ks_nurburgring/layout_gp':      'fast',
+        # Balanced tracks (medium — no advantage for anyone)
+        # 'zandvoort', 'ks_barcelona/layout_gp', 'imola' → default 'balanced'
     }
-
-    # How many championship drivers per team entry (MX5 is single-driver; GT3/GT4/WEC are 2)
-    DRIVERS_PER_TEAM = {'mx5_cup': 1, 'gt4': 2, 'gt3': 2, 'wec': 2}
-
-    # Global driver slot offset per tier:
-    #   MX5:  14 teams × 1 = 14 drivers  → slots  0-13
-    #   GT4:  16 teams × 2 = 32 drivers  → slots 14-45
-    #   GT3:  20 teams × 2 = 40 drivers  → slots 46-85
-    #   WEC:  10 teams × 2 = 20 drivers  → slots 86-105
-    TIER_SLOT_OFFSET = {'mx5_cup': 0, 'gt4': 14, 'gt3': 46, 'wec': 86}
 
     def __init__(self, config):
         self.config = config
@@ -223,13 +56,6 @@ class CareerManager:
             'wec':     'WEC / Elite'
         }
 
-    def _get_style(self, skill, aggression):
-        """Return driver archetype based on skill + aggression."""
-        if skill >= 85 and aggression >= 60: return "The Charger"
-        if skill >= 85 and aggression <  60: return "The Tactician"
-        if skill <  85 and aggression >= 60: return "The Wildcard"
-        return "The Journeyman"
-
     def get_driver_profile(self, name, career_data=None):
         """Return profile dict for a driver name, with derived style field."""
         p = dict(self.DRIVER_PROFILES.get(name, {"nationality": "GBR", "skill": 80, "aggression": 40}))
@@ -239,7 +65,7 @@ class CareerManager:
             for key in ['skill', 'aggression', 'wet_skill', 'quali_pace', 'consistency']:
                 if key in current:
                     p[key] = int(round(float(current[key])))
-        return {**p, "style": self._get_style(p["skill"], p["aggression"])}
+        return {**p, "style": get_driver_style(p["skill"], p["aggression"])}
 
     def get_tier_info(self, tier_index):
         """Get tier configuration by index"""
@@ -362,7 +188,8 @@ class CareerManager:
             perf = team.get('performance', 0) + random.uniform(-0.5, 0.5)
             global_slot = offset + i * dpt
             driver_name = self._get_driver_name(
-                global_slot, season, career_seed, name_mode
+                global_slot, season, career_seed, name_mode,
+                career_data=career_data
             ) if tier_key else None
             opponents.append({
                 'number':      i + 1,
@@ -415,41 +242,6 @@ class CareerManager:
             r['position'] = i + 1
         return results
 
-    def simulate_practice(self, opponents, ai_lvl, career_data=None):
-        """Simulate free practice for all opponents + player.
-
-        Longer runs (5 stints), more variance than qualifying. Uses race skill
-        as base (not quali_pace) since FP reflects long-run pace.
-
-        Returns list sorted P1→last:
-            [{'name', 'car', 'team', 'is_player', 'pace_score', 'position'}, ...]
-        """
-        player_team = (career_data or {}).get('team')
-        results = []
-        for opp in opponents[:19]:
-            if player_team and opp.get('team') == player_team:
-                continue  # player fills this slot — skip the AI stand-in
-            name    = opp.get('driver_name') or ''
-            profile = self.get_driver_profile(name, career_data=career_data)
-            base    = opp.get('performance', 0) + (profile.get('skill', 80) - 80) * 0.3
-            spread  = (100 - profile.get('consistency', 75)) * 0.15
-            best    = max(base + random.gauss(0, spread) for _ in range(5))
-            results.append({
-                'name': name, 'car': opp.get('car', ''),
-                'team': opp.get('team', ''), 'is_player': False, 'pace_score': best,
-            })
-
-        field_avg   = sum(r['pace_score'] for r in results) / len(results) if results else 0
-        player_pace = field_avg + (ai_lvl - 80) * 0.12 + random.gauss(0, 2.0)
-        results.append({
-            'name': 'PLAYER', 'car': '', 'team': '', 'is_player': True, 'pace_score': player_pace,
-        })
-
-        results.sort(key=lambda x: x['pace_score'], reverse=True)
-        for i, r in enumerate(results):
-            r['position'] = i + 1
-        return results
-
     # ------------------------------------------------------------------
     # Standings — deterministic AI, real player points
     # ------------------------------------------------------------------
@@ -475,12 +267,50 @@ class CareerManager:
             self._procedural_name_cache[cache_key] = pool
         return pool[global_slot % len(pool)]
 
-    def _get_driver_name(self, global_slot, season, career_seed=0, name_mode='curated'):
+    def _build_season_roster(self, season, career_seed=0, retired_set=None):
+        """Build slot→name mapping for entire season, skipping retired drivers."""
+        cache_key = (season, career_seed, frozenset(retired_set or set()))
+        if hasattr(self, '_roster_cache') and cache_key in self._roster_cache:
+            return self._roster_cache[cache_key]
+
+        seed = int(hashlib.md5(
+            f"global_drivers|{season}|{career_seed}".encode()
+        ).hexdigest()[:8], 16)
+        rng = random.Random(seed)
+        pool = list(self.DRIVER_NAMES)
+        rng.shuffle(pool)
+
+        available = [n for n in pool if n not in (retired_set or set())]
+        roster = {}
+        for slot in range(len(pool)):
+            roster[slot] = available[slot % len(available)]
+
+        if not hasattr(self, '_roster_cache'):
+            self._roster_cache = {}
+        self._roster_cache[cache_key] = roster
+        return roster
+
+    def _get_driver_name(self, global_slot, season, career_seed=0, name_mode='curated',
+                         career_data=None):
         """Return a globally unique driver name for the given slot and season.
         Uses a single season-seeded shuffle of the full name pool so that each
-        slot index maps to a distinct name across all tiers simultaneously."""
+        slot index maps to a distinct name across all tiers simultaneously.
+        Checks mid-season swap overrides first, then retirement skip logic."""
+        # Mid-season swap override
+        swaps = (career_data or {}).get('driver_swaps', {})
+        swap_name = swaps.get(str(global_slot))
+        if swap_name:
+            return swap_name
+
         if name_mode == 'procedural':
             return self._get_procedural_driver_name(global_slot, season, career_seed)
+
+        retired_set = set((career_data or {}).get('retired_drivers', []))
+        if retired_set:
+            roster = self._build_season_roster(season, career_seed, retired_set)
+            return roster[global_slot % len(self.DRIVER_NAMES)]
+
+        # Original path (no retirements — identical behavior)
         seed = int(hashlib.md5(
             f"global_drivers|{season}|{career_seed}".encode()
         ).hexdigest()[:8], 16)
@@ -545,7 +375,8 @@ class CareerManager:
                 name1 = career_data.get('driver_name') or 'Player'
             else:
                 pts1  = self._calc_ai_points(team, season, tier_index, races_done, team_count)
-                name1 = self._get_driver_name(slot1, season, career_seed, name_mode)
+                name1 = self._get_driver_name(slot1, season, career_seed, name_mode,
+                                              career_data=career_data)
 
             if dpt == 1:
                 # Single-driver entry (MX5 Cup)
@@ -559,11 +390,13 @@ class CareerManager:
                     'is_player':  is_player_team,
                     'is_primary': True,
                     'tier_level': team.get('tier', 'customer'),
+                    'global_slot': slot1,
                 })
             else:
                 # Two drivers per team (GT4 / GT3 / WEC)
                 slot2 = slot1 + 1
-                name2 = self._get_driver_name(slot2, season, career_seed, name_mode)
+                name2 = self._get_driver_name(slot2, season, career_seed, name_mode,
+                                              career_data=career_data)
 
                 # Co-driver uses the same team performance but a slightly different seed
                 codriver_team = dict(team)
@@ -583,6 +416,7 @@ class CareerManager:
                     'is_player':  is_player_team,
                     'is_primary': True,
                     'tier_level': team.get('tier', 'customer'),
+                    'global_slot': slot1,
                 })
                 # Co-driver entry
                 entries.append({
@@ -595,6 +429,7 @@ class CareerManager:
                     'is_player':  False,
                     'is_primary': False,
                     'tier_level': team.get('tier', 'customer'),
+                    'global_slot': slot2,
                 })
 
         entries.sort(key=lambda x: x['points'], reverse=True)
@@ -653,34 +488,35 @@ class CareerManager:
         """Return standings for all 4 tiers simultaneously.
         Each tier returns {'drivers': [...], 'teams': [...]}.
         Player appears only in their own tier; other tiers show pure AI with
-        standings proportional to the player's season progress."""
-        result       = {}
-        player_tier  = career_data.get('tier', 0)
-        player_races = career_data.get('races_completed', 0)
-        player_total = self.get_tier_races(career_data)
-        fraction     = player_races / player_total if player_total > 0 else 1.0
-        cs           = career_data.get('career_settings') or {}
+        standings proportional to the player's season progress.
+        Also returns tier_progress: {tier_key: {done, total}} via second return value."""
+        result        = {}
+        tier_progress = {}
+        player_tier   = career_data.get('tier', 0)
+        player_races  = career_data.get('races_completed', 0)
+        player_total  = self.get_tier_races(career_data)
 
         for idx, tk in enumerate(self.tiers):
             tier_info = self.config['tiers'][tk]
             if idx == player_tier:
                 sim = career_data
+                tier_progress[tk] = {'done': player_races, 'total': player_total}
             else:
-                other_tracks = (cs.get('custom_tracks') or {}).get(tk) or tier_info['tracks']
-                ai_races     = round(fraction * len(other_tracks))
+                ai_done, ai_total = self.get_ai_tier_races(tk, career_data)
                 sim = {
                     'tier':            idx,
                     'season':          career_data.get('season', 1),
                     'team':            None,
-                    'races_completed': ai_races,
+                    'races_completed': ai_done,
                     'points':          0,
                     'driver_name':     '',
                     'driver_progress': career_data.get('driver_progress', {}),
                 }
+                tier_progress[tk] = {'done': ai_done, 'total': ai_total}
             drivers = self.generate_standings(tier_info, sim, tier_key=tk)
             teams   = self.generate_team_standings_from_drivers(drivers)
             result[tk] = {'drivers': drivers, 'teams': teams}
-        return result
+        return result, tier_progress
 
     def pick_rival(self, tier_key, season, career_data=None):
         """Pick the AI driver in tier_key whose skill is closest to 82.
@@ -698,13 +534,59 @@ class CareerManager:
         best_diff = 999
         for i in range(len(tier_info['teams'])):
             slot    = offset + i * dpt
-            name    = self._get_driver_name(slot, season, career_seed, name_mode)
+            name    = self._get_driver_name(slot, season, career_seed, name_mode,
+                                          career_data=career_data)
             profile = self.get_driver_profile(name, career_data=career_data)
             diff    = abs(profile.get('skill', 80) - 82)
             if diff < best_diff:
                 best_diff = diff
                 best_name = name
         return best_name
+
+    def check_mid_season_swaps(self, career_data, tier_info, tier_key):
+        """At midpoint, bottom 2 multi-driver teams swap their worst driver."""
+        dpt = self.DRIVERS_PER_TEAM.get(tier_key, 1)
+        if dpt < 2:
+            return []  # MX5 = single driver, no swaps
+
+        standings = self.generate_standings(tier_info, career_data, tier_key=tier_key)
+        team_standings = self.generate_team_standings_from_drivers(standings)
+
+        # Bottom 2 teams (exclude player's team)
+        bottom = [t for t in team_standings[-2:] if not t.get('is_player')]
+
+        # Find unassigned drivers (not in any active slot, not retired)
+        active_names = {s['driver'] for s in standings}
+        retired = set(career_data.get('retired_drivers', []))
+        available = [n for n in self.DRIVER_NAMES
+                     if n not in active_names and n not in retired]
+
+        swaps = career_data.setdefault('driver_swaps', {})
+        swap_log = career_data.setdefault('swap_log', [])
+        new_swaps = []
+
+        for team_entry in bottom:
+            team_name = team_entry['team']
+            team_drivers = [s for s in standings
+                            if s['team'] == team_name and not s.get('is_player')]
+            if not team_drivers or not available:
+                continue
+            worst = min(team_drivers, key=lambda d: d['points'])
+            replacement = available.pop(0)
+            slot = worst.get('global_slot')
+            if slot is None:
+                continue
+            swaps[str(slot)] = replacement
+            entry = {
+                'season': career_data.get('season', 1),
+                'race': career_data.get('races_completed', 0),
+                'team': team_name, 'tier': tier_key,
+                'dropped': worst['driver'], 'replacement': replacement,
+            }
+            swap_log.append(entry)
+            new_swaps.append(entry)
+
+        return new_swaps
 
     def _calc_ai_points(self, team, season, tier_index, races_done, team_count):
         """
@@ -736,6 +618,85 @@ class CareerManager:
             total += pts_table[pos - 1] if pos <= 10 else 0
 
         return total
+
+    # ------------------------------------------------------------------
+    # Cross-tier race simulation
+    # ------------------------------------------------------------------
+
+    def get_ai_tier_races(self, tier_key, career_data):
+        """How many races an AI tier has completed, proportional to player progress."""
+        player_races = career_data.get('races_completed', 0)
+        player_total = self.get_tier_races(career_data)
+        fraction = player_races / player_total if player_total > 0 else 1.0
+        cs = career_data.get('career_settings') or {}
+        tier_info = self.config['tiers'][tier_key]
+        tracks = (cs.get('custom_tracks') or {}).get(tier_key) or tier_info['tracks']
+        return round(fraction * len(tracks)), len(tracks)
+
+    def get_ai_race_grid(self, tier_key, race_num, season, career_data=None):
+        """Full finishing grid for a specific AI race (0-indexed race_num).
+
+        Uses the exact same MD5 seed pattern as _calc_ai_points so that
+        cumulative points from individual grids match the standings.
+        Returns {race_num, track, grid: [{position, driver, team}, ...]}.
+        """
+        tier_info   = self.config['tiers'][tier_key]
+        tier_index  = self.tiers.index(tier_key)
+        ac_path     = self.config.get('paths', {}).get('ac_install', '')
+        valid_teams = [t for t in tier_info['teams']
+                       if self._is_car_usable(t.get('car', ''), ac_path)]
+        team_count  = len(valid_teams)
+        if team_count == 0:
+            return None
+
+        dpt         = self.DRIVERS_PER_TEAM.get(tier_key, 1)
+        offset      = self.TIER_SLOT_OFFSET.get(tier_key, 0)
+        career_seed = int((career_data or {}).get('driver_seed') or 0)
+        name_mode   = self._get_name_mode(career_data)
+
+        cs     = (career_data or {}).get('career_settings') or {}
+        tracks = (cs.get('custom_tracks') or {}).get(tier_key) or tier_info['tracks']
+        track  = tracks[race_num % len(tracks)]
+
+        # Calculate raw position score per driver (same formula as _calc_ai_points)
+        entries = []
+        for i, team in enumerate(valid_teams):
+            for d in range(dpt):
+                t_name = team['name'] if d == 0 else team['name'] + '_codriver'
+                seed_str = f"{t_name}|{season}|{tier_index}|{race_num}"
+                seed = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+                rng  = random.Random(seed)
+
+                perf     = team.get('performance', 0)
+                norm     = max(0.0, min(1.0, (0.5 - perf) / 2.0))
+                base_pos = max(1, int(norm * team_count) + 1)
+                raw_pos  = base_pos + rng.randint(-3, 3)
+                raw_pos  = max(1, min(team_count, raw_pos))
+
+                slot = offset + i * dpt + d
+                driver = self._get_driver_name(slot, season, career_seed, name_mode,
+                                               career_data=career_data)
+                # Tiebreak: hash of driver name for deterministic ordering
+                tie = int(hashlib.md5(f"{driver}|{race_num}".encode()).hexdigest()[:4], 16)
+                entries.append({
+                    'raw_pos': raw_pos,
+                    'tie':     tie,
+                    'driver':  driver,
+                    'team':    team['name'],
+                })
+
+        # Sort by raw position, then tiebreak
+        entries.sort(key=lambda e: (e['raw_pos'], e['tie']))
+        grid = []
+        for pos, e in enumerate(entries, 1):
+            grid.append({'position': pos, 'driver': e['driver'], 'team': e['team']})
+
+        return {
+            'race_num': race_num + 1,   # 1-indexed for display
+            'track':    track,
+            'tier_key': tier_key,
+            'grid':     grid,
+        }
 
     # ------------------------------------------------------------------
     # Contracts
@@ -856,66 +817,6 @@ class CareerManager:
     # AC launch
     # ------------------------------------------------------------------
 
-    def _write_simulated_quali_result(self, grid, race_data):
-        """Write a fake qualifying result JSON to the AC results folder.
-
-        AC reads the newest QUALIFY-type result file to determine starting grid.
-        Without this, Race Only mode always puts the player last (no qualifying data).
-        By writing this file before launching the race, AC places every driver at
-        their simulated qualifying position.
-
-        grid:      sorted list from simulate_qualifying() — P1 first.
-        race_data: dict with 'driver_name', 'car', 'track', 'config_track'.
-        """
-        if not grid:
-            return
-
-        results_dir = get_ac_docs_path('results')
-        os.makedirs(results_dir, exist_ok=True)
-
-        driver_name  = race_data.get('driver_name', 'Player')
-        car_model    = race_data.get('car', '')
-        track_raw    = race_data.get('track', '')
-        track_folder = track_raw.split('/')[0] if '/' in track_raw else track_raw
-        config_track = track_raw.split('/')[1] if '/' in track_raw else race_data.get('config_track', '')
-
-        # Lap times: P1 gets BASE_LAP_MS, each subsequent position is GAP_PER_POS ms slower.
-        # Absolute values don't matter — AC sorts ascending; only the order counts.
-        BASE_LAP_MS = 84000   # 1m24s — plausible for any career track
-        GAP_PER_POS = 400     # ms per qualifying position
-
-        result_entries = []
-        for i, entry in enumerate(grid):
-            is_player = entry.get('is_player', False)
-            name = driver_name if is_player else entry.get('name', f'Driver_{i+1}')
-            car  = car_model   if is_player else entry.get('car', car_model)
-            result_entries.append({
-                "DriverName": name,
-                "CarModel":   car,
-                "BestLap":    BASE_LAP_MS + i * GAP_PER_POS,
-                "TotalTime":  BASE_LAP_MS + i * GAP_PER_POS,
-                "BallastKG":  0,
-            })
-
-        quali_json = {
-            "Type":         "QUALIFY",
-            "TrackName":    track_folder,
-            "TrackConfig":  config_track,
-            "Description":  "Simulated qualifying — AC Career GT Edition",
-            "Date":         int(datetime.now().timestamp()),
-            "DurationSecs": 600,
-            "RaceLaps":     0,
-            "Result":       result_entries,
-            "Laps":         [],
-            "Events":       [],
-        }
-
-        fname = datetime.now().strftime('%Y_%m_%d_%H_%M_%S') + '.json'
-        fpath = os.path.join(results_dir, fname)
-        with open(fpath, 'w', encoding='utf-8') as f:
-            json.dump(quali_json, f, indent=2)
-        print(f"Wrote simulated qualifying result: {fpath}")
-
     def _get_ac_docs_cfg(self):
         """Return path to AC's config folder where AC actually reads race.ini.
         Windows: ~/Documents/Assetto Corsa/cfg
@@ -945,11 +846,6 @@ class CareerManager:
         race_cfg_path = os.path.join(docs_cfg, 'race.ini')
         self._write_race_config(race_cfg_path, race_config, ac_path, mode=mode,
                                 career_data=career_data, session_type=session_type, grid=grid)
-
-        # 1b. For race sessions with a simulated grid, write a qualifying result JSON
-        #     so AC uses the correct starting grid order instead of defaulting to last.
-        if grid and (session_type == 'race' or mode == 'race_only'):
-            self._write_simulated_quali_result(grid, race_config)
 
         # 2. Patch launcher.ini in Documents so AC starts in race mode
         launcher_path = os.path.join(docs_cfg, 'launcher.ini')
@@ -1033,6 +929,7 @@ class CareerManager:
                       When provided, cars are written in grid order (player at correct position).
         """
         driver           = race_data.get('driver_name', 'Player')
+        player_nation    = (career_data or {}).get('player_nationality', '')
         car              = race_data['car']
         laps             = race_data['laps']
         ai_lvl           = int(race_data['ai_difficulty'])
@@ -1095,7 +992,7 @@ class CareerManager:
             f"FIXED_SETUP=0",
             f"VIRTUAL_MIRROR=0",
             f"DRIVER_NAME={driver}",
-            f"NATIONALITY=",
+            f"NATIONALITY={player_nation}",
             "",
         ]
 
@@ -1204,6 +1101,13 @@ class CareerManager:
         # Base variance from config (used to scale per-driver consistency)
         base_variance = self.config.get('difficulty', {}).get('ai_level_variance', 1.5)
 
+        # Track affinity: classify current track as fast/technical/balanced
+        track_raw    = race_data['track']
+        track_type   = self.TRACK_TYPE.get(track_raw, 'balanced')
+
+        # Form scores from career_data (season momentum)
+        form_scores  = (career_data or {}).get('form_scores', {})
+
         # Determine which skill attribute drives AI level for this session
         # qualifying → quali_pace only; full_weekend → blend; everything else → race skill
         if session_type == 'qualifying':
@@ -1213,7 +1117,7 @@ class CareerManager:
         else:
             ai_skill_mode = 'race'
 
-        def _ai_level_for(profile_):
+        def _ai_level_for(profile_, driver_name=''):
             """Compute a single AI level value for one driver."""
             if ai_skill_mode == 'qualifying':
                 eff = float(profile_.get('quali_pace', 75))
@@ -1224,10 +1128,21 @@ class CareerManager:
             s_off = int((eff - 80) * 0.2)
             w_adj = round((profile_.get('wet_skill', 60) - 50) * 0.08) if is_wet else 0
             n_adj = round((profile_.get('night_skill', 60) - 60) * 0.12 * night_weight)
+
+            # Track affinity: +1 on preferred track type, -1 on mismatched
+            driver_pref = TRACK_PREFERENCES.get(driver_name, 'balanced')
+            if track_type != 'balanced' and driver_pref != 'balanced':
+                t_adj = 1 if driver_pref == track_type else -1
+            else:
+                t_adj = 0
+
+            # Season momentum / form: ±2 AI_LEVEL based on recent results
+            form_adj = int(form_scores.get(driver_name, 0) * 2.5)
+
             cons  = profile_.get('consistency', 75)
             dvar  = min(base_variance * (1 + (50 - cons) / 50), 1.5)
             v_adj = random.uniform(-dvar, dvar)
-            return max(50, min(100, int(ai_lvl + s_off + w_adj + n_adj + v_adj)))
+            return max(50, min(100, int(ai_lvl + s_off + w_adj + n_adj + t_adj + form_adj + v_adj)))
 
         # Build ordered car list: grid order if provided, otherwise player P1 then AI.
         # grid entries: {'name', 'car', 'team', 'is_player', ...} sorted P1→last.
@@ -1236,65 +1151,27 @@ class CareerManager:
         opp_by_name  = {(opp.get('driver_name') or ''): opp for opp in ai_cars}
         player_team  = (career_data or {}).get('team')
 
+        # Player always occupies CAR_0 — AC identifies the human player by MODEL=- in the
+        # [CAR_0] block. Placing MODEL=- at any other slot causes AC to highlight the wrong
+        # car as the player.  With RACE+SPAWN_SET=START (no qualifying session), CAR_N order
+        # IS the grid order: CAR_0 = P1, CAR_1 = P2, etc.  The player therefore always starts
+        # P1 in Race Only mode — this is a hard AC constraint that cannot be worked around
+        # without the player actually driving a qualifying session.
+        # AI cars follow in simulated qualifying order so they race in a realistic spread.
         if grid:
-            car_entries = []
-            for g in grid:
-                if g.get('is_player'):
-                    car_entries.append({'type': 'player'})
-                else:
-                    opp = opp_by_name.get(g['name'], {'car': g.get('car', car), 'driver_name': g['name']})
-                    car_entries.append({'type': 'ai', 'opp': opp})
+            ai_in_quali_order = [
+                opp_by_name.get(g['name'], {'car': g.get('car', car), 'driver_name': g['name']})
+                for g in grid if not g.get('is_player')
+            ]
+            car_entries = [{'type': 'player'}] + [
+                {'type': 'ai', 'opp': opp} for opp in ai_in_quali_order
+            ]
         else:
             # Skip the AI stand-in for the player's own team slot (ghost driver fix).
             car_entries = [{'type': 'player'}] + [
                 {'type': 'ai', 'opp': opp} for opp in ai_cars
                 if not (player_team and opp.get('team') == player_team)
             ]
-
-        # Grid ordering for car entries:
-        # AC uses the CAR_N order in race.ini as the starting grid for RACE sessions
-        # (CAR_0 = P1, CAR_1 = P2, …). The player is identified by MODEL=- in their
-        # [CAR_N] block regardless of position — MODEL=- tells AC "this is the player's
-        # car, use the model/skin from [DRIVE]".
-        #
-        # When a simulated qualifying grid is provided, reorder car_entries to match:
-        # P1 qualifier → CAR_0, P2 → CAR_1, player at their qualifying spot (e.g. CAR_5).
-        # Without a grid, player defaults to CAR_0 (pole) as a safe fallback.
-        if grid:
-            # Build lookup: lower-case driver name → car_entry for AI cars
-            ai_lookup    = {}
-            player_entry = None
-            for ce in car_entries:
-                if ce['type'] == 'player':
-                    player_entry = ce
-                else:
-                    key = (ce['opp'].get('driver_name') or '').lower()
-                    ai_lookup[key] = ce
-
-            ordered = []
-            for g in grid:
-                if g.get('is_player'):
-                    if player_entry:
-                        ordered.append(player_entry)
-                else:
-                    key = (g.get('name') or '').lower()
-                    ce  = ai_lookup.get(key)
-                    if ce:
-                        ordered.append(ce)
-
-            # Append any unmatched entries (safety net) at the back
-            used = {id(e) for e in ordered}
-            for ce in car_entries:
-                if id(ce) not in used:
-                    ordered.append(ce)
-
-            car_entries = ordered
-        else:
-            # No grid: place player at CAR_0 (default — player starts from pole)
-            player_idx = next((i for i, e in enumerate(car_entries) if e['type'] == 'player'), None)
-            if player_idx is not None and player_idx != 0:
-                player_entry = car_entries.pop(player_idx)
-                car_entries.insert(0, player_entry)
 
         # Write [CAR_N] blocks in grid order
         # AI skins start at index 1 to reserve index 0 (00_official) exclusively for the player.
@@ -1315,7 +1192,7 @@ class CareerManager:
                     f"BALLAST={player_ballast}",
                     f"RESTRICTOR=0",
                     f"DRIVER_NAME={driver}",
-                    f"NATIONALITY=",
+                    f"NATIONALITY={player_nation}",
                     "",
                 ]
             else:
@@ -1332,11 +1209,28 @@ class CareerManager:
                 profile  = self.get_driver_profile(name, career_data=career_data)
                 nation   = profile['nationality']
 
-                opp_ai_level  = _ai_level_for(profile)
+                opp_ai_level  = _ai_level_for(profile, driver_name=name)
                 opp_aggression = profile['aggression']
                 consistency    = profile.get('consistency', 75)
                 if consistency < 50:
                     opp_aggression = min(100, opp_aggression + int((50 - consistency) * 0.3))
+
+                # Rivalry aggression boost (+5 for active rivals)
+                _tk = self.tiers[(career_data or {}).get('tier', 0)]
+                _tier_rivals = (career_data or {}).get('rivalries', {}).get(_tk, [])
+                _rival_names = set()
+                for _r in _tier_rivals:
+                    if _r.get('intensity', 0) >= 3:
+                        _rival_names.update(_r['drivers'])
+                if name in _rival_names:
+                    opp_aggression = min(100, opp_aggression + 5)
+
+                # Team development: better-rated teams get less ballast (faster)
+                opp_team_name = opp.get('team', '')
+                team_dev      = (career_data or {}).get('team_development', {}).get(opp_team_name, {})
+                dev_offset    = team_dev.get('rating_offset', 0)
+                # +0.5 rating → -5kg ballast (faster); -0.5 → +5kg (slower)
+                opp_ballast   = max(0, int(-dev_offset * 10))
 
                 lines += [
                     f"[CAR_{i}]",
@@ -1348,7 +1242,7 @@ class CareerManager:
                     f"AI_LEVEL={opp_ai_level}",
                     f"AI_AGGRESSION={opp_aggression}",
                     f"SETUP=",
-                    f"BALLAST=0",
+                    f"BALLAST={opp_ballast}",
                     f"RESTRICTOR=0",
                     "",
                 ]

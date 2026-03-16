@@ -101,7 +101,7 @@ DEMO_LAP_ANALYSIS = {
     "avg_lap_ms":     105680,
     "std_ms":         270,
     "consistency":    91,
-    "engineer_report": "Excellent race — P2 finish. Very consistent pace throughout, lap times within 1 second of each other. Sector 2 is your strongest; work on Sector 3 braking zones next round.",
+    "engineer_report": "Excellent race, P2 finish. Very consistent pace throughout, lap times within 1 second of each other. Sector 2 is your strongest; work on Sector 3 braking zones next round.",
     "sector_analysis": [
         {"best_ms": 32100, "avg_ms": 32480, "std_ms": 130},
         {"best_ms": 38200, "avg_ms": 38540, "std_ms": 110},

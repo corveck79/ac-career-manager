@@ -11,12 +11,22 @@ import subprocess
 import sys
 import statistics
 import threading
-import hashlib
 import random
 from datetime import datetime
 from urllib.parse import urlsplit
 
 from career_manager import CareerManager
+from driver_progress import (
+    DRIVER_SKILL_KEYS,
+    compute_progress_deltas,
+    driver_trend_label,
+    ensure_driver_progress,
+    evolve_driver_progress_for_race,
+    advance_driver_progress_season,
+    update_form_scores,
+    process_retirements,
+    update_rivalries,
+)
 from platform_paths import (
     detect_ac_install_path,
     get_ac_docs_path,
@@ -135,6 +145,182 @@ def save_career_data(data):
 
 
 
+def _fmt_track(track_id):
+    """Convert AC track folder ID to a readable display name."""
+    if not track_id:
+        return 'Unknown'
+    # Strip config suffix (e.g. 'ks_brands_hatch-gp' → 'ks_brands_hatch')
+    base = track_id.split('-')[0] if '-' in track_id else track_id
+    # Remove common prefixes
+    for prefix in ('ks_', 'ac_', 'csp_'):
+        if base.startswith(prefix):
+            base = base[len(prefix):]
+    # Title-case, replace underscores with spaces
+    return base.replace('_', ' ').title()
+
+
+def _add_news(career_data, event_type, text, icon, tier=None):
+    """Append an event to the paddock news feed (max 100 entries).
+    Deduplicates: won't add if exact same type+text already exists at same season+race."""
+    news = career_data.setdefault('paddock_news', [])
+    season = career_data.get('season', 1)
+    race = career_data.get('races_completed', 0)
+    # Deduplicate — prevent spam from per-race checks
+    for existing in news[:20]:  # only check recent entries for speed
+        if (existing.get('type') == event_type and existing.get('text') == text
+                and existing.get('season') == season):
+            return
+    news.insert(0, {
+        'season': season,
+        'race': race,
+        'type': event_type,
+        'text': text,
+        'icon': icon,
+        'tier': tier,
+    })
+    if len(news) > 100:
+        career_data['paddock_news'] = news[:100]
+
+
+import hashlib as _hl
+
+def _pick_template(templates, seed_text):
+    """Deterministically pick a template string from a list, seeded by text."""
+    idx = int(_hl.md5(seed_text.encode('utf-8')).hexdigest()[:8], 16) % len(templates)
+    return templates[idx]
+
+
+# ── News text templates (variety!) ──────────────────────────────────────────
+_RETIREMENT_TEMPLATES = [
+    "{name} ({age}) retires after a long career",
+    "{name} ({age}) hangs up the helmet",
+    "{name} ({age}) announces retirement from racing",
+    "{name} ({age}) calls time on a distinguished career",
+    "{name} ({age}) steps away from the grid",
+]
+_RETIREMENT_NICK_TEMPLATES = [
+    "{name} ({age}) retires: '{nick}' hangs up the helmet",
+    "'{nick}' {name} ({age}) announces retirement",
+    "{name} ({age}) bows out. Farewell, '{nick}'",
+    "End of an era: '{nick}' {name} ({age}) retires",
+]
+_SWAP_TEMPLATES = [
+    "{team} replaced {dropped} with {replacement} for the remainder of the season",
+    "{team} drops {dropped}, signs {replacement} as mid-season replacement",
+    "Driver change at {team}: {replacement} in, {dropped} out",
+    "{dropped} loses seat at {team}; {replacement} called up",
+]
+_RIVALRY_TEMPLATES = [
+    "Rivalry brewing: {d1} vs {d2}",
+    "Tensions rising between {d1} and {d2}",
+    "{d1} and {d2} locked in a fierce battle",
+    "The gloves are off: {d1} vs {d2}",
+]
+_FORM_HOT_TEMPLATES = [
+    "{name} is on a hot streak!",
+    "{name} is in scintillating form",
+    "{name} can do no wrong right now",
+    "Unstoppable: {name} keeps delivering",
+]
+_FORM_COLD_TEMPLATES = [
+    "{name} is struggling for form",
+    "{name} is having a season to forget",
+    "Tough times for {name}, results not coming",
+    "{name} under pressure after poor run of results",
+]
+_CHAMPION_TEMPLATES = [
+    "{tier}: {name} wins the championship!",
+    "{tier}: {name} crowned champion!",
+    "{tier}: Title glory for {name}!",
+    "{tier}: {name} takes the drivers' title!",
+]
+_TEAM_UP_TEMPLATES = [
+    "{team} upgraded: strong season pays off",
+    "{team} invests in development after solid results",
+    "Good news at {team}: performance boost confirmed",
+]
+_TEAM_DOWN_TEMPLATES = [
+    "{team} declined: struggling for performance",
+    "{team} loses ground after a difficult season",
+    "Tough off-season for {team}: budget cuts hit hard",
+]
+_MILESTONE_TEMPLATES = {
+    'first_win':    [
+        "A moment to remember: {name} takes a maiden victory!",
+        "{name} breaks through with a first career win!",
+        "History made! {name} wins for the first time!",
+    ],
+    'first_podium': [
+        "{name} earns a first career podium, P{pos}!",
+        "First podium for {name}! A P{pos} finish to celebrate.",
+    ],
+    'race_10':      ["{name} reaches 10 career races."],
+    'race_25':      ["{name} hits 25 career races. A seasoned competitor now."],
+    'race_50':      ["{name} completes 50 career races! A true veteran."],
+    'race_100':     ["100 races for {name}! What a career."],
+    'tier_first_win': [
+        "{name} takes a first {tier} victory!",
+        "First win in {tier} for {name}!",
+    ],
+}
+_ROOKIE_TEMPLATES = [
+    "{name} makes their championship debut",
+    "{name} joins the grid as a fresh face",
+    "Rookie {name} gets the call-up to race",
+    "New talent: {name} enters the championship",
+]
+_MOVE_TEMPLATES = {
+    'promotion': [
+        "{name} promoted to {tier}!",
+        "{name} moves up to {tier}!",
+        "Step up for {name}: joining {tier}!",
+    ],
+    'relegation': [
+        "{name} drops down to {tier}.",
+        "{name} relegated to {tier} after a tough season.",
+    ],
+    'stay': [
+        "{name} stays in {tier} for another season.",
+        "{name} extends in {tier}.",
+    ],
+}
+_TITLE_FIGHT_TEMPLATES = [
+    "{tier}: Only {gap} points separate the top 3!",
+    "{tier}: Tight at the top, {gap} points cover P1 to P3!",
+    "Nail-biter in {tier}: {gap}-point gap in the title race!",
+]
+_TITLE_DECIDED_TEMPLATES = [
+    "{tier}: {name} clinches the title with {remaining} races to go!",
+    "{tier}: {name} is champion! Sealed it with {remaining} rounds remaining.",
+    "It's over in {tier}: {name} wraps up the championship early!",
+]
+_WET_SPECIALIST_TEMPLATES = [
+    "{name} shows wet-weather mastery after the rain",
+    "Rain brings out the best in {name}",
+    "{name}'s wet skills shine through in tricky conditions",
+]
+_COMEBACK_TEMPLATES = [
+    "{name} is staging a remarkable comeback",
+    "What a turnaround from {name}!",
+    "{name} fights back from a rough start to the season",
+]
+_VETERAN_TEMPLATES = [
+    "Veteran {name} ({age}) begins what could be a final season",
+    "{name} ({age}) enters the twilight of a long career",
+    "How long can {name} ({age}) keep going?",
+]
+_TEAMMATE_BATTLE_TEMPLATES = [
+    "Internal battle at {team}: {d1} and {d2} separated by just {gap} points",
+    "Tension at {team}: teammates {d1} and {d2} only {gap} points apart",
+    "{team} teammates {d1} and {d2} in a tight fight ({gap}-point gap)",
+]
+_BIGGEST_MOVER_TEMPLATES = [
+    "{name} climbs {gain} positions in the {tier} standings!",
+    "Big mover: {name} up {gain} places in {tier}!",
+    "{name} surges {gain} spots in the {tier} championship!",
+]
+
+
 def _is_ac_running():
     """Best-effort check whether Assetto Corsa is still running."""
     try:
@@ -192,128 +378,6 @@ def _recommended_ai_delta(position, margin_ms=None):
         return -1
     return 0
 
-
-DRIVER_SKILL_KEYS = ['skill', 'aggression', 'wet_skill', 'quali_pace', 'consistency']
-
-def _clamp(value, low, high):
-    return max(low, min(high, value))
-
-def _seed_int(seed_text, low, high):
-    raw = int(hashlib.md5(seed_text.encode('utf-8')).hexdigest()[:8], 16)
-    span = max(1, (high - low + 1))
-    return low + (raw % span)
-
-def _compute_progress_deltas(entry):
-    current = entry.get('current') or {}
-    season_start = entry.get('season_start') or {}
-    career_start = entry.get('career_start') or {}
-    last_delta = entry.get('last_delta') or {}
-    season_delta = {}
-    career_delta = {}
-    race_delta = {}
-    for key in DRIVER_SKILL_KEYS:
-        cur = float(current.get(key, 0))
-        s0 = float(season_start.get(key, cur))
-        c0 = float(career_start.get(key, cur))
-        ld = float(last_delta.get(key, 0))
-        season_delta[key] = round(cur - s0, 1)
-        career_delta[key] = round(cur - c0, 1)
-        race_delta[key] = round(ld, 1)
-    return {'race': race_delta, 'season': season_delta, 'career': career_delta}
-
-def _driver_trend_label(entry):
-    deltas = _compute_progress_deltas(entry).get('season', {})
-    net = sum(float(deltas.get(k, 0)) for k in DRIVER_SKILL_KEYS)
-    if net >= 1.0:
-        return 'Rising'
-    if net <= -1.0:
-        return 'Declining'
-    return 'Stable'
-
-def _ensure_driver_progress(career_data):
-    roster = career_data.setdefault('driver_progress', {})
-    changed = False
-    for name, base in career.DRIVER_PROFILES.items():
-        entry = roster.get(name)
-        if not isinstance(entry, dict):
-            age = _seed_int(f'age|{name}', 19, 37)
-            potential = _seed_int(f'pot|{name}', 62, 96)
-            current = {k: float(base.get(k, 70)) for k in DRIVER_SKILL_KEYS}
-            roster[name] = {
-                'age': age,
-                'potential': potential,
-                'current': current,
-                'season_start': dict(current),
-                'career_start': dict(current),
-                'last_delta': {k: 0.0 for k in DRIVER_SKILL_KEYS},
-            }
-            changed = True
-            continue
-
-        current = entry.setdefault('current', {})
-        season_start = entry.setdefault('season_start', {})
-        career_start = entry.setdefault('career_start', {})
-        entry.setdefault('last_delta', {})
-        if 'age' not in entry:
-            entry['age'] = _seed_int(f'age|{name}', 19, 37)
-            changed = True
-        if 'potential' not in entry:
-            entry['potential'] = _seed_int(f'pot|{name}', 62, 96)
-            changed = True
-        for key in DRIVER_SKILL_KEYS:
-            base_val = float(base.get(key, 70))
-            if key not in current:
-                current[key] = base_val
-                changed = True
-            if key not in season_start:
-                season_start[key] = float(current[key])
-                changed = True
-            if key not in career_start:
-                career_start[key] = float(current[key])
-                changed = True
-            if key not in entry['last_delta']:
-                entry['last_delta'][key] = 0.0
-                changed = True
-    return changed
-
-def _evolve_driver_progress_for_race(career_data, race_num):
-    _ensure_driver_progress(career_data)
-    season = career_data.get('season', 1)
-    tier = career_data.get('tier', 0)
-    for name, entry in (career_data.get('driver_progress') or {}).items():
-        age = int(entry.get('age', 26))
-        potential = int(entry.get('potential', 75))
-        current = entry.get('current') or {}
-        last_delta = {}
-
-        if age <= 26:
-            age_factor = 0.8
-        elif age <= 31:
-            age_factor = 0.2
-        elif age <= 35:
-            age_factor = -0.25
-        else:
-            age_factor = -0.6
-        pot_factor = (potential - 75) / 25.0
-
-        for key in DRIVER_SKILL_KEYS:
-            noise_raw = _seed_int(f'{name}|{season}|{tier}|{race_num}|{key}', 0, 2000) / 1000.0 - 1.0
-            key_mult = 0.9 if key == 'skill' else 0.75
-            delta = key_mult * (0.028 * age_factor + 0.033 * pot_factor + 0.055 * noise_raw)
-            delta = _clamp(delta, -0.35, 0.35)
-            cur = float(current.get(key, 70))
-            cur = _clamp(cur + delta, 40.0, 99.0)
-            current[key] = round(cur, 2)
-            last_delta[key] = round(delta, 2)
-        entry['last_delta'] = last_delta
-
-def _advance_driver_progress_season(career_data):
-    _ensure_driver_progress(career_data)
-    for _, entry in (career_data.get('driver_progress') or {}).items():
-        entry['age'] = int(_clamp(int(entry.get('age', 25)) + 1, 18, 55))
-        current = entry.get('current') or {}
-        entry['season_start'] = {k: float(current.get(k, 70)) for k in DRIVER_SKILL_KEYS}
-        entry['last_delta'] = {k: 0.0 for k in DRIVER_SKILL_KEYS}
 
 def _default_career():
     return {
@@ -512,9 +576,10 @@ def get_standings():
 @app.route('/api/all-standings')
 def get_all_standings():
     career_data = load_career_data()
-    all_s = career.generate_all_standings(career_data)
+    all_s, tier_progress = career.generate_all_standings(career_data)
     return jsonify({
         'all_standings':   all_s,
+        'tier_progress':   tier_progress,
         'current_tier':    career_data.get('tier', 0),
         'races_completed': career_data.get('races_completed', 0),
         'total_races':     career.get_tier_races(career_data),
@@ -575,189 +640,6 @@ def get_next_race():
     return jsonify(race)
 
 
-@app.route('/api/weekend/init', methods=['POST'])
-def weekend_init():
-    """Initialise a new race weekend: generate race config, simulate practice + qualifying.
-    Stores current_weekend in career_data so sessions can be launched individually."""
-    career_data  = load_career_data()
-    cfg          = load_config()
-    tier_index   = career_data['tier']
-    tier_key     = career.tiers[tier_index]
-    tier_info    = _effective_tier_info(tier_key, career.get_tier_info(tier_index), career_data)
-    race_num     = career_data['races_completed'] + 1
-    season       = career_data.get('season', 1)
-    cs           = career_data.get('career_settings') or {}
-    weather_mode = cs.get('weather_mode', 'realistic')
-    if not cs.get('dynamic_weather', True):
-        weather_mode = 'always_clear'
-    night_cycle  = cs.get('night_cycle', True)
-
-    race = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
-                                tier_key=tier_key, season=season, weather_mode=weather_mode,
-                                night_cycle=night_cycle, career_data=career_data)
-    ai_offset = cs.get('ai_offset', 0)
-    if ai_offset:
-        race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
-    race['driver_name'] = career_data.get('driver_name', 'Player')
-
-    opponents = race.get('opponents', [])
-    ai_lvl    = int(race['ai_difficulty'])
-
-    practice_sim  = career.simulate_practice(opponents, ai_lvl, career_data=career_data)
-    qualifying_sim = career.simulate_qualifying(opponents, ai_lvl, career_data=career_data)
-
-    career_data['current_weekend'] = {
-        'race_data':      race,
-        'practice':       {'status': 'pending', 'sim_result': practice_sim},
-        'qualifying':     {'status': 'pending', 'sim_result': qualifying_sim, 'grid': qualifying_sim},
-        'race':           {'status': 'pending'},
-    }
-    save_career_data(career_data)
-
-    return jsonify({
-        'status':       'ok',
-        'race':         race,
-        'practice_sim': practice_sim,
-        'quali_sim':    qualifying_sim,
-    })
-
-
-@app.route('/api/weekend/start-session', methods=['POST'])
-def weekend_start_session():
-    """Write race.ini for the requested session and launch AC.
-    Body: {'session': 'practice'|'qualifying'|'race'}
-    """
-    data, err = _require_json_object()
-    if err:
-        return err
-    session = data.get('session', 'race')
-    if session not in ('practice', 'qualifying', 'race'):
-        return jsonify({'status': 'error', 'message': 'Invalid session'}), 400
-
-    career_data = load_career_data()
-    cfg         = load_config()
-    weekend     = career_data.get('current_weekend')
-    if not weekend:
-        return jsonify({'status': 'error', 'message': 'No active race weekend'}), 400
-
-    race     = weekend['race_data']
-    grid     = None
-    if session == 'race':
-        # Use the grid determined by qualifying (actual or simulated)
-        grid = weekend.get('qualifying', {}).get('grid') or None
-
-    success = career.launch_ac_race(race, cfg, session_type=session, grid=grid,
-                                    career_data=career_data)
-    if success:
-        career_data['current_weekend'][session]['status'] = 'started'
-        career_data['race_started_at'] = datetime.now().isoformat()
-        save_career_data(career_data)
-        return jsonify({'status': 'success', 'session': session})
-    else:
-        return jsonify({'status': 'error', 'message': 'Failed to launch AC'}), 500
-
-
-@app.route('/api/weekend/complete-session', methods=['POST'])
-def weekend_complete_session():
-    """Mark a session as done and advance weekend state.
-    Body: {'session': 'practice'|'qualifying'|'race', 'use_sim': true|false}
-
-    For qualifying:
-    - Reads latest AC qualifying result file when use_sim=false
-    - Falls back to simulated grid if result not found or use_sim=true
-    For practice and race: marks done, no grid change.
-    """
-    data, err = _require_json_object()
-    if err:
-        return err
-    session  = data.get('session', 'race')
-    use_sim  = data.get('use_sim', False)
-
-    career_data = load_career_data()
-    weekend     = career_data.get('current_weekend')
-    if not weekend:
-        return jsonify({'status': 'error', 'message': 'No active race weekend'}), 400
-
-    result_data = {}
-
-    if session == 'qualifying' and not use_sim:
-        # Try to read actual qualifying result from AC results folder
-        results_dir = get_ac_docs_path('results')
-        race_started_at = career_data.get('race_started_at', '')
-        try:
-            start_time = datetime.fromisoformat(race_started_at).replace(microsecond=0)
-        except (ValueError, TypeError):
-            start_time = datetime.min
-
-        quali_grid = None
-        if os.path.exists(results_dir):
-            candidates = []
-            for fname in os.listdir(results_dir):
-                if not fname.endswith('.json'):
-                    continue
-                fpath = os.path.join(results_dir, fname)
-                mtime = datetime.fromtimestamp(os.path.getmtime(fpath))
-                if mtime >= start_time:
-                    candidates.append((mtime, fpath))
-
-            candidates.sort(key=lambda x: x[0], reverse=True)
-            for _, fpath in candidates:
-                try:
-                    with open(fpath, 'r', encoding='utf-8') as f:
-                        res = json.load(f)
-                except Exception:
-                    continue
-                if res.get('Type', '').upper() not in ('QUALIFY', 'Q', 'QUALIFYING'):
-                    continue
-                # Build grid from AC qualifying results — sort by BestLap ascending (ignore 0 = no lap)
-                ac_results = sorted(
-                    res.get('Result', []),
-                    key=lambda x: x.get('BestLap', 999999999) or 999999999
-                )
-                driver_name = career_data.get('driver_name', 'Player')
-                quali_grid = []
-                for pos, entry in enumerate(ac_results, start=1):
-                    is_player = entry.get('DriverName', '').lower() == driver_name.lower()
-                    quali_grid.append({
-                        'name':       entry.get('DriverName', ''),
-                        'car':        entry.get('CarModel', ''),
-                        'team':       '',
-                        'is_player':  is_player,
-                        'pace_score': 0,
-                        'position':   pos,
-                        'best_lap':   entry.get('BestLap', 0),
-                    })
-                break
-
-        if quali_grid:
-            weekend['qualifying']['grid']  = quali_grid
-            result_data['source'] = 'actual'
-            result_data['grid']   = quali_grid
-        else:
-            # Fall back to simulated grid
-            result_data['source'] = 'simulated'
-            result_data['grid']   = weekend['qualifying'].get('sim_result', [])
-    elif session == 'qualifying' and use_sim:
-        result_data['source'] = 'simulated'
-        result_data['grid']   = weekend['qualifying'].get('sim_result', [])
-        weekend['qualifying']['grid'] = result_data['grid']
-
-    weekend[session]['status'] = 'done'
-    save_career_data(career_data)
-
-    return jsonify({'status': 'ok', 'session': session, 'result': result_data})
-
-
-@app.route('/api/weekend/state')
-def weekend_state():
-    """Return current weekend state (for UI refresh after returning from AC)."""
-    career_data = load_career_data()
-    weekend     = career_data.get('current_weekend')
-    if not weekend:
-        return jsonify({'status': 'none'})
-    return jsonify({'status': 'active', 'weekend': weekend})
-
-
 @app.route('/api/start-race', methods=['POST'])
 def start_race():
     career_data  = load_career_data()
@@ -784,8 +666,8 @@ def start_race():
         return err
     mode    = data.get('mode', 'race_only')
 
-    # Simulate qualifying so AC receives a results file and can order the starting grid.
-    # Without this, Race Only always puts the player last (no qualifying data in results/).
+    # Simulate qualifying to determine AI grid order and career standings position.
+    # The player always starts P1 in Race Only mode (AC constraint: player = CAR_0 = P1).
     opponents     = race.get('opponents', [])
     ai_lvl        = int(race['ai_difficulty'])
     quali_grid    = career.simulate_qualifying(opponents, ai_lvl, career_data=career_data)
@@ -794,15 +676,117 @@ def start_race():
                                     grid=quali_grid)
     if success:
         career_data['race_started_at'] = datetime.now().isoformat()
+        career_data['last_race_weather'] = race.get('weather', '3_clear')
         save_career_data(career_data)
         return jsonify({'status': 'success', 'message': 'AC launched!', 'race': race})
     else:
         return jsonify({'status': 'error', 'message': 'Failed to launch AC'}), 500
 
 
+def _try_race_out_json(driver_name, start_time, race_seen):
+    """Fallback: read out/race_out.json (Content Manager / newer AC format).
+
+    Returns (data, results, player_result, player_position, race_seen) matching
+    the shape expected by read_race_result().  On failure returns all-None tuple.
+    """
+    out_file = os.path.join(get_ac_docs_path('out'), 'race_out.json')
+    if not os.path.isfile(out_file):
+        return None, [], None, None, race_seen
+    mtime = datetime.fromtimestamp(os.path.getmtime(out_file))
+    if mtime < start_time:
+        return None, [], None, None, race_seen
+
+    try:
+        with open(out_file, 'r', encoding='utf-8') as f:
+            raw = json.load(f)
+    except Exception:
+        return None, [], None, None, race_seen
+
+    players  = raw.get('players', [])
+    sessions = raw.get('sessions', [])
+    if not players or not sessions:
+        return None, [], None, None, race_seen
+
+    # Find the RACE session (type 3) — take the last one if multiple
+    race_session = None
+    for s in reversed(sessions):
+        if s.get('type') == 3 or (s.get('name') or '').upper() == 'RACE':
+            race_session = s
+            break
+    if race_session is None:
+        return None, [], None, None, race_seen
+
+    race_seen = True
+    race_result_indices = race_session.get('raceResult', [])
+    if not race_result_indices:
+        return None, [], None, None, race_seen
+
+    # Build a results list that mirrors the classic AC format:
+    #   [{DriverName, Laps, BestLap, TotalTime, ...}, ...]
+    laps_raw = race_session.get('laps', [])
+
+    # Group laps by car index
+    car_laps = {}
+    for lap in laps_raw:
+        ci = lap.get('car')
+        if ci is not None:
+            car_laps.setdefault(ci, []).append(lap)
+
+    # Best-lap lookup per car
+    best_laps_raw = {bl['car']: bl['time'] for bl in race_session.get('bestLaps', [])
+                     if isinstance(bl, dict)}
+
+    results = []
+    for car_idx in race_result_indices:
+        if car_idx >= len(players):
+            continue
+        p = players[car_idx]
+        p_laps = car_laps.get(car_idx, [])
+        total_time = sum(l.get('time', 0) for l in p_laps)
+        best_lap   = best_laps_raw.get(car_idx, 0)
+        results.append({
+            'DriverName': p.get('name', ''),
+            'Laps':       len(p_laps),
+            'BestLap':    best_lap,
+            'TotalTime':  total_time,
+            '_car_idx':   car_idx,
+        })
+
+    # Build a top-level 'Laps' array in classic format for debrief analysis
+    classic_laps = []
+    for lap in laps_raw:
+        ci = lap.get('car')
+        if ci is None or ci >= len(players):
+            continue
+        sectors = lap.get('sectors', [])
+        classic_laps.append({
+            'DriverName': players[ci].get('name', ''),
+            'LapTime':    lap.get('time', 0),
+            'Sectors':    sectors,
+            'Cuts':       lap.get('cuts', 0),
+            'Tyre':       lap.get('tyre', ''),
+        })
+
+    # Find player
+    player_result = None
+    player_position = None
+    for i, r in enumerate(results):
+        if r['DriverName'].lower() == driver_name.lower():
+            player_result = r
+            player_position = i + 1
+            break
+
+    if player_result is None:
+        return None, results, None, None, race_seen
+
+    # Package as a data dict with classic 'Laps' key for debrief compatibility
+    data = {'Laps': classic_laps, '_source': 'race_out'}
+    return data, results, player_result, player_position, race_seen
+
+
 @app.route('/api/read-race-result')
 def read_race_result():
-    """Auto-read the latest AC race result from Documents/Assetto Corsa/results/."""
+    """Auto-read the latest AC race result from Documents/Assetto Corsa/results/ or out/race_out.json."""
     career_data = load_career_data()
     driver_name = career_data.get('driver_name', 'Player')
 
@@ -836,19 +820,17 @@ def read_race_result():
         if mtime >= start_time:
             candidates.append((mtime, fpath))
 
-    if not candidates:
-        return jsonify({'status': 'not_found', 'message': 'No result file found yet'})
+    # ── Strategy 1: classic results/ folder (AC vanilla format) ──────────────
+    if candidates:
+        candidates.sort(key=lambda x: x[0], reverse=True)
 
-    candidates.sort(key=lambda x: x[0], reverse=True)
     data = None
     results = []
     player_result = None
     player_position = None
     race_seen = False
 
-    # Walk recent files newest -> oldest and pick the first race result
-    # that actually contains the active player.
-    for _, result_file in candidates:
+    for _, result_file in (candidates or []):
         try:
             with open(result_file, 'r', encoding='utf-8') as f:
                 candidate_data = json.load(f)
@@ -870,6 +852,11 @@ def read_race_result():
         if player_result is not None:
             break
 
+    # ── Strategy 2: out/race_out.json (Content Manager / newer AC format) ──
+    if player_result is None:
+        data, results, player_result, player_position, race_seen = \
+            _try_race_out_json(driver_name, start_time, race_seen)
+
     if player_result is None:
         msg = 'Driver not found in results' if race_seen else 'No race session result found yet'
         return jsonify({'status': 'not_found', 'message': msg})
@@ -878,7 +865,12 @@ def read_race_result():
     total_time     = player_result.get('TotalTime', 0)
     best_lap_ms    = player_result.get('BestLap', 0)
 
-    incomplete = (laps_completed < max(1, expected_laps // 2)) or (total_time == 0 and laps_completed == 0)
+    # race_out.json (Content Manager format) doesn't record player laps/time,
+    # so skip the incomplete check when the result came from that source.
+    from_race_out = isinstance(data, dict) and data.get('_source') == 'race_out'
+    incomplete = (not from_race_out) and (
+        (laps_completed < max(1, expected_laps // 2)) or (total_time == 0 and laps_completed == 0)
+    )
 
     best_lap_fmt = ''
     if best_lap_ms and best_lap_ms > 0:
@@ -1013,7 +1005,211 @@ def finish_race():
     if ai_delta:
         cs['ai_offset'] = max(-20, min(20, cur_ai_offset + ai_delta))
 
-    _evolve_driver_progress_for_race(career_data, result['race_num'])
+    evolve_driver_progress_for_race(career_data, result['race_num'],
+                                    weather=career_data.get('last_race_weather'))
+
+    # Update form scores (season momentum) based on current standings
+    tier_index = career_data.get('tier', 0)
+    tier_key   = career.tiers[tier_index]
+    tier_info  = career.get_tier_info(tier_index)
+    standings  = career.generate_standings(tier_info, career_data, tier_key=tier_key)
+    update_form_scores(career_data, standings)
+
+    # Update driver rivalries
+    update_rivalries(career_data, standings, tier_key)
+    # Announce rivalries that just reached intensity 3 (dedup prevents repeats)
+    for rival in (career_data.get('rivalries', {}).get(tier_key) or []):
+        if rival.get('intensity') == 3:
+            d1, d2 = rival['drivers']
+            seed = f"rivalry|{d1}|{d2}|{career_data.get('season',1)}"
+            text = _pick_template(_RIVALRY_TEMPLATES, seed).format(d1=d1, d2=d2)
+            _add_news(career_data, 'rivalry', text, 'swords', tier=tier_key)
+
+    # Form streak news — only announce once per driver per season (dedup handles it)
+    for fname, fscore in (career_data.get('form_scores') or {}).items():
+        if fscore >= 0.7:
+            seed = f"form_hot|{fname}|{career_data.get('season',1)}"
+            text = _pick_template(_FORM_HOT_TEMPLATES, seed).format(name=fname)
+            _add_news(career_data, 'form_streak', text, 'form_hot', tier=tier_key)
+        elif fscore <= -0.7:
+            seed = f"form_cold|{fname}|{career_data.get('season',1)}"
+            text = _pick_template(_FORM_COLD_TEMPLATES, seed).format(name=fname)
+            _add_news(career_data, 'form_streak', text, 'form_cold', tier=tier_key)
+
+    # Mid-season driver swaps (at midpoint)
+    races_done = career_data['races_completed']
+    total_races = career.get_tier_races(career_data)
+    if races_done == total_races // 2:
+        new_swaps = career.check_mid_season_swaps(career_data, tier_info, tier_key)
+        for swap in new_swaps:
+            seed = f"swap|{swap['dropped']}|{swap['replacement']}"
+            text = _pick_template(_SWAP_TEMPLATES, seed).format(**swap)
+            _add_news(career_data, 'swap', text, 'clipboard', tier=tier_key)
+
+    # ── Player milestone news ─────────────────────────────────────────────
+    player_name = career_data.get('driver_name', 'Player')
+    player_results = career_data.get('race_results', [])
+    total_player_races = len(player_results)
+    player_wins = sum(1 for r in player_results if r.get('position') == 1)
+    player_podiums = sum(1 for r in player_results if r.get('position', 99) <= 3)
+    tier_label_here = career.tier_names.get(tier_key, tier_key)
+
+    # First career win
+    if position == 1 and player_wins == 1:
+        seed = f"milestone|first_win|{player_name}"
+        text = _pick_template(_MILESTONE_TEMPLATES['first_win'], seed).format(name=player_name)
+        _add_news(career_data, 'milestone', text, 'trophy')
+    # First career podium
+    elif position <= 3 and player_podiums == 1:
+        seed = f"milestone|first_podium|{player_name}"
+        text = _pick_template(_MILESTONE_TEMPLATES['first_podium'], seed).format(
+            name=player_name, pos=position)
+        _add_news(career_data, 'milestone', text, 'trophy')
+    # First win in current tier
+    tier_wins = sum(1 for r in player_results if r.get('position') == 1)
+    prev_season_wins = sum(1 for ph in career_data.get('player_history', [])
+                           if ph.get('tier') == tier_key for _ in range(ph.get('wins', 0)))
+    if position == 1 and tier_wins == 1 and prev_season_wins == 0:
+        seed = f"milestone|tier_first_win|{player_name}|{tier_key}"
+        text = _pick_template(_MILESTONE_TEMPLATES['tier_first_win'], seed).format(
+            name=player_name, tier=tier_label_here)
+        _add_news(career_data, 'milestone', text, 'trophy')
+    # Race count milestones (cumulative across all seasons)
+    total_career_races = total_player_races + sum(
+        ph.get('races', 0) for ph in career_data.get('player_history', []))
+    for milestone_key, milestone_num in [('race_10', 10), ('race_25', 25),
+                                          ('race_50', 50), ('race_100', 100)]:
+        if total_career_races == milestone_num:
+            text = _MILESTONE_TEMPLATES[milestone_key][0].format(name=player_name)
+            _add_news(career_data, 'milestone', text, 'flag')
+
+    # ── Wet specialist shoutout ───────────────────────────────────────────
+    weather = career_data.get('last_race_weather')
+    is_wet = weather and weather.lower().replace(' ', '_') in {
+        'rainy', 'heavy_rain', 'wet', 'light_rain', 'drizzle', 'stormy', 'overcast_wet'}
+    if is_wet and position <= 3:
+        seed = f"wet_spec|{player_name}|{career_data.get('season',1)}|{races_done}"
+        text = _pick_template(_WET_SPECIALIST_TEMPLATES, seed).format(name=player_name)
+        _add_news(career_data, 'wet_specialist', text, 'rain', tier=tier_key)
+
+    # ── Close title fight ─────────────────────────────────────────────────
+    if races_done >= 3 and len(standings) >= 3:
+        top3 = sorted(standings, key=lambda s: s.get('points', 0), reverse=True)[:3]
+        gap = top3[0]['points'] - top3[2]['points']
+        if 0 < gap <= 15:
+            seed = f"title_fight|{tier_key}|{career_data.get('season',1)}"
+            text = _pick_template(_TITLE_FIGHT_TEMPLATES, seed).format(
+                tier=tier_label_here, gap=gap)
+            _add_news(career_data, 'title_fight', text, 'swords', tier=tier_key)
+
+    # ── Championship decided early ────────────────────────────────────────
+    remaining = total_races - races_done
+    if remaining > 0 and len(standings) >= 2:
+        sorted_st = sorted(standings, key=lambda s: s.get('points', 0), reverse=True)
+        leader_pts = sorted_st[0]['points']
+        second_pts = sorted_st[1]['points']
+        max_possible = remaining * 25  # max points from remaining races
+        if leader_pts - second_pts > max_possible:
+            seed = f"title_decided|{tier_key}|{career_data.get('season',1)}"
+            text = _pick_template(_TITLE_DECIDED_TEMPLATES, seed).format(
+                tier=tier_label_here, name=sorted_st[0]['driver'], remaining=remaining)
+            _add_news(career_data, 'title_decided', text, 'trophy', tier=tier_key)
+
+    # ── Teammate battles ──────────────────────────────────────────────────
+    if races_done >= 3:
+        dpt = career.DRIVERS_PER_TEAM.get(tier_key, 1)
+        if dpt >= 2:
+            teams_seen = {}
+            for s in standings:
+                tn = s.get('team', '')
+                teams_seen.setdefault(tn, []).append(s)
+            for tn, drivers in teams_seen.items():
+                if len(drivers) < 2:
+                    continue
+                drivers_sorted = sorted(drivers, key=lambda d: d.get('points', 0), reverse=True)
+                d1, d2 = drivers_sorted[0], drivers_sorted[1]
+                gap = d1['points'] - d2['points']
+                if 0 < gap <= 8 and not d1.get('is_player') and not d2.get('is_player'):
+                    seed = f"teammate|{tn}|{career_data.get('season',1)}"
+                    text = _pick_template(_TEAMMATE_BATTLE_TEMPLATES, seed).format(
+                        team=tn, d1=d1['driver'], d2=d2['driver'], gap=gap)
+                    _add_news(career_data, 'teammate_battle', text, 'swords', tier=tier_key)
+
+    # ── Biggest mover (standings position change detection) ───────────────
+    if races_done >= 2:
+        prev_standings = career_data.get('_prev_standings_order', {}).get(tier_key, [])
+        curr_order = [s['driver'] for s in sorted(
+            standings, key=lambda s: s.get('points', 0), reverse=True)]
+        if prev_standings:
+            prev_pos = {name: i for i, name in enumerate(prev_standings)}
+            best_gain = 0
+            best_mover = None
+            for curr_i, name in enumerate(curr_order):
+                if name in prev_pos:
+                    gain = prev_pos[name] - curr_i  # positive = moved up
+                    if gain > best_gain:
+                        best_gain = gain
+                        best_mover = name
+            if best_mover and best_gain >= 3:
+                seed = f"mover|{best_mover}|{career_data.get('season',1)}|{races_done}"
+                text = _pick_template(_BIGGEST_MOVER_TEMPLATES, seed).format(
+                    name=best_mover, gain=best_gain, tier=tier_label_here)
+                _add_news(career_data, 'biggest_mover', text, 'chart_up', tier=tier_key)
+        # Store current order for next race comparison
+        career_data.setdefault('_prev_standings_order', {})[tier_key] = curr_order
+
+    # ── Comeback story (form swing) ───────────────────────────────────────
+    for fname, fscore in (career_data.get('form_scores') or {}).items():
+        progress = career_data.get('driver_progress', {}).get(fname, {})
+        prev_form = progress.get('_prev_form', 0)
+        # Detect swing from cold to hot (at least 1.0 swing)
+        if prev_form <= -0.3 and fscore >= 0.4:
+            seed = f"comeback|{fname}|{career_data.get('season',1)}"
+            text = _pick_template(_COMEBACK_TEMPLATES, seed).format(name=fname)
+            _add_news(career_data, 'comeback', text, 'chart_up', tier=tier_key)
+        progress['_prev_form'] = fscore
+
+    # Cross-tier championship leader updates (every 3 races, keeps feed interesting)
+    if career_data['races_completed'] % 3 == 0:
+        tier_labels = {'mx5_cup': 'MX5 Cup', 'gt4': 'GT4', 'gt3': 'GT3', 'wec': 'WEC'}
+        all_st, _ = career.generate_all_standings(career_data)
+        for tk, st_data in all_st.items():
+            if tk == tier_key:
+                continue  # skip player's own tier
+            drivers = st_data.get('drivers', [])
+            if drivers:
+                leader = drivers[0]
+                tl = tier_labels.get(tk, tk)
+                _add_news(career_data, 'standings_update',
+                          f"{tl} standings leader: {leader['driver']} ({leader['points']} pts)",
+                          'standings', tier=tk)
+
+    # ── Cross-tier race results (podium news for other tiers) ────────
+    _tier_labels = {'mx5_cup': 'MX5 Cup', 'gt4': 'GT4', 'gt3': 'GT3', 'wec': 'WEC'}
+    prev_ai = career_data.get('_prev_ai_races', {})
+    season = career_data.get('season', 1)
+    for idx, tk in enumerate(career.tiers):
+        if idx == career_data['tier']:
+            continue
+        ai_done, ai_total = career.get_ai_tier_races(tk, career_data)
+        prev_done = prev_ai.get(tk, ai_done - 1)  # first call: assume only latest race is new
+        # Generate results for each newly completed race
+        for rn in range(max(0, prev_done), ai_done):
+            grid_data = career.get_ai_race_grid(tk, rn, season, career_data)
+            if not grid_data or len(grid_data['grid']) < 3:
+                continue
+            tl    = _tier_labels.get(tk, tk)
+            track = _fmt_track(grid_data['track'])
+            p1    = grid_data['grid'][0]['driver']
+            p2    = grid_data['grid'][1]['driver']
+            p3    = grid_data['grid'][2]['driver']
+            rd    = grid_data['race_num']
+            _add_news(career_data, 'race_result',
+                      f"{tl} Rd {rd} at {track}: {p1} wins, {p2} P2, {p3} P3",
+                      'flag', tier=tk)
+        prev_ai[tk] = ai_done
+    career_data['_prev_ai_races'] = prev_ai
+
     save_career_data(career_data)
     if career_data['races_completed'] >= career.get_tier_races(career_data):
         return _do_end_season()
@@ -1038,8 +1234,8 @@ def _do_end_season():
     tier_key    = career.tiers[tier_index]
     tier_info   = career.get_tier_info(tier_index)
     standings   = career.generate_standings(tier_info, career_data, tier_key=tier_key)
-    position    = next((s['position'] for s in standings if s['is_player']), team_count)
     team_count  = len(tier_info['teams'])
+    position    = next((s['position'] for s in standings if s['is_player']), team_count)
 
     # Snapshot AI driver final positions into career history
     driver_history = career_data.get('driver_history', {})
@@ -1069,6 +1265,98 @@ def _do_end_season():
         'races':  career_data['races_completed'],
         'wins':   wins,
     })
+
+    # Evolve team development ratings based on team standings
+    team_standings = career.generate_team_standings_from_drivers(standings)
+    team_dev = career_data.setdefault('team_development', {})
+    ts_count = len(team_standings)
+    top_25 = max(1, ts_count // 4)
+    for rank, ts_entry in enumerate(team_standings):
+        tn = ts_entry.get('team', '')
+        if not tn:
+            continue
+        td = team_dev.setdefault(tn, {'rating_offset': 0.0})
+        # Determine tier type for volatility multiplier
+        team_tier = next((t.get('tier', 'customer') for t in tier_info['teams']
+                          if t['name'] == tn), 'customer')
+        volatility = 0.5 if team_tier == 'factory' else (1.5 if team_tier == 'customer' else 1.0)
+        if rank < top_25:
+            td['rating_offset'] = min(0.5, td['rating_offset'] + 0.1 * volatility)
+        elif rank >= ts_count - top_25:
+            td['rating_offset'] = max(-0.5, td['rating_offset'] - 0.1 * volatility)
+        td['rating_offset'] = round(td['rating_offset'], 2)
+
+    # Process driver retirements (age 38+)
+    newly_retired = process_retirements(career_data, season)
+    for ret in newly_retired:
+        nick = ret.get('nickname')
+        seed = f"retire|{ret['name']}|{season}"
+        if nick:
+            text = _pick_template(_RETIREMENT_NICK_TEMPLATES, seed).format(
+                name=ret['name'], age=ret['age'], nick=nick)
+        else:
+            text = _pick_template(_RETIREMENT_TEMPLATES, seed).format(
+                name=ret['name'], age=ret['age'])
+        _add_news(career_data, 'retirement', text, 'flag')
+
+    # Championship winner news (all tiers)
+    tier_labels = {'mx5_cup': 'MX5 Cup', 'gt4': 'GT4', 'gt3': 'GT3', 'wec': 'WEC'}
+    all_standings, _ = career.generate_all_standings(career_data)
+    for tk, st_data in all_standings.items():
+        drivers = st_data.get('drivers', [])
+        if drivers:
+            champ = drivers[0]
+            tl = tier_labels.get(tk, tk)
+            seed = f"champ|{tk}|{season}"
+            text = _pick_template(_CHAMPION_TEMPLATES, seed).format(
+                tier=tl, name=champ['driver'])
+            _add_news(career_data, 'champion', text, 'trophy', tier=tk)
+
+    # Team development news
+    for rank, ts_entry in enumerate(team_standings):
+        tn = ts_entry.get('team', '')
+        td = team_dev.get(tn, {})
+        ro = td.get('rating_offset', 0)
+        if ro >= 0.2:
+            text = _pick_template(_TEAM_UP_TEMPLATES, f"tdev|{tn}|{season}").format(team=tn)
+            _add_news(career_data, 'team_dev', text, 'chart_up', tier=tier_key)
+        elif ro <= -0.2:
+            text = _pick_template(_TEAM_DOWN_TEMPLATES, f"tdev|{tn}|{season}").format(team=tn)
+            _add_news(career_data, 'team_dev', text, 'chart_down', tier=tier_key)
+
+    # ── Veteran warnings (drivers age 38+ entering next season, max 3) ───
+    progress = career_data.get('driver_progress', {})
+    veteran_count = 0
+    for dname, entry in progress.items():
+        if dname in set(career_data.get('retired_drivers', [])):
+            continue
+        age = int(entry.get('age', 25))
+        if age >= 38:
+            seed = f"veteran|{dname}|{season + 1}"
+            text = _pick_template(_VETERAN_TEMPLATES, seed).format(name=dname, age=age)
+            _add_news(career_data, 'veteran', text, 'flag')
+            veteran_count += 1
+            if veteran_count >= 3:
+                break
+
+    # ── Rookie announcements (new names replacing retirees) ──────────────
+    # When drivers retire, the roster shifts — new names enter the grid.
+    # We announce up to len(newly_retired) rookies based on the youngest
+    # non-retired drivers who haven't appeared in driver_history yet.
+    if newly_retired:
+        driver_history = career_data.get('driver_history', {})
+        retired_set = set(career_data.get('retired_drivers', []))
+        rookie_candidates = []
+        for dname, entry in progress.items():
+            if dname in retired_set or dname in driver_history:
+                continue
+            age = int(entry.get('age', 25))
+            rookie_candidates.append((age, dname))
+        rookie_candidates.sort()  # youngest first
+        for _, dname in rookie_candidates[:len(newly_retired)]:
+            seed = f"rookie|{dname}|{season}"
+            text = _pick_template(_ROOKIE_TEMPLATES, seed).format(name=dname)
+            _add_news(career_data, 'rookie', text, 'flag')
 
     # Career complete: top tier + not in degradation risk → no next tier
     degradation_risk = position >= team_count - 2
@@ -1126,9 +1414,27 @@ def accept_contract():
     # Preserve career_settings (difficulty, weather, custom tracks) across seasons
     # career_settings is intentionally NOT reset here
 
+    # Clear mid-season swap overrides and AI race tracking for the new season
+    career_data['driver_swaps'] = {}
+    career_data['_prev_ai_races'] = {}
+
+    # Player move news (promotion/relegation/stay)
+    new_tier_key = career.tiers[new_tier]
+    new_tier_label = career.tier_names.get(new_tier_key, new_tier_key)
+    player_name = career_data.get('driver_name', 'Player')
+    move_templates = _MOVE_TEMPLATES.get(move, _MOVE_TEMPLATES['stay'])
+    move_seed = f"move|{player_name}|{career_data['season']}"
+    move_text = _pick_template(move_templates, move_seed).format(
+        name=player_name, tier=new_tier_label)
+    _add_news(career_data, 'player_move', move_text, 'clipboard')
+
+    # New season announcement
+    _add_news(career_data, 'new_season',
+              f"Season {career_data['season']} begins!",
+              'flag')
+
     # Pick new rival for the new tier/season
-    new_tier_key              = career.tiers[new_tier]
-    _advance_driver_progress_season(career_data)
+    advance_driver_progress_season(career_data)
     career_data['rival_name'] = career.pick_rival(new_tier_key, career_data.get('season', 1), career_data=career_data)
 
     save_career_data(career_data)
@@ -1139,7 +1445,7 @@ def accept_contract():
         'relegation': 'Relegated to',
     }
     tier_label = career.tier_names.get(career.tiers[new_tier], '')
-    msg = f"{move_labels.get(move, 'Welcome to')} {tier_label} — {selected['team_name']}!"
+    msg = f"{move_labels.get(move, 'Welcome to')} {tier_label}: {selected['team_name']}!"
 
     return jsonify({
         'status':   'success',
@@ -1155,6 +1461,7 @@ def accept_contract():
 def new_career():
     data          = request.json or {}
     driver_name   = data.get('driver_name', '').strip() or 'Driver'
+    nationality   = data.get('nationality', '').strip().upper()
     difficulty    = data.get('difficulty', 'pro')
     weather_mode  = data.get('weather_mode', 'realistic')
     name_mode     = str(data.get('name_mode', 'curated')).strip().lower()
@@ -1171,6 +1478,7 @@ def new_career():
         'team':            'Mazda Academy',
         'car':             'ks_mazda_mx5_cup',
         'driver_name':     driver_name,
+        'player_nationality': nationality,
         'races_completed': 0,
         'points':          0,
         'standings':       [],
@@ -1178,6 +1486,8 @@ def new_career():
         'contracts':       None,
         'driver_history':  {},
         'player_history':  [],
+        'form_scores':     {},
+        'team_development': {},
         'rival_name':      career.pick_rival('mx5_cup', 1),
         'driver_seed':     random.randint(0, 2**31 - 1),
         'career_settings': {
@@ -1188,7 +1498,7 @@ def new_career():
             'custom_tracks': custom_tracks,
         },
     }
-    _ensure_driver_progress(initial)
+    ensure_driver_progress(initial)
     initial['rival_name'] = career.pick_rival('mx5_cup', 1, career_data=initial)
     save_career_data(initial)
     return jsonify({'status': 'success', 'message': 'New career started!', 'career_data': initial})
@@ -1281,22 +1591,22 @@ def scan_content():
 def driver_profile():
     name        = request.args.get('name', '')
     career_data = load_career_data()
-    changed = _ensure_driver_progress(career_data)
+    changed = ensure_driver_progress(career_data)
 
     profile = career.get_driver_profile(name, career_data=career_data)
     progress = (career_data.get('driver_progress') or {}).get(name, {})
     profile['age'] = progress.get('age')
     profile['potential'] = progress.get('potential')
-    profile['skill_deltas'] = _compute_progress_deltas(progress) if progress else {
+    profile['skill_deltas'] = compute_progress_deltas(progress) if progress else {
         'race': {k: 0.0 for k in DRIVER_SKILL_KEYS},
         'season': {k: 0.0 for k in DRIVER_SKILL_KEYS},
         'career': {k: 0.0 for k in DRIVER_SKILL_KEYS},
     }
-    profile['trend_label'] = _driver_trend_label(progress) if progress else 'Stable'
+    profile['trend_label'] = driver_trend_label(progress) if progress else 'Stable'
 
     history     = career_data.get('driver_history', {}).get(name, {'seasons': []})
     # Find current standings entry for this driver across all tiers
-    all_s         = career.generate_all_standings(career_data)
+    all_s, _      = career.generate_all_standings(career_data)
     current_entry = None
     for tier_data in all_s.values():
         for entry in tier_data['drivers']:
@@ -1311,6 +1621,12 @@ def driver_profile():
 
     return jsonify({'name': name, 'profile': profile, 'current': current_entry, 'history': history})
 
+@app.route('/api/paddock-news')
+def paddock_news():
+    career_data = load_career_data()
+    return jsonify(career_data.get('paddock_news', []))
+
+
 @app.route('/api/player-profile')
 def player_profile():
     career_data = load_career_data()
@@ -1319,9 +1635,10 @@ def player_profile():
     podiums  = sum(1 for r in results if r.get('position', 99) <= 3)
     avg      = round(sum(r['position'] for r in results) / len(results), 1) if results else None
     return jsonify({
-        'driver_name': career_data.get('driver_name', 'Player'),
-        'team':        career_data.get('team'),
-        'car':         career_data.get('car'),
+        'driver_name':  career_data.get('driver_name', 'Player'),
+        'nationality':  career_data.get('player_nationality', ''),
+        'team':         career_data.get('team'),
+        'car':          career_data.get('car'),
         'season':      career_data.get('season', 1),
         'races':       len(results),
         'wins':        wins,
