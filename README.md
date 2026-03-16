@@ -1,7 +1,7 @@
 # AC CAREER GT EDITION
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.19.11
+**Version:** 1.20.0
 **Platform:** Windows 10/11 · Linux (Steam Proton)
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
@@ -24,9 +24,11 @@ AC Career GT Edition adds a full career mode to Assetto Corsa. It runs in its ow
 - **Dynamic weather** toggle — ON uses the tier's weather pool; OFF forces clear skies every race
 - **Night cycle** toggle — endurance races (≥30 laps) progress through afternoon → dusk → night → dawn; requires [Custom Shader Patch (CSP)](https://acstuff.ru/patch/)
 
-**Championships**
-- Live Driver and Team standings across all 4 tiers simultaneously
+**Living Championship**
+- **Cross-tier AI simulation** — all 4 championships advance together; AI tiers race proportionally to player progress
+- Live Driver and Team standings across all 4 tiers with race progress indicators (e.g. "GT3 3/12")
 - Click any AI driver for a profile card (nationality, stats, career history)
+- **Driver evolution** — AI drivers' skills drift season-to-season based on age, potential, and experience
 - **Rival system** — one AI driver per season is marked as your rival (⚔) in standings and debrief
 - **Statistics page** — wins, podiums, avg finish, championship position, and full season history
 
@@ -58,13 +60,13 @@ AC Career GT Edition adds a full career mode to Assetto Corsa. It runs in its ow
 ## DOWNLOAD
 
 ### Windows
-**[⬇ Download AC_Career_GT_Edition.exe (v1.19.11)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition.exe)**
+**[⬇ Download AC_Career_GT_Edition.exe (v1.20.0)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition.exe)**
 
 - Windows 10/11 · No Python needed · ~13 MB single file
 - Requires Assetto Corsa installed via Steam
 
 ### Linux (AppImage)
-**[⬇ Download AC_Career_GT_Edition-1.19.11-x86_64.AppImage](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition-1.19.11-x86_64.AppImage)**
+**[⬇ Download AC_Career_GT_Edition-1.20.0-x86_64.AppImage](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition-1.20.0-x86_64.AppImage)**
 
 - Requires Assetto Corsa installed via **Steam + Proton**
 - Requires `libwebkit2gtk-4.0` or `libwebkit2gtk-4.1` (GTK WebView):
@@ -81,8 +83,8 @@ sudo pacman -S webkit2gtk
 ```
 
 ```bash
-chmod +x AC_Career_GT_Edition-1.19.11-x86_64.AppImage
-./AC_Career_GT_Edition-1.19.11-x86_64.AppImage
+chmod +x AC_Career_GT_Edition-1.20.0-x86_64.AppImage
+./AC_Career_GT_Edition-1.20.0-x86_64.AppImage
 ```
 
 > **Note:** AC is launched via `steam -applaunch 244210`. Make sure Steam is running before clicking **START RACE**.
@@ -126,6 +128,8 @@ On first run, a setup screen appears — enter your Assetto Corsa install path (
 ac-career-manager/
 ├── app.py                    # Flask backend + pywebview window
 ├── career_manager.py         # Career logic & game rules
+├── driver_data.py            # Driver names, profiles & team data (120 drivers)
+├── driver_progress.py        # AI driver evolution & skill progression
 ├── platform_paths.py         # OS-specific path helpers (Windows vs Linux Proton)
 ├── config.json              # All configuration (tunable!)
 ├── requirements.txt         # Python dependencies
