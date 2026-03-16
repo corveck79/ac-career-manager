@@ -7,7 +7,7 @@
 | `x.y.0` | New feature(s), multi-file changes | v1.8.0 — Career Wizard, Debrief, Relegation |
 | `x.y.z` | Single fix, tweak, or small addition | v1.8.1 — trim README overview |
 
-Current version: **1.18.1** (bump in `README.md` header on every release commit).
+Current version: **1.19.0** (bump in `README.md` header on every release commit).
 
 **On every release, update ALL version references in README.md:**
 - Header line: `**Version:** x.y.z`
@@ -252,9 +252,7 @@ button ("Import Result Manually") stays for edge cases.
 - `startResultPolling()` — auto-polls every 5 s after race launch; stops on result or navigation away
 - `renderDebrief(analysis, position)` — fills `#debrief-panel` with consistency badge, report text,
   lap sparkline, sector grid (S1/S2/S3 best+avg, weakest highlighted), and meta row (gap/tyre/cuts)
-- **Note:** `#debrief-panel` starts with class `hidden` in HTML and `renderDebrief` never removes it.
-  The panel becomes visible in normal app flow because `fetchRaceResult()` also shows `#result-found`.
-  For headless/test scenarios, manually call `panel.classList.remove('hidden')` before `renderDebrief`.
+- **Note:** `#debrief-panel` starts with class `hidden` in HTML. `renderDebrief` calls `panel.classList.remove('hidden')` itself — no manual unhiding needed in normal app flow.
 - Debrief panel is reset (re-hidden) in `confirmStartRace()` reset block
 
 ## Career History (v1.7.0)
@@ -316,7 +314,8 @@ Delete to reset career. Backup before editing config.
 Design: dark navy `#07091A` rounded square, orange `#E84A0A` top-right triangle, gold `#F7B801`
 bottom-left triangle, white "AC" bold text, gold underline.
 
-- `static/logo.svg` — 40×40 SVG, used in `dashboard.html` topbar (`<img class="topbar-logo">`) and as favicon (`<link rel="icon" type="image/svg+xml">`)
+- `static/logo-main.png` — PNG logo, used in `dashboard.html` topbar and as favicon (`<link rel="icon" type="image/png">`)
+- `static/logo.svg` — SVG source (not referenced by HTML directly)
 - `static/logo.ico` — multi-resolution ICO (16/32/48/64/128/256px), embedded in EXE via `--icon`
 - `make_icon.py` — regenerate ICO if design changes: `venv\Scripts\python.exe make_icon.py`
 - `.topbar-logo { width:28px; height:28px }` in `static/style.css`
@@ -353,7 +352,7 @@ venv/Scripts/python.exe take_screenshots.py
 - `showTeamProfile(name, car)` — team modal (use real name from `allStandings['gt3'].teams[0].team`)
 - `showPlayerProfile()` — player card
 - `renderContracts([{id,team_name,tier_level,tier_name,car,description}])` + `showView('contracts')` — contracts
-- **Debrief**: must manually `classList.remove('hidden')` on `debrief-panel`, `debrief-sectors`, `debrief-meta` BEFORE calling `renderDebrief(analysis, position)` — renderDebrief never unhides the panel itself
+- **Debrief**: `renderDebrief(analysis, position)` unhides `#debrief-panel` itself. For `debrief-sectors` and `debrief-meta`, manually call `classList.remove('hidden')` before `renderDebrief` only in headless/screenshot scenarios where the normal `fetchRaceResult` flow doesn't run.
 
 **CRITICAL: gh release edit — always use --notes-file, never --notes with backticks:**
 ```bash

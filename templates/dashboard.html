@@ -294,15 +294,74 @@
   </main>
 </div>
 <div id="modal-race" class="modal-overlay hidden">
-  <div class="modal-box">
+  <div class="modal-box modal-box-wide">
     <div class="modal-header">
-      <h2 class="modal-title">Race Details</h2>
+      <h2 class="modal-title" id="modal-race-title">Race Weekend</h2>
       <button class="close-btn" onclick="closeModal('modal-race')">&#10005;</button>
     </div>
     <div id="race-details" class="race-detail-grid"></div>
     <div id="preflight-warnings" class="preflight-warnings hidden"></div>
-    <div class="modal-actions">
-      <button class="btn btn-race"      onclick="confirmStartRace('full_weekend')">&#127937; Full Weekend</button>
+
+    <!-- Split weekend session panel -->
+    <div id="weekend-panel" class="weekend-panel hidden">
+
+      <!-- Left: session list -->
+      <div class="ws-sessions">
+        <!-- Free Practice -->
+        <div class="weekend-session" id="ws-practice">
+          <div class="ws-info">
+            <span class="ws-icon" id="ws-icon-practice">○</span>
+            <span class="ws-name">Free Practice</span>
+            <span class="ws-dur" id="ws-dur-practice"></span>
+            <span class="ws-pos hidden" id="ws-pos-practice"></span>
+          </div>
+          <div class="ws-actions" id="ws-actions-practice">
+            <button class="btn btn-sm btn-race"  onclick="weekendStartSession('practice')">Start</button>
+            <button class="btn btn-sm btn-ghost" onclick="weekendSkipSession('practice')">Skip</button>
+          </div>
+        </div>
+
+        <!-- Qualifying -->
+        <div class="weekend-session" id="ws-qualifying">
+          <div class="ws-info">
+            <span class="ws-icon" id="ws-icon-qualifying">○</span>
+            <span class="ws-name">Qualifying</span>
+            <span class="ws-dur" id="ws-dur-qualifying"></span>
+            <span class="ws-pos hidden" id="ws-pos-qualifying"></span>
+          </div>
+          <div class="ws-actions" id="ws-actions-qualifying">
+            <button class="btn btn-sm btn-race"  onclick="weekendStartSession('qualifying')">Start</button>
+            <button class="btn btn-sm btn-ghost" onclick="weekendSkipSession('qualifying')">Skip</button>
+          </div>
+        </div>
+
+        <!-- Race -->
+        <div class="weekend-session" id="ws-race">
+          <div class="ws-info">
+            <span class="ws-icon" id="ws-icon-race">○</span>
+            <span class="ws-name">Race</span>
+            <span class="ws-dur" id="ws-dur-race"></span>
+            <span class="ws-pos hidden" id="ws-pos-race"></span>
+          </div>
+          <div class="ws-actions" id="ws-actions-race">
+            <button class="btn btn-sm btn-race" onclick="weekendStartSession('race')">Start</button>
+          </div>
+        </div>
+
+        <!-- Engineer debrief — shown below race card after race completes -->
+        <div class="ws-debrief-inline hidden" id="ws-debrief-inline"></div>
+
+      </div><!-- /.ws-sessions -->
+
+      <!-- Right: shared grid results panel -->
+      <div class="ws-grid-panel" id="ws-grid-panel">
+        <div class="ws-grid-panel-empty">Click a session result badge to view the grid</div>
+      </div>
+
+    </div><!-- /#weekend-panel -->
+
+    <div class="modal-actions" id="modal-race-actions">
+      <button class="btn btn-race"      onclick="openWeekendPanel()">&#127937; Race Weekend</button>
       <button class="btn btn-secondary" onclick="confirmStartRace('race_only')">&#9889; Race Only</button>
       <button class="btn btn-ghost"     onclick="closeModal('modal-race')">Cancel</button>
     </div>

@@ -79,127 +79,127 @@ class CareerManager:
     # Style derived: skill>=85+aggr>=60=Charger, skill>=85+aggr<60=Tactician,
     #                skill<85+aggr>=60=Wildcard, else=Journeyman
     DRIVER_PROFILES = {
-        # name                  nat    skill  aggr   wet   quali  cons   nickname
-        "Marco Rossi":       {"nationality": "ITA", "skill": 88, "aggression": 72, "wet_skill": 62, "quali_pace": 80, "consistency": 52, "nickname": "Red Mist"},
-        "James Hunt":        {"nationality": "GBR", "skill": 91, "aggression": 85, "wet_skill": 55, "quali_pace": 94, "consistency": 48, "nickname": "Apex Predator"},
-        "Pierre Dupont":     {"nationality": "FRA", "skill": 76, "aggression": 30, "wet_skill": 72, "quali_pace": 68, "consistency": 85, "nickname": None},
-        "Hans Mueller":      {"nationality": "GER", "skill": 82, "aggression": 45, "wet_skill": 58, "quali_pace": 75, "consistency": 80, "nickname": None},
-        "Carlos Rivera":     {"nationality": "ESP", "skill": 79, "aggression": 60, "wet_skill": 50, "quali_pace": 72, "consistency": 60, "nickname": None},
-        "Tom Bradley":       {"nationality": "GBR", "skill": 74, "aggression": 20, "wet_skill": 65, "quali_pace": 55, "consistency": 88, "nickname": None},
-        "Luca Ferrari":      {"nationality": "ITA", "skill": 85, "aggression": 55, "wet_skill": 70, "quali_pace": 85, "consistency": 82, "nickname": "Cold Blood"},
-        "Alex Chen":         {"nationality": "CHN", "skill": 83, "aggression": 40, "wet_skill": 75, "quali_pace": 78, "consistency": 86, "nickname": None},
-        "David Williams":    {"nationality": "GBR", "skill": 70, "aggression": 15, "wet_skill": 78, "quali_pace": 55, "consistency": 90, "nickname": None},
-        "Raj Patel":         {"nationality": "IND", "skill": 77, "aggression": 50, "wet_skill": 55, "quali_pace": 65, "consistency": 72, "nickname": None},
-        "Sven Johansson":    {"nationality": "SWE", "skill": 80, "aggression": 35, "wet_skill": 82, "quali_pace": 70, "consistency": 84, "nickname": "Rain King"},
-        "Omar Hassan":       {"nationality": "MAR", "skill": 78, "aggression": 65, "wet_skill": 42, "quali_pace": 68, "consistency": 55, "nickname": None},
-        "Kenji Tanaka":      {"nationality": "JPN", "skill": 84, "aggression": 25, "wet_skill": 70, "quali_pace": 76, "consistency": 91, "nickname": "Metronome"},
-        "Igor Petrov":       {"nationality": "RUS", "skill": 86, "aggression": 70, "wet_skill": 60, "quali_pace": 82, "consistency": 55, "nickname": None},
-        "Fabio Romano":      {"nationality": "ITA", "skill": 89, "aggression": 80, "wet_skill": 45, "quali_pace": 86, "consistency": 52, "nickname": "Last Lap Lunatic"},
-        "Ethan Clark":       {"nationality": "GBR", "skill": 73, "aggression": 30, "wet_skill": 60, "quali_pace": 58, "consistency": 82, "nickname": None},
-        "Nina Kovac":        {"nationality": "CRO", "skill": 81, "aggression": 45, "wet_skill": 68, "quali_pace": 74, "consistency": 80, "nickname": None},
-        "Lucas Petit":       {"nationality": "FRA", "skill": 75, "aggression": 55, "wet_skill": 52, "quali_pace": 63, "consistency": 68, "nickname": None},
-        "Aiden Burke":       {"nationality": "IRL", "skill": 72, "aggression": 60, "wet_skill": 70, "quali_pace": 60, "consistency": 55, "nickname": None},
-        "Zara Osman":        {"nationality": "KEN", "skill": 77, "aggression": 40, "wet_skill": 58, "quali_pace": 65, "consistency": 78, "nickname": None},
-        "Felipe Rodrigues":  {"nationality": "BRA", "skill": 85, "aggression": 75, "wet_skill": 48, "quali_pace": 80, "consistency": 50, "nickname": "Full Send"},
-        "Jan van der Berg":  {"nationality": "NLD", "skill": 82, "aggression": 35, "wet_skill": 80, "quali_pace": 78, "consistency": 87, "nickname": None},
-        "Mikael Lindqvist":  {"nationality": "SWE", "skill": 79, "aggression": 20, "wet_skill": 85, "quali_pace": 65, "consistency": 91, "nickname": "Wet Line"},
-        "Antoine Moreau":    {"nationality": "FRA", "skill": 83, "aggression": 50, "wet_skill": 65, "quali_pace": 80, "consistency": 78, "nickname": None},
-        "Sebastian Richter": {"nationality": "GER", "skill": 90, "aggression": 65, "wet_skill": 68, "quali_pace": 88, "consistency": 60, "nickname": "Precision"},
-        "Takumi Nakamura":   {"nationality": "JPN", "skill": 87, "aggression": 30, "wet_skill": 82, "quali_pace": 70, "consistency": 94, "nickname": "Clockwork"},
-        "Ryan O'Connor":     {"nationality": "IRL", "skill": 76, "aggression": 70, "wet_skill": 72, "quali_pace": 65, "consistency": 48, "nickname": "Risk Factor"},
-        "Dimitri Volkov":    {"nationality": "RUS", "skill": 84, "aggression": 80, "wet_skill": 55, "quali_pace": 75, "consistency": 45, "nickname": "Boom or Bust"},
-        "Wei Zhang":         {"nationality": "CHN", "skill": 80, "aggression": 45, "wet_skill": 62, "quali_pace": 72, "consistency": 76, "nickname": None},
-        "Emre Yilmaz":       {"nationality": "TUR", "skill": 74, "aggression": 55, "wet_skill": 48, "quali_pace": 60, "consistency": 65, "nickname": None},
-        "Stefan Baumann":    {"nationality": "GER", "skill": 86, "aggression": 40, "wet_skill": 72, "quali_pace": 90, "consistency": 86, "nickname": "Mr. Saturday"},
-        "Liam Fitzgerald":   {"nationality": "IRL", "skill": 71, "aggression": 25, "wet_skill": 66, "quali_pace": 52, "consistency": 85, "nickname": None},
-        "Pablo Sanchez":     {"nationality": "ESP", "skill": 83, "aggression": 70, "wet_skill": 50, "quali_pace": 78, "consistency": 52, "nickname": None},
-        "Yuki Hashimoto":    {"nationality": "JPN", "skill": 78, "aggression": 35, "wet_skill": 75, "quali_pace": 68, "consistency": 86, "nickname": None},
-        "Cristian Popescu":  {"nationality": "ROU", "skill": 76, "aggression": 50, "wet_skill": 55, "quali_pace": 62, "consistency": 70, "nickname": None},
-        "Max Hartmann":      {"nationality": "GER", "skill": 85, "aggression": 60, "wet_skill": 65, "quali_pace": 85, "consistency": 68, "nickname": None},
-        "Nico Berger":       {"nationality": "GER", "skill": 88, "aggression": 50, "wet_skill": 70, "quali_pace": 92, "consistency": 82, "nickname": "Ice Brain"},
-        "Andre Hoffmann":    {"nationality": "GER", "skill": 77, "aggression": 35, "wet_skill": 60, "quali_pace": 65, "consistency": 80, "nickname": None},
-        "Kofi Mensah":       {"nationality": "GHA", "skill": 81, "aggression": 55, "wet_skill": 52, "quali_pace": 70, "consistency": 72, "nickname": None},
-        "Ravi Sharma":       {"nationality": "IND", "skill": 75, "aggression": 40, "wet_skill": 45, "quali_pace": 60, "consistency": 75, "nickname": None},
-        "Jake Morrison":     {"nationality": "GBR", "skill": 73, "aggression": 65, "wet_skill": 60, "quali_pace": 58, "consistency": 50, "nickname": None},
-        "Thomas Leclerc":    {"nationality": "FRA", "skill": 87, "aggression": 45, "wet_skill": 78, "quali_pace": 88, "consistency": 88, "nickname": "The Surgeon"},
-        "Giulio Conti":      {"nationality": "ITA", "skill": 82, "aggression": 75, "wet_skill": 45, "quali_pace": 75, "consistency": 48, "nickname": "Chaos Engine"},
-        "Magnus Eriksson":   {"nationality": "SWE", "skill": 79, "aggression": 20, "wet_skill": 80, "quali_pace": 62, "consistency": 90, "nickname": None},
-        "Aleksei Nikitin":   {"nationality": "RUS", "skill": 84, "aggression": 60, "wet_skill": 58, "quali_pace": 78, "consistency": 58, "nickname": None},
-        "Hiro Matsuda":      {"nationality": "JPN", "skill": 88, "aggression": 35, "wet_skill": 85, "quali_pace": 82, "consistency": 90, "nickname": "Storm Pace"},
-        "Kevin Walsh":       {"nationality": "IRL", "skill": 71, "aggression": 50, "wet_skill": 62, "quali_pace": 55, "consistency": 72, "nickname": None},
-        "Leon Braun":        {"nationality": "GER", "skill": 76, "aggression": 30, "wet_skill": 58, "quali_pace": 62, "consistency": 82, "nickname": None},
-        "Samir Khalil":      {"nationality": "MAR", "skill": 80, "aggression": 65, "wet_skill": 38, "quali_pace": 68, "consistency": 55, "nickname": None},
-        "Dante Moraes":      {"nationality": "BRA", "skill": 83, "aggression": 85, "wet_skill": 88, "quali_pace": 80, "consistency": 42, "nickname": "Storm"},
-        "Felix Bauer":       {"nationality": "GER", "skill": 86, "aggression": 40, "wet_skill": 68, "quali_pace": 88, "consistency": 85, "nickname": None},
-        "Connor MacLeod":    {"nationality": "GBR", "skill": 74, "aggression": 55, "wet_skill": 65, "quali_pace": 60, "consistency": 68, "nickname": None},
-        "Victor Blanc":      {"nationality": "FRA", "skill": 81, "aggression": 30, "wet_skill": 70, "quali_pace": 75, "consistency": 88, "nickname": "Zero Drama"},
-        "Matteo Gallo":      {"nationality": "ITA", "skill": 85, "aggression": 70, "wet_skill": 52, "quali_pace": 80, "consistency": 55, "nickname": None},
-        "Oskar Wiklund":     {"nationality": "SWE", "skill": 77, "aggression": 20, "wet_skill": 82, "quali_pace": 60, "consistency": 90, "nickname": None},
-        "Tariq Nasser":      {"nationality": "MAR", "skill": 79, "aggression": 60, "wet_skill": 38, "quali_pace": 65, "consistency": 58, "nickname": None},
-        "Samuel Obi":        {"nationality": "GBR", "skill": 72, "aggression": 45, "wet_skill": 60, "quali_pace": 55, "consistency": 75, "nickname": None},
-        "Dario Conti":       {"nationality": "ITA", "skill": 87, "aggression": 75, "wet_skill": 50, "quali_pace": 82, "consistency": 52, "nickname": "The Enforcer"},
-        "Erik Larsen":       {"nationality": "SWE", "skill": 80, "aggression": 30, "wet_skill": 80, "quali_pace": 68, "consistency": 86, "nickname": None},
-        "Julian Richter":    {"nationality": "GER", "skill": 84, "aggression": 55, "wet_skill": 62, "quali_pace": 80, "consistency": 78, "nickname": None},
-        "Baptiste Renard":   {"nationality": "FRA", "skill": 78, "aggression": 40, "wet_skill": 65, "quali_pace": 70, "consistency": 80, "nickname": None},
-        "Kai Nakamura":      {"nationality": "JPN", "skill": 82, "aggression": 25, "wet_skill": 78, "quali_pace": 72, "consistency": 90, "nickname": None},
-        "Tobias Schreiber":  {"nationality": "GER", "skill": 75, "aggression": 50, "wet_skill": 55, "quali_pace": 62, "consistency": 72, "nickname": None},
-        "Lorenzo Marini":    {"nationality": "ITA", "skill": 89, "aggression": 80, "wet_skill": 48, "quali_pace": 88, "consistency": 50, "nickname": "Night Hunter"},
-        "Jack Thornton":     {"nationality": "GBR", "skill": 83, "aggression": 65, "wet_skill": 62, "quali_pace": 75, "consistency": 58, "nickname": "Late Charge"},
-        "Vladimir Kozlov":   {"nationality": "RUS", "skill": 77, "aggression": 85, "wet_skill": 52, "quali_pace": 60, "consistency": 40, "nickname": "The Gambler"},
-        "Yasuhiro Ito":      {"nationality": "JPN", "skill": 86, "aggression": 20, "wet_skill": 88, "quali_pace": 78, "consistency": 95, "nickname": "Iron Pace"},
-        "Patrick Brennan":   {"nationality": "IRL", "skill": 74, "aggression": 45, "wet_skill": 68, "quali_pace": 58, "consistency": 75, "nickname": None},
-        "Roberto Mancini":   {"nationality": "ITA", "skill": 80, "aggression": 60, "wet_skill": 55, "quali_pace": 70, "consistency": 60, "nickname": None},
-        "Hugo Lefevre":      {"nationality": "FRA", "skill": 73, "aggression": 35, "wet_skill": 62, "quali_pace": 55, "consistency": 80, "nickname": None},
-        "Christoph Weber":   {"nationality": "GER", "skill": 88, "aggression": 50, "wet_skill": 72, "quali_pace": 90, "consistency": 84, "nickname": "The Mastermind"},
-        "Nils Gunnarsson":   {"nationality": "SWE", "skill": 82, "aggression": 25, "wet_skill": 85, "quali_pace": 68, "consistency": 92, "nickname": None},
-        "Mehmet Ozkan":      {"nationality": "TUR", "skill": 79, "aggression": 70, "wet_skill": 42, "quali_pace": 65, "consistency": 50, "nickname": None},
-        "Benedikt Fischer":  {"nationality": "GER", "skill": 85, "aggression": 40, "wet_skill": 70, "quali_pace": 86, "consistency": 85, "nickname": None},
-        "Alvaro Delgado":    {"nationality": "ESP", "skill": 83, "aggression": 65, "wet_skill": 48, "quali_pace": 75, "consistency": 55, "nickname": None},
-        "Finn Andersen":     {"nationality": "SWE", "skill": 76, "aggression": 30, "wet_skill": 80, "quali_pace": 60, "consistency": 86, "nickname": None},
-        "Artem Sokolov":     {"nationality": "RUS", "skill": 87, "aggression": 75, "wet_skill": 55, "quali_pace": 82, "consistency": 50, "nickname": "Iron Fist"},
-        "Raul Jimenez":      {"nationality": "ESP", "skill": 81, "aggression": 55, "wet_skill": 52, "quali_pace": 72, "consistency": 72, "nickname": None},
-        "Enzo Palermo":      {"nationality": "ITA", "skill": 84, "aggression": 80, "wet_skill": 45, "quali_pace": 76, "consistency": 45, "nickname": "Raw Speed"},
-        "Timothy Hooper":    {"nationality": "GBR", "skill": 70, "aggression": 20, "wet_skill": 68, "quali_pace": 48, "consistency": 88, "nickname": None},
-        "Francois Girard":   {"nationality": "FRA", "skill": 86, "aggression": 45, "wet_skill": 75, "quali_pace": 88, "consistency": 84, "nickname": None},
-        "Kazuki Yamamoto":   {"nationality": "JPN", "skill": 91, "aggression": 30, "wet_skill": 80, "quali_pace": 90, "consistency": 92, "nickname": "Ice Cold"},
-        "Benjamin Koch":     {"nationality": "GER", "skill": 78, "aggression": 60, "wet_skill": 55, "quali_pace": 65, "consistency": 58, "nickname": None},
-        "Cian Murphy":       {"nationality": "IRL", "skill": 73, "aggression": 50, "wet_skill": 68, "quali_pace": 55, "consistency": 72, "nickname": None},
-        "Mateus Costa":      {"nationality": "BRA", "skill": 82, "aggression": 70, "wet_skill": 60, "quali_pace": 75, "consistency": 52, "nickname": None},
-        "Tomas Novak":       {"nationality": "CZE", "skill": 79, "aggression": 35, "wet_skill": 65, "quali_pace": 65, "consistency": 82, "nickname": None},
-        "Rafael Torres":     {"nationality": "ESP", "skill": 85, "aggression": 75, "wet_skill": 52, "quali_pace": 82, "consistency": 52, "nickname": "Frontline"},
-        "Pieter de Vries":   {"nationality": "NLD", "skill": 83, "aggression": 40, "wet_skill": 82, "quali_pace": 78, "consistency": 84, "nickname": None},
-        "Duncan Fraser":     {"nationality": "GBR", "skill": 77, "aggression": 55, "wet_skill": 70, "quali_pace": 65, "consistency": 74, "nickname": None},
-        "Alexei Morozov":    {"nationality": "RUS", "skill": 80, "aggression": 65, "wet_skill": 48, "quali_pace": 68, "consistency": 55, "nickname": None},
-        "Simon Bertrand":    {"nationality": "FRA", "skill": 86, "aggression": 35, "wet_skill": 78, "quali_pace": 88, "consistency": 88, "nickname": "Clean Air"},
-        "Stephan Kramer":    {"nationality": "GER", "skill": 88, "aggression": 60, "wet_skill": 65, "quali_pace": 90, "consistency": 68, "nickname": "The Dominator"},
-        "Mattias Svensson":  {"nationality": "SWE", "skill": 82, "aggression": 25, "wet_skill": 85, "quali_pace": 68, "consistency": 90, "nickname": None},
-        "Davide Russo":      {"nationality": "ITA", "skill": 84, "aggression": 70, "wet_skill": 50, "quali_pace": 75, "consistency": 55, "nickname": None},
-        "Callum Stewart":    {"nationality": "GBR", "skill": 76, "aggression": 45, "wet_skill": 65, "quali_pace": 62, "consistency": 76, "nickname": None},
-        "Timur Bakirov":     {"nationality": "RUS", "skill": 79, "aggression": 80, "wet_skill": 45, "quali_pace": 62, "consistency": 42, "nickname": "The Maverick"},
-        "Marco Bianchi":     {"nationality": "ITA", "skill": 87, "aggression": 55, "wet_skill": 68, "quali_pace": 84, "consistency": 82, "nickname": None},
-        "Arnaud Leblanc":    {"nationality": "FRA", "skill": 81, "aggression": 35, "wet_skill": 72, "quali_pace": 72, "consistency": 84, "nickname": None},
-        "Hiroshi Watanabe":  {"nationality": "JPN", "skill": 85, "aggression": 20, "wet_skill": 88, "quali_pace": 75, "consistency": 95, "nickname": "Stint Master"},
-        "Edward Collins":    {"nationality": "GBR", "skill": 73, "aggression": 50, "wet_skill": 60, "quali_pace": 58, "consistency": 72, "nickname": None},
-        "Gerhard Mayer":     {"nationality": "GER", "skill": 83, "aggression": 45, "wet_skill": 65, "quali_pace": 78, "consistency": 80, "nickname": None},
-        "Luca Gentile":      {"nationality": "ITA", "skill": 89, "aggression": 70, "wet_skill": 55, "quali_pace": 86, "consistency": 58, "nickname": "Night Hawk"},
-        "Frederick Larsson": {"nationality": "SWE", "skill": 80, "aggression": 30, "wet_skill": 82, "quali_pace": 68, "consistency": 87, "nickname": None},
-        "Alistair Young":    {"nationality": "GBR", "skill": 76, "aggression": 55, "wet_skill": 62, "quali_pace": 62, "consistency": 70, "nickname": None},
-        "Marco Colombo":     {"nationality": "ITA", "skill": 85, "aggression": 65, "wet_skill": 58, "quali_pace": 82, "consistency": 62, "nickname": None},
-        "Jean-Paul Tissot":  {"nationality": "FRA", "skill": 82, "aggression": 40, "wet_skill": 68, "quali_pace": 75, "consistency": 82, "nickname": None},
-        "Adriano Ferretti":  {"nationality": "ITA", "skill": 87, "aggression": 80, "wet_skill": 45, "quali_pace": 84, "consistency": 48, "nickname": "The Predator"},
-        "Sebastian Vallet":  {"nationality": "FRA", "skill": 78, "aggression": 35, "wet_skill": 65, "quali_pace": 68, "consistency": 82, "nickname": None},
-        "Diego Morales":     {"nationality": "ESP", "skill": 83, "aggression": 60, "wet_skill": 48, "quali_pace": 72, "consistency": 58, "nickname": None},
-        "Andrei Popov":      {"nationality": "RUS", "skill": 81, "aggression": 50, "wet_skill": 55, "quali_pace": 70, "consistency": 72, "nickname": None},
-        "Josef Novotny":     {"nationality": "CZE", "skill": 75, "aggression": 40, "wet_skill": 62, "quali_pace": 60, "consistency": 78, "nickname": None},
-        "Henryk Kowalski":   {"nationality": "POL", "skill": 79, "aggression": 55, "wet_skill": 60, "quali_pace": 65, "consistency": 72, "nickname": None},
-        "Kwame Asante":      {"nationality": "GHA", "skill": 82, "aggression": 45, "wet_skill": 50, "quali_pace": 72, "consistency": 78, "nickname": None},
-        "Taiki Oshima":      {"nationality": "JPN", "skill": 86, "aggression": 30, "wet_skill": 85, "quali_pace": 82, "consistency": 92, "nickname": "The Closer"},
-        "Brenden Walsh":     {"nationality": "IRL", "skill": 71, "aggression": 65, "wet_skill": 70, "quali_pace": 55, "consistency": 48, "nickname": "Raw Talent"},
-        "Giacomo Vietti":    {"nationality": "ITA", "skill": 84, "aggression": 75, "wet_skill": 48, "quali_pace": 75, "consistency": 48, "nickname": None},
-        "Emilio Fernandez":  {"nationality": "ESP", "skill": 80, "aggression": 60, "wet_skill": 45, "quali_pace": 68, "consistency": 58, "nickname": None},
-        "Lars Petersen":     {"nationality": "SWE", "skill": 77, "aggression": 25, "wet_skill": 80, "quali_pace": 62, "consistency": 88, "nickname": None},
-        "Nikolai Volkov":    {"nationality": "RUS", "skill": 83, "aggression": 70, "wet_skill": 50, "quali_pace": 72, "consistency": 52, "nickname": None},
-        "Kim Andersen":      {"nationality": "SWE", "skill": 78, "aggression": 35, "wet_skill": 78, "quali_pace": 65, "consistency": 84, "nickname": None},
+        # name                  nat    skill  aggr   wet   quali  cons  night  nickname
+        "Marco Rossi":       {"nationality": "ITA", "skill": 88, "aggression": 72, "wet_skill": 62, "quali_pace": 80, "consistency": 52, "night_skill": 51, "nickname": "Red Mist"},
+        "James Hunt":        {"nationality": "GBR", "skill": 91, "aggression": 85, "wet_skill": 55, "quali_pace": 94, "consistency": 48, "night_skill": 47, "nickname": "Apex Predator"},
+        "Pierre Dupont":     {"nationality": "FRA", "skill": 76, "aggression": 30, "wet_skill": 72, "quali_pace": 68, "consistency": 85, "night_skill": 67, "nickname": None},
+        "Hans Mueller":      {"nationality": "GER", "skill": 82, "aggression": 45, "wet_skill": 58, "quali_pace": 75, "consistency": 80, "night_skill": 62, "nickname": None},
+        "Carlos Rivera":     {"nationality": "ESP", "skill": 79, "aggression": 60, "wet_skill": 50, "quali_pace": 72, "consistency": 60, "night_skill": 53, "nickname": None},
+        "Tom Bradley":       {"nationality": "GBR", "skill": 74, "aggression": 20, "wet_skill": 65, "quali_pace": 55, "consistency": 88, "night_skill": 68, "nickname": None},
+        "Luca Ferrari":      {"nationality": "ITA", "skill": 85, "aggression": 55, "wet_skill": 70, "quali_pace": 85, "consistency": 82, "night_skill": 64, "nickname": "Cold Blood"},
+        "Alex Chen":         {"nationality": "CHN", "skill": 83, "aggression": 40, "wet_skill": 75, "quali_pace": 78, "consistency": 86, "night_skill": 67, "nickname": None},
+        "David Williams":    {"nationality": "GBR", "skill": 70, "aggression": 15, "wet_skill": 78, "quali_pace": 55, "consistency": 90, "night_skill": 72, "nickname": None},
+        "Raj Patel":         {"nationality": "IND", "skill": 77, "aggression": 50, "wet_skill": 55, "quali_pace": 65, "consistency": 72, "night_skill": 58, "nickname": None},
+        "Sven Johansson":    {"nationality": "SWE", "skill": 80, "aggression": 35, "wet_skill": 82, "quali_pace": 70, "consistency": 84, "night_skill": 78, "nickname": "Rain King"},
+        "Omar Hassan":       {"nationality": "MAR", "skill": 78, "aggression": 65, "wet_skill": 42, "quali_pace": 68, "consistency": 55, "night_skill": 49, "nickname": None},
+        "Kenji Tanaka":      {"nationality": "JPN", "skill": 84, "aggression": 25, "wet_skill": 70, "quali_pace": 76, "consistency": 91, "night_skill": 85, "nickname": "Metronome"},
+        "Igor Petrov":       {"nationality": "RUS", "skill": 86, "aggression": 70, "wet_skill": 60, "quali_pace": 82, "consistency": 55, "night_skill": 52, "nickname": None},
+        "Fabio Romano":      {"nationality": "ITA", "skill": 89, "aggression": 80, "wet_skill": 45, "quali_pace": 86, "consistency": 52, "night_skill": 47, "nickname": "Last Lap Lunatic"},
+        "Ethan Clark":       {"nationality": "GBR", "skill": 73, "aggression": 30, "wet_skill": 60, "quali_pace": 58, "consistency": 82, "night_skill": 64, "nickname": None},
+        "Nina Kovac":        {"nationality": "CRO", "skill": 81, "aggression": 45, "wet_skill": 68, "quali_pace": 74, "consistency": 80, "night_skill": 64, "nickname": None},
+        "Lucas Petit":       {"nationality": "FRA", "skill": 75, "aggression": 55, "wet_skill": 52, "quali_pace": 63, "consistency": 68, "night_skill": 56, "nickname": None},
+        "Aiden Burke":       {"nationality": "IRL", "skill": 72, "aggression": 60, "wet_skill": 70, "quali_pace": 60, "consistency": 55, "night_skill": 55, "nickname": None},
+        "Zara Osman":        {"nationality": "KEN", "skill": 77, "aggression": 40, "wet_skill": 58, "quali_pace": 65, "consistency": 78, "night_skill": 62, "nickname": None},
+        "Felipe Rodrigues":  {"nationality": "BRA", "skill": 85, "aggression": 75, "wet_skill": 48, "quali_pace": 80, "consistency": 50, "night_skill": 48, "nickname": "Full Send"},
+        "Jan van der Berg":  {"nationality": "NLD", "skill": 82, "aggression": 35, "wet_skill": 80, "quali_pace": 78, "consistency": 87, "night_skill": 69, "nickname": None},
+        "Mikael Lindqvist":  {"nationality": "SWE", "skill": 79, "aggression": 20, "wet_skill": 85, "quali_pace": 65, "consistency": 91, "night_skill": 82, "nickname": "Wet Line"},
+        "Antoine Moreau":    {"nationality": "FRA", "skill": 83, "aggression": 50, "wet_skill": 65, "quali_pace": 80, "consistency": 78, "night_skill": 62, "nickname": None},
+        "Sebastian Richter": {"nationality": "GER", "skill": 90, "aggression": 65, "wet_skill": 68, "quali_pace": 88, "consistency": 60, "night_skill": 70, "nickname": "Precision"},
+        "Takumi Nakamura":   {"nationality": "JPN", "skill": 87, "aggression": 30, "wet_skill": 82, "quali_pace": 70, "consistency": 94, "night_skill": 90, "nickname": "Clockwork"},
+        "Ryan O'Connor":     {"nationality": "IRL", "skill": 76, "aggression": 70, "wet_skill": 72, "quali_pace": 65, "consistency": 48, "night_skill": 52, "nickname": "Risk Factor"},
+        "Dimitri Volkov":    {"nationality": "RUS", "skill": 84, "aggression": 80, "wet_skill": 55, "quali_pace": 75, "consistency": 45, "night_skill": 47, "nickname": "Boom or Bust"},
+        "Wei Zhang":         {"nationality": "CHN", "skill": 80, "aggression": 45, "wet_skill": 62, "quali_pace": 72, "consistency": 76, "night_skill": 61, "nickname": None},
+        "Emre Yilmaz":       {"nationality": "TUR", "skill": 74, "aggression": 55, "wet_skill": 48, "quali_pace": 60, "consistency": 65, "night_skill": 54, "nickname": None},
+        "Stefan Baumann":    {"nationality": "GER", "skill": 86, "aggression": 40, "wet_skill": 72, "quali_pace": 90, "consistency": 86, "night_skill": 67, "nickname": "Mr. Saturday"},
+        "Liam Fitzgerald":   {"nationality": "IRL", "skill": 71, "aggression": 25, "wet_skill": 66, "quali_pace": 52, "consistency": 85, "night_skill": 67, "nickname": None},
+        "Pablo Sanchez":     {"nationality": "ESP", "skill": 83, "aggression": 70, "wet_skill": 50, "quali_pace": 78, "consistency": 52, "night_skill": 49, "nickname": None},
+        "Yuki Hashimoto":    {"nationality": "JPN", "skill": 78, "aggression": 35, "wet_skill": 75, "quali_pace": 68, "consistency": 86, "night_skill": 68, "nickname": None},
+        "Cristian Popescu":  {"nationality": "ROU", "skill": 76, "aggression": 50, "wet_skill": 55, "quali_pace": 62, "consistency": 70, "night_skill": 58, "nickname": None},
+        "Max Hartmann":      {"nationality": "GER", "skill": 85, "aggression": 60, "wet_skill": 65, "quali_pace": 85, "consistency": 68, "night_skill": 58, "nickname": None},
+        "Nico Berger":       {"nationality": "GER", "skill": 88, "aggression": 50, "wet_skill": 70, "quali_pace": 92, "consistency": 82, "night_skill": 78, "nickname": "Ice Brain"},
+        "Andre Hoffmann":    {"nationality": "GER", "skill": 77, "aggression": 35, "wet_skill": 60, "quali_pace": 65, "consistency": 80, "night_skill": 63, "nickname": None},
+        "Kofi Mensah":       {"nationality": "GHA", "skill": 81, "aggression": 55, "wet_skill": 52, "quali_pace": 70, "consistency": 72, "night_skill": 57, "nickname": None},
+        "Ravi Sharma":       {"nationality": "IND", "skill": 75, "aggression": 40, "wet_skill": 45, "quali_pace": 60, "consistency": 75, "night_skill": 58, "nickname": None},
+        "Jake Morrison":     {"nationality": "GBR", "skill": 73, "aggression": 65, "wet_skill": 60, "quali_pace": 58, "consistency": 50, "night_skill": 51, "nickname": None},
+        "Thomas Leclerc":    {"nationality": "FRA", "skill": 87, "aggression": 45, "wet_skill": 78, "quali_pace": 88, "consistency": 88, "night_skill": 82, "nickname": "The Surgeon"},
+        "Giulio Conti":      {"nationality": "ITA", "skill": 82, "aggression": 75, "wet_skill": 45, "quali_pace": 75, "consistency": 48, "night_skill": 46, "nickname": "Chaos Engine"},
+        "Magnus Eriksson":   {"nationality": "SWE", "skill": 79, "aggression": 20, "wet_skill": 80, "quali_pace": 62, "consistency": 90, "night_skill": 72, "nickname": None},
+        "Aleksei Nikitin":   {"nationality": "RUS", "skill": 84, "aggression": 60, "wet_skill": 58, "quali_pace": 78, "consistency": 58, "night_skill": 54, "nickname": None},
+        "Hiro Matsuda":      {"nationality": "JPN", "skill": 88, "aggression": 35, "wet_skill": 85, "quali_pace": 82, "consistency": 90, "night_skill": 82, "nickname": "Storm Pace"},
+        "Kevin Walsh":       {"nationality": "IRL", "skill": 71, "aggression": 50, "wet_skill": 62, "quali_pace": 55, "consistency": 72, "night_skill": 60, "nickname": None},
+        "Leon Braun":        {"nationality": "GER", "skill": 76, "aggression": 30, "wet_skill": 58, "quali_pace": 62, "consistency": 82, "night_skill": 64, "nickname": None},
+        "Samir Khalil":      {"nationality": "MAR", "skill": 80, "aggression": 65, "wet_skill": 38, "quali_pace": 68, "consistency": 55, "night_skill": 48, "nickname": None},
+        "Dante Moraes":      {"nationality": "BRA", "skill": 83, "aggression": 85, "wet_skill": 88, "quali_pace": 80, "consistency": 42, "night_skill": 52, "nickname": "Storm"},
+        "Felix Bauer":       {"nationality": "GER", "skill": 86, "aggression": 40, "wet_skill": 68, "quali_pace": 88, "consistency": 85, "night_skill": 66, "nickname": None},
+        "Connor MacLeod":    {"nationality": "GBR", "skill": 74, "aggression": 55, "wet_skill": 65, "quali_pace": 60, "consistency": 68, "night_skill": 58, "nickname": None},
+        "Victor Blanc":      {"nationality": "FRA", "skill": 81, "aggression": 30, "wet_skill": 70, "quali_pace": 75, "consistency": 88, "night_skill": 75, "nickname": "Zero Drama"},
+        "Matteo Gallo":      {"nationality": "ITA", "skill": 85, "aggression": 70, "wet_skill": 52, "quali_pace": 80, "consistency": 55, "night_skill": 50, "nickname": None},
+        "Oskar Wiklund":     {"nationality": "SWE", "skill": 77, "aggression": 20, "wet_skill": 82, "quali_pace": 60, "consistency": 90, "night_skill": 72, "nickname": None},
+        "Tariq Nasser":      {"nationality": "MAR", "skill": 79, "aggression": 60, "wet_skill": 38, "quali_pace": 65, "consistency": 58, "night_skill": 50, "nickname": None},
+        "Samuel Obi":        {"nationality": "GBR", "skill": 72, "aggression": 45, "wet_skill": 60, "quali_pace": 55, "consistency": 75, "night_skill": 61, "nickname": None},
+        "Dario Conti":       {"nationality": "ITA", "skill": 87, "aggression": 75, "wet_skill": 50, "quali_pace": 82, "consistency": 52, "night_skill": 49, "nickname": "The Enforcer"},
+        "Erik Larsen":       {"nationality": "SWE", "skill": 80, "aggression": 30, "wet_skill": 80, "quali_pace": 68, "consistency": 86, "night_skill": 69, "nickname": None},
+        "Julian Richter":    {"nationality": "GER", "skill": 84, "aggression": 55, "wet_skill": 62, "quali_pace": 80, "consistency": 78, "night_skill": 61, "nickname": None},
+        "Baptiste Renard":   {"nationality": "FRA", "skill": 78, "aggression": 40, "wet_skill": 65, "quali_pace": 70, "consistency": 80, "night_skill": 64, "nickname": None},
+        "Kai Nakamura":      {"nationality": "JPN", "skill": 82, "aggression": 25, "wet_skill": 78, "quali_pace": 72, "consistency": 90, "night_skill": 71, "nickname": None},
+        "Tobias Schreiber":  {"nationality": "GER", "skill": 75, "aggression": 50, "wet_skill": 55, "quali_pace": 62, "consistency": 72, "night_skill": 58, "nickname": None},
+        "Lorenzo Marini":    {"nationality": "ITA", "skill": 89, "aggression": 80, "wet_skill": 48, "quali_pace": 88, "consistency": 50, "night_skill": 92, "nickname": "Night Hunter"},
+        "Jack Thornton":     {"nationality": "GBR", "skill": 83, "aggression": 65, "wet_skill": 62, "quali_pace": 75, "consistency": 58, "night_skill": 54, "nickname": "Late Charge"},
+        "Vladimir Kozlov":   {"nationality": "RUS", "skill": 77, "aggression": 85, "wet_skill": 52, "quali_pace": 60, "consistency": 40, "night_skill": 44, "nickname": "The Gambler"},
+        "Yasuhiro Ito":      {"nationality": "JPN", "skill": 86, "aggression": 20, "wet_skill": 88, "quali_pace": 78, "consistency": 95, "night_skill": 88, "nickname": "Iron Pace"},
+        "Patrick Brennan":   {"nationality": "IRL", "skill": 74, "aggression": 45, "wet_skill": 68, "quali_pace": 58, "consistency": 75, "night_skill": 62, "nickname": None},
+        "Roberto Mancini":   {"nationality": "ITA", "skill": 80, "aggression": 60, "wet_skill": 55, "quali_pace": 70, "consistency": 60, "night_skill": 54, "nickname": None},
+        "Hugo Lefevre":      {"nationality": "FRA", "skill": 73, "aggression": 35, "wet_skill": 62, "quali_pace": 55, "consistency": 80, "night_skill": 63, "nickname": None},
+        "Christoph Weber":   {"nationality": "GER", "skill": 88, "aggression": 50, "wet_skill": 72, "quali_pace": 90, "consistency": 84, "night_skill": 78, "nickname": "The Mastermind"},
+        "Nils Gunnarsson":   {"nationality": "SWE", "skill": 82, "aggression": 25, "wet_skill": 85, "quali_pace": 68, "consistency": 92, "night_skill": 73, "nickname": None},
+        "Mehmet Ozkan":      {"nationality": "TUR", "skill": 79, "aggression": 70, "wet_skill": 42, "quali_pace": 65, "consistency": 50, "night_skill": 47, "nickname": None},
+        "Benedikt Fischer":  {"nationality": "GER", "skill": 85, "aggression": 40, "wet_skill": 70, "quali_pace": 86, "consistency": 85, "night_skill": 66, "nickname": None},
+        "Alvaro Delgado":    {"nationality": "ESP", "skill": 83, "aggression": 65, "wet_skill": 48, "quali_pace": 75, "consistency": 55, "night_skill": 50, "nickname": None},
+        "Finn Andersen":     {"nationality": "SWE", "skill": 76, "aggression": 30, "wet_skill": 80, "quali_pace": 60, "consistency": 86, "night_skill": 69, "nickname": None},
+        "Artem Sokolov":     {"nationality": "RUS", "skill": 87, "aggression": 75, "wet_skill": 55, "quali_pace": 82, "consistency": 50, "night_skill": 49, "nickname": "Iron Fist"},
+        "Raul Jimenez":      {"nationality": "ESP", "skill": 81, "aggression": 55, "wet_skill": 52, "quali_pace": 72, "consistency": 72, "night_skill": 57, "nickname": None},
+        "Enzo Palermo":      {"nationality": "ITA", "skill": 84, "aggression": 80, "wet_skill": 45, "quali_pace": 76, "consistency": 45, "night_skill": 45, "nickname": "Raw Speed"},
+        "Timothy Hooper":    {"nationality": "GBR", "skill": 70, "aggression": 20, "wet_skill": 68, "quali_pace": 48, "consistency": 88, "night_skill": 69, "nickname": None},
+        "Francois Girard":   {"nationality": "FRA", "skill": 86, "aggression": 45, "wet_skill": 75, "quali_pace": 88, "consistency": 84, "night_skill": 66, "nickname": None},
+        "Kazuki Yamamoto":   {"nationality": "JPN", "skill": 91, "aggression": 30, "wet_skill": 80, "quali_pace": 90, "consistency": 92, "night_skill": 85, "nickname": "Ice Cold"},
+        "Benjamin Koch":     {"nationality": "GER", "skill": 78, "aggression": 60, "wet_skill": 55, "quali_pace": 65, "consistency": 58, "night_skill": 53, "nickname": None},
+        "Cian Murphy":       {"nationality": "IRL", "skill": 73, "aggression": 50, "wet_skill": 68, "quali_pace": 55, "consistency": 72, "night_skill": 61, "nickname": None},
+        "Mateus Costa":      {"nationality": "BRA", "skill": 82, "aggression": 70, "wet_skill": 60, "quali_pace": 75, "consistency": 52, "night_skill": 51, "nickname": None},
+        "Tomas Novak":       {"nationality": "CZE", "skill": 79, "aggression": 35, "wet_skill": 65, "quali_pace": 65, "consistency": 82, "night_skill": 65, "nickname": None},
+        "Rafael Torres":     {"nationality": "ESP", "skill": 85, "aggression": 75, "wet_skill": 52, "quali_pace": 82, "consistency": 52, "night_skill": 49, "nickname": "Frontline"},
+        "Pieter de Vries":   {"nationality": "NLD", "skill": 83, "aggression": 40, "wet_skill": 82, "quali_pace": 78, "consistency": 84, "night_skill": 68, "nickname": None},
+        "Duncan Fraser":     {"nationality": "GBR", "skill": 77, "aggression": 55, "wet_skill": 70, "quali_pace": 65, "consistency": 74, "night_skill": 61, "nickname": None},
+        "Alexei Morozov":    {"nationality": "RUS", "skill": 80, "aggression": 65, "wet_skill": 48, "quali_pace": 68, "consistency": 55, "night_skill": 50, "nickname": None},
+        "Simon Bertrand":    {"nationality": "FRA", "skill": 86, "aggression": 35, "wet_skill": 78, "quali_pace": 88, "consistency": 88, "night_skill": 78, "nickname": "Clean Air"},
+        "Stephan Kramer":    {"nationality": "GER", "skill": 88, "aggression": 60, "wet_skill": 65, "quali_pace": 90, "consistency": 68, "night_skill": 58, "nickname": "The Dominator"},
+        "Mattias Svensson":  {"nationality": "SWE", "skill": 82, "aggression": 25, "wet_skill": 85, "quali_pace": 68, "consistency": 90, "night_skill": 72, "nickname": None},
+        "Davide Russo":      {"nationality": "ITA", "skill": 84, "aggression": 70, "wet_skill": 50, "quali_pace": 75, "consistency": 55, "night_skill": 50, "nickname": None},
+        "Callum Stewart":    {"nationality": "GBR", "skill": 76, "aggression": 45, "wet_skill": 65, "quali_pace": 62, "consistency": 76, "night_skill": 62, "nickname": None},
+        "Timur Bakirov":     {"nationality": "RUS", "skill": 79, "aggression": 80, "wet_skill": 45, "quali_pace": 62, "consistency": 42, "night_skill": 44, "nickname": "The Maverick"},
+        "Marco Bianchi":     {"nationality": "ITA", "skill": 87, "aggression": 55, "wet_skill": 68, "quali_pace": 84, "consistency": 82, "night_skill": 63, "nickname": None},
+        "Arnaud Leblanc":    {"nationality": "FRA", "skill": 81, "aggression": 35, "wet_skill": 72, "quali_pace": 72, "consistency": 84, "night_skill": 67, "nickname": None},
+        "Hiroshi Watanabe":  {"nationality": "JPN", "skill": 85, "aggression": 20, "wet_skill": 88, "quali_pace": 75, "consistency": 95, "night_skill": 90, "nickname": "Stint Master"},
+        "Edward Collins":    {"nationality": "GBR", "skill": 73, "aggression": 50, "wet_skill": 60, "quali_pace": 58, "consistency": 72, "night_skill": 59, "nickname": None},
+        "Gerhard Mayer":     {"nationality": "GER", "skill": 83, "aggression": 45, "wet_skill": 65, "quali_pace": 78, "consistency": 80, "night_skill": 63, "nickname": None},
+        "Luca Gentile":      {"nationality": "ITA", "skill": 89, "aggression": 70, "wet_skill": 55, "quali_pace": 86, "consistency": 58, "night_skill": 92, "nickname": "Night Hawk"},
+        "Frederick Larsson": {"nationality": "SWE", "skill": 80, "aggression": 30, "wet_skill": 82, "quali_pace": 68, "consistency": 87, "night_skill": 70, "nickname": None},
+        "Alistair Young":    {"nationality": "GBR", "skill": 76, "aggression": 55, "wet_skill": 62, "quali_pace": 62, "consistency": 70, "night_skill": 58, "nickname": None},
+        "Marco Colombo":     {"nationality": "ITA", "skill": 85, "aggression": 65, "wet_skill": 58, "quali_pace": 82, "consistency": 62, "night_skill": 54, "nickname": None},
+        "Jean-Paul Tissot":  {"nationality": "FRA", "skill": 82, "aggression": 40, "wet_skill": 68, "quali_pace": 75, "consistency": 82, "night_skill": 65, "nickname": None},
+        "Adriano Ferretti":  {"nationality": "ITA", "skill": 87, "aggression": 80, "wet_skill": 45, "quali_pace": 84, "consistency": 48, "night_skill": 46, "nickname": "The Predator"},
+        "Sebastian Vallet":  {"nationality": "FRA", "skill": 78, "aggression": 35, "wet_skill": 65, "quali_pace": 68, "consistency": 82, "night_skill": 65, "nickname": None},
+        "Diego Morales":     {"nationality": "ESP", "skill": 83, "aggression": 60, "wet_skill": 48, "quali_pace": 72, "consistency": 58, "night_skill": 52, "nickname": None},
+        "Andrei Popov":      {"nationality": "RUS", "skill": 81, "aggression": 50, "wet_skill": 55, "quali_pace": 70, "consistency": 72, "night_skill": 58, "nickname": None},
+        "Josef Novotny":     {"nationality": "CZE", "skill": 75, "aggression": 40, "wet_skill": 62, "quali_pace": 60, "consistency": 78, "night_skill": 62, "nickname": None},
+        "Henryk Kowalski":   {"nationality": "POL", "skill": 79, "aggression": 55, "wet_skill": 60, "quali_pace": 65, "consistency": 72, "night_skill": 59, "nickname": None},
+        "Kwame Asante":      {"nationality": "GHA", "skill": 82, "aggression": 45, "wet_skill": 50, "quali_pace": 72, "consistency": 78, "night_skill": 59, "nickname": None},
+        "Taiki Oshima":      {"nationality": "JPN", "skill": 86, "aggression": 30, "wet_skill": 85, "quali_pace": 82, "consistency": 92, "night_skill": 82, "nickname": "The Closer"},
+        "Brenden Walsh":     {"nationality": "IRL", "skill": 71, "aggression": 65, "wet_skill": 70, "quali_pace": 55, "consistency": 48, "night_skill": 52, "nickname": "Raw Talent"},
+        "Giacomo Vietti":    {"nationality": "ITA", "skill": 84, "aggression": 75, "wet_skill": 48, "quali_pace": 75, "consistency": 48, "night_skill": 47, "nickname": None},
+        "Emilio Fernandez":  {"nationality": "ESP", "skill": 80, "aggression": 60, "wet_skill": 45, "quali_pace": 68, "consistency": 58, "night_skill": 51, "nickname": None},
+        "Lars Petersen":     {"nationality": "SWE", "skill": 77, "aggression": 25, "wet_skill": 80, "quali_pace": 62, "consistency": 88, "night_skill": 70, "nickname": None},
+        "Nikolai Volkov":    {"nationality": "RUS", "skill": 83, "aggression": 70, "wet_skill": 50, "quali_pace": 72, "consistency": 52, "night_skill": 49, "nickname": None},
+        "Kim Andersen":      {"nationality": "SWE", "skill": 78, "aggression": 35, "wet_skill": 78, "quali_pace": 65, "consistency": 84, "night_skill": 68, "nickname": None},
     }
 
     # How many championship drivers per team entry (MX5 is single-driver; GT3/GT4/WEC are 2)
@@ -374,6 +374,75 @@ class CareerManager:
                 'global_slot': global_slot,
             })
         return opponents
+
+    # ------------------------------------------------------------------
+    # Weekend simulation — practice and qualifying results
+    # ------------------------------------------------------------------
+
+    def simulate_qualifying(self, opponents, ai_lvl, career_data=None):
+        """Simulate qualifying for all opponents + player.
+
+        Each driver runs 3 hot laps (take best). Pace is driven by quali_pace
+        and car performance; consistency determines lap-to-lap variance.
+
+        Returns list sorted P1→last:
+            [{'name', 'car', 'team', 'is_player', 'pace_score', 'position'}, ...]
+        """
+        results = []
+        for opp in opponents[:19]:
+            name    = opp.get('driver_name') or ''
+            profile = self.get_driver_profile(name, career_data=career_data)
+            base    = opp.get('performance', 0) + (profile.get('quali_pace', 75) - 75) * 0.4
+            spread  = (100 - profile.get('consistency', 75)) * 0.08
+            best    = max(base + random.gauss(0, spread) for _ in range(3))
+            results.append({
+                'name': name, 'car': opp.get('car', ''),
+                'team': opp.get('team', ''), 'is_player': False, 'pace_score': best,
+            })
+
+        # Player pace: relative to field average, scaled by adaptive AI level
+        field_avg   = sum(r['pace_score'] for r in results) / len(results) if results else 0
+        player_pace = field_avg + (ai_lvl - 80) * 0.15 + random.gauss(0, 1.5)
+        results.append({
+            'name': 'PLAYER', 'car': '', 'team': '', 'is_player': True, 'pace_score': player_pace,
+        })
+
+        results.sort(key=lambda x: x['pace_score'], reverse=True)
+        for i, r in enumerate(results):
+            r['position'] = i + 1
+        return results
+
+    def simulate_practice(self, opponents, ai_lvl, career_data=None):
+        """Simulate free practice for all opponents + player.
+
+        Longer runs (5 stints), more variance than qualifying. Uses race skill
+        as base (not quali_pace) since FP reflects long-run pace.
+
+        Returns list sorted P1→last:
+            [{'name', 'car', 'team', 'is_player', 'pace_score', 'position'}, ...]
+        """
+        results = []
+        for opp in opponents[:19]:
+            name    = opp.get('driver_name') or ''
+            profile = self.get_driver_profile(name, career_data=career_data)
+            base    = opp.get('performance', 0) + (profile.get('skill', 80) - 80) * 0.3
+            spread  = (100 - profile.get('consistency', 75)) * 0.15
+            best    = max(base + random.gauss(0, spread) for _ in range(5))
+            results.append({
+                'name': name, 'car': opp.get('car', ''),
+                'team': opp.get('team', ''), 'is_player': False, 'pace_score': best,
+            })
+
+        field_avg   = sum(r['pace_score'] for r in results) / len(results) if results else 0
+        player_pace = field_avg + (ai_lvl - 80) * 0.12 + random.gauss(0, 2.0)
+        results.append({
+            'name': 'PLAYER', 'car': '', 'team': '', 'is_player': True, 'pace_score': player_pace,
+        })
+
+        results.sort(key=lambda x: x['pace_score'], reverse=True)
+        for i, r in enumerate(results):
+            r['position'] = i + 1
+        return results
 
     # ------------------------------------------------------------------
     # Standings — deterministic AI, real player points
@@ -675,11 +744,12 @@ class CareerManager:
         tier below.  Champion always gets promoted; top-3 get scouted by
         higher-tier teams.
         """
-        # Career complete
-        if next_tier >= len(self.tiers):
-            return [{'message': 'Congratulations! Career complete!', 'complete': True}]
-
         degradation_risk = (player_position >= team_count - 2)
+
+        # Career complete: only when NOT in degradation risk and already at top tier.
+        # Degradation risk takes priority — even WEC last-place finishers drop to GT3.
+        if not degradation_risk and next_tier >= len(self.tiers):
+            return [{'message': 'Congratulations! Career complete!', 'complete': True}]
 
         if degradation_risk:
             offers = []
@@ -787,9 +857,13 @@ class CareerManager:
         """
         return get_ac_docs_path("cfg")
 
-    def launch_ac_race(self, race_config, config, mode='race_only', career_data=None):
+    def launch_ac_race(self, race_config, config, mode='race_only', career_data=None,
+                       session_type=None, grid=None):
         """Launch Assetto Corsa with race configuration.
-        mode: 'race_only' (default) or 'full_weekend' (practice + quali + race)
+
+        mode:         'race_only' (default) | 'full_weekend'
+        session_type: 'practice' | 'qualifying' | 'race' — for split weekend sessions.
+        grid:         Pre-sorted car list from simulate_qualifying() or AC quali results.
         """
         ac_path = config['paths']['ac_install']
 
@@ -803,7 +877,8 @@ class CareerManager:
 
         # 1. Write race.ini to Documents (where AC actually reads it)
         race_cfg_path = os.path.join(docs_cfg, 'race.ini')
-        self._write_race_config(race_cfg_path, race_config, ac_path, mode=mode, career_data=career_data)
+        self._write_race_config(race_cfg_path, race_config, ac_path, mode=mode,
+                                career_data=career_data, session_type=session_type, grid=grid)
 
         # 2. Patch launcher.ini in Documents so AC starts in race mode
         launcher_path = os.path.join(docs_cfg, 'launcher.ini')
@@ -876,9 +951,15 @@ class CareerManager:
         except Exception:
             return ''
 
-    def _write_race_config(self, config_path, race_data, ac_path='', mode='race_only', career_data=None):
+    def _write_race_config(self, config_path, race_data, ac_path='', mode='race_only',
+                           career_data=None, session_type=None, grid=None):
         """Write AC race.ini in the format AC expects (Documents/Assetto Corsa/cfg/race.ini).
-        mode: 'race_only' → single race session; 'full_weekend' → practice + quali + race.
+
+        mode:         'race_only' (default) | 'full_weekend' (practice + quali + race in one go)
+        session_type: 'practice' | 'qualifying' | 'race' — single session for split weekend.
+                      When set, overrides mode for session content and AI level calculation.
+        grid:         Sorted list from simulate_qualifying() or actual quali results.
+                      When provided, cars are written in grid order (player at correct position).
         """
         driver           = race_data.get('driver_name', 'Player')
         car              = race_data['car']
@@ -943,8 +1024,38 @@ class CareerManager:
             "",
         ]
 
-        # Sessions — race only or full weekend (practice + qualifying + race)
-        if mode == 'full_weekend':
+        # Sessions — single session (split weekend) or combined (full_weekend / race_only)
+        if session_type == 'practice':
+            lines += [
+                "[SESSION_0]",
+                "NAME=PRACTICE",
+                "TYPE=1",
+                "SPAWN_SET=PIT",
+                f"DURATION_MINUTES={practice_minutes}",
+                "LAPS=0",
+                "",
+            ]
+        elif session_type == 'qualifying':
+            lines += [
+                "[SESSION_0]",
+                "NAME=QUALIFY",
+                "TYPE=2",
+                "SPAWN_SET=PIT",
+                f"DURATION_MINUTES={quali_minutes}",
+                "LAPS=0",
+                "",
+            ]
+        elif session_type == 'race':
+            lines += [
+                "[SESSION_0]",
+                "NAME=RACE",
+                "TYPE=3",
+                "SPAWN_SET=START",
+                f"LAPS={laps}",
+                "DURATION_MINUTES=0",
+                "",
+            ]
+        elif mode == 'full_weekend':
             lines += [
                 "[SESSION_0]",
                 "NAME=PRACTICE",
@@ -992,81 +1103,109 @@ class CareerManager:
         WET_PRESETS = {'rainy', 'heavy_rain', 'wet', 'light_rain', 'drizzle', 'stormy', 'overcast_wet'}
         is_wet = weather.lower() in WET_PRESETS
 
-        # Ballast by team class (factory=fastest car, customer=slowest)
-        TEAM_BALLAST = {"factory": 0, "semi": 10, "customer": 20}
+        # Night/endurance detection — used for per-driver night_skill AI adjustment
+        sun_angle  = race_data.get('sun_angle')
+        time_mult  = race_data.get('time_of_day_mult') or 1
+        if time_mult > 1:
+            night_weight = 0.5   # endurance: ~half the race in darkness
+        elif sun_angle is not None and sun_angle < -30:
+            night_weight = 1.0   # explicit night race
+        else:
+            night_weight = 0.0
 
-        # Player team ballast — look up class from config by team name
-        player_team_name = race_data.get('team', '')
-        player_ballast = 20  # default customer
-        for tk in self.tiers:
-            for t in self.config.get('teams', {}).get(tk, {}).get('teams', []):
-                if t['name'] == player_team_name:
-                    player_ballast = TEAM_BALLAST.get(t.get('tier', 'customer'), 20)
-                    break
-
-        # [CAR_0] — player car
-        lines += [
-            "[CAR_0]",
-            f"MODEL={car}",
-            f"SKIN={skin}",
-            f"MODEL_CONFIG=",
-            f"DRIVER_NAME={driver}",
-            f"NATIONALITY=",
-            f"AI_LEVEL=",
-            f"AI_AGGRESSION=0",
-            f"SETUP=",
-            f"BALLAST={player_ballast}",
-            f"RESTRICTOR=0",
-            "",
-        ]
+        # Success ballast: car model is the team differentiator; ballast only penalises recent winners.
+        # Count P1 finishes in the last 3 races — each win adds 5 kg (max 15 kg).
+        recent = (career_data or {}).get('race_results', [])[-3:]
+        player_ballast = sum(5 for r in recent if r.get('position') == 1)
 
         # Base variance from config (used to scale per-driver consistency)
         base_variance = self.config.get('difficulty', {}).get('ai_level_variance', 1.5)
 
-        # [CAR_N] — AI cars: per-driver skill/aggression/wet/consistency/ballast
-        for i, opp in enumerate(ai_cars, start=1):
-            opp_car  = opp.get('car', car)
-            opp_skin = self._get_car_skin(opp_car, ac_path, index=i) if ac_path else ''
-            name     = opp.get('driver_name') or self.DRIVER_NAMES[(i - 1) % len(self.DRIVER_NAMES)]
-            profile  = self.get_driver_profile(name, career_data=career_data)
-            nation   = profile['nationality']
+        # Determine which skill attribute drives AI level for this session
+        # qualifying → quali_pace only; full_weekend → blend; everything else → race skill
+        if session_type == 'qualifying':
+            ai_skill_mode = 'qualifying'
+        elif mode == 'full_weekend':
+            ai_skill_mode = 'blend'
+        else:
+            ai_skill_mode = 'race'
 
-            # Skill offset: skill 80=±0, 95=+3, 70=-2 relative to base AI level
-            skill_offset = int((profile['skill'] - 80) * 0.2)
+        def _ai_level_for(profile_):
+            """Compute a single AI level value for one driver."""
+            if ai_skill_mode == 'qualifying':
+                eff = float(profile_.get('quali_pace', 75))
+            elif ai_skill_mode == 'blend':
+                eff = (profile_['skill'] + profile_.get('quali_pace', 75)) / 2
+            else:
+                eff = float(profile_['skill'])
+            s_off = int((eff - 80) * 0.2)
+            w_adj = round((profile_.get('wet_skill', 60) - 50) * 0.08) if is_wet else 0
+            n_adj = round((profile_.get('night_skill', 60) - 60) * 0.12 * night_weight)
+            cons  = profile_.get('consistency', 75)
+            dvar  = min(base_variance * (1 + (50 - cons) / 50), 1.5)
+            v_adj = random.uniform(-dvar, dvar)
+            return max(50, min(100, int(ai_lvl + s_off + w_adj + n_adj + v_adj)))
 
-            # Wet skill modifier (only applied on wet weather presets)
-            wet_adj = round((profile.get('wet_skill', 60) - 50) * 0.06) if is_wet else 0
+        # Build ordered car list: grid order if provided, otherwise player P1 then AI
+        # grid entries: {'name', 'car', 'team', 'is_player', ...} sorted P1→last
+        opp_by_name = {(opp.get('driver_name') or ''): opp for opp in ai_cars}
 
-            # Consistency-based variance: low consistency = larger AI level swings
-            consistency     = profile.get('consistency', 75)
-            driver_variance = base_variance * (1 + (50 - consistency) / 50)
-            variance_adj    = random.uniform(-driver_variance, driver_variance)
+        if grid:
+            car_entries = []
+            for g in grid:
+                if g.get('is_player'):
+                    car_entries.append({'type': 'player'})
+                else:
+                    opp = opp_by_name.get(g['name'], {'car': g.get('car', car), 'driver_name': g['name']})
+                    car_entries.append({'type': 'ai', 'opp': opp})
+        else:
+            car_entries = [{'type': 'player'}] + [{'type': 'ai', 'opp': opp} for opp in ai_cars]
 
-            opp_ai_level = max(50, min(100, int(ai_lvl + skill_offset + wet_adj + variance_adj)))
+        # Write [CAR_N] blocks in grid order
+        for i, entry in enumerate(car_entries):
+            if entry['type'] == 'player':
+                lines += [
+                    f"[CAR_{i}]",
+                    f"MODEL={car}",
+                    f"SKIN={skin}",
+                    f"MODEL_CONFIG=",
+                    f"DRIVER_NAME={driver}",
+                    f"NATIONALITY=",
+                    f"AI_LEVEL=",
+                    f"AI_AGGRESSION=0",
+                    f"SETUP=",
+                    f"BALLAST={player_ballast}",
+                    f"RESTRICTOR=0",
+                    "",
+                ]
+            else:
+                opp      = entry['opp']
+                opp_car  = opp.get('car', car)
+                opp_skin = self._get_car_skin(opp_car, ac_path, index=i) if ac_path else ''
+                name     = opp.get('driver_name') or self.DRIVER_NAMES[i % len(self.DRIVER_NAMES)]
+                profile  = self.get_driver_profile(name, career_data=career_data)
+                nation   = profile['nationality']
 
-            # Bump aggression slightly for very inconsistent drivers (nervous under pressure)
-            opp_aggression = profile['aggression']
-            if consistency < 50:
-                opp_aggression = min(100, opp_aggression + int((50 - consistency) * 0.3))
+                opp_ai_level  = _ai_level_for(profile)
+                opp_aggression = profile['aggression']
+                consistency    = profile.get('consistency', 75)
+                if consistency < 50:
+                    opp_aggression = min(100, opp_aggression + int((50 - consistency) * 0.3))
 
-            # Team ballast from opp dict (populated by _generate_opponent_field)
-            team_class = opp.get('tier', 'customer')
-            ballast    = TEAM_BALLAST.get(team_class, 20)
-
-            lines += [
-                f"[CAR_{i}]",
-                f"MODEL={opp_car}",
-                f"SKIN={opp_skin}",
-                f"MODEL_CONFIG=",
-                f"DRIVER_NAME={name}",
-                f"NATION_CODE={nation}",
-                f"AI_LEVEL={opp_ai_level}",
-                f"AI_AGGRESSION={opp_aggression}",
-                f"SETUP=",
-                f"BALLAST={ballast}",
-                f"RESTRICTOR=0",
-                "",
-            ]
+                lines += [
+                    f"[CAR_{i}]",
+                    f"MODEL={opp_car}",
+                    f"SKIN={opp_skin}",
+                    f"MODEL_CONFIG=",
+                    f"DRIVER_NAME={name}",
+                    f"NATION_CODE={nation}",
+                    f"AI_LEVEL={opp_ai_level}",
+                    f"AI_AGGRESSION={opp_aggression}",
+                    f"SETUP=",
+                    f"BALLAST=0",
+                    f"RESTRICTOR=0",
+                    "",
+                ]
 
         content = "\n".join(lines)
 

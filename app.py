@@ -556,6 +556,189 @@ def get_next_race():
     return jsonify(race)
 
 
+@app.route('/api/weekend/init', methods=['POST'])
+def weekend_init():
+    """Initialise a new race weekend: generate race config, simulate practice + qualifying.
+    Stores current_weekend in career_data so sessions can be launched individually."""
+    career_data  = load_career_data()
+    cfg          = load_config()
+    tier_index   = career_data['tier']
+    tier_key     = career.tiers[tier_index]
+    tier_info    = _effective_tier_info(tier_key, career.get_tier_info(tier_index), career_data)
+    race_num     = career_data['races_completed'] + 1
+    season       = career_data.get('season', 1)
+    cs           = career_data.get('career_settings') or {}
+    weather_mode = cs.get('weather_mode', 'realistic')
+    if not cs.get('dynamic_weather', True):
+        weather_mode = 'always_clear'
+    night_cycle  = cs.get('night_cycle', True)
+
+    race = career.generate_race(tier_info, race_num, career_data['team'], career_data['car'],
+                                tier_key=tier_key, season=season, weather_mode=weather_mode,
+                                night_cycle=night_cycle, career_data=career_data)
+    ai_offset = cs.get('ai_offset', 0)
+    if ai_offset:
+        race['ai_difficulty'] = max(60, min(100, race['ai_difficulty'] + ai_offset))
+    race['driver_name'] = career_data.get('driver_name', 'Player')
+
+    opponents = race.get('opponents', [])
+    ai_lvl    = int(race['ai_difficulty'])
+
+    practice_sim  = career.simulate_practice(opponents, ai_lvl, career_data=career_data)
+    qualifying_sim = career.simulate_qualifying(opponents, ai_lvl, career_data=career_data)
+
+    career_data['current_weekend'] = {
+        'race_data':      race,
+        'practice':       {'status': 'pending', 'sim_result': practice_sim},
+        'qualifying':     {'status': 'pending', 'sim_result': qualifying_sim, 'grid': qualifying_sim},
+        'race':           {'status': 'pending'},
+    }
+    save_career_data(career_data)
+
+    return jsonify({
+        'status':       'ok',
+        'race':         race,
+        'practice_sim': practice_sim,
+        'quali_sim':    qualifying_sim,
+    })
+
+
+@app.route('/api/weekend/start-session', methods=['POST'])
+def weekend_start_session():
+    """Write race.ini for the requested session and launch AC.
+    Body: {'session': 'practice'|'qualifying'|'race'}
+    """
+    data, err = _require_json_object()
+    if err:
+        return err
+    session = data.get('session', 'race')
+    if session not in ('practice', 'qualifying', 'race'):
+        return jsonify({'status': 'error', 'message': 'Invalid session'}), 400
+
+    career_data = load_career_data()
+    cfg         = load_config()
+    weekend     = career_data.get('current_weekend')
+    if not weekend:
+        return jsonify({'status': 'error', 'message': 'No active race weekend'}), 400
+
+    race     = weekend['race_data']
+    grid     = None
+    if session == 'race':
+        # Use the grid determined by qualifying (actual or simulated)
+        grid = weekend.get('qualifying', {}).get('grid') or None
+
+    success = career.launch_ac_race(race, cfg, session_type=session, grid=grid,
+                                    career_data=career_data)
+    if success:
+        career_data['current_weekend'][session]['status'] = 'started'
+        career_data['race_started_at'] = datetime.now().isoformat()
+        save_career_data(career_data)
+        return jsonify({'status': 'success', 'session': session})
+    else:
+        return jsonify({'status': 'error', 'message': 'Failed to launch AC'}), 500
+
+
+@app.route('/api/weekend/complete-session', methods=['POST'])
+def weekend_complete_session():
+    """Mark a session as done and advance weekend state.
+    Body: {'session': 'practice'|'qualifying'|'race', 'use_sim': true|false}
+
+    For qualifying:
+    - Reads latest AC qualifying result file when use_sim=false
+    - Falls back to simulated grid if result not found or use_sim=true
+    For practice and race: marks done, no grid change.
+    """
+    data, err = _require_json_object()
+    if err:
+        return err
+    session  = data.get('session', 'race')
+    use_sim  = data.get('use_sim', False)
+
+    career_data = load_career_data()
+    weekend     = career_data.get('current_weekend')
+    if not weekend:
+        return jsonify({'status': 'error', 'message': 'No active race weekend'}), 400
+
+    result_data = {}
+
+    if session == 'qualifying' and not use_sim:
+        # Try to read actual qualifying result from AC results folder
+        results_dir = get_ac_docs_path('results')
+        race_started_at = career_data.get('race_started_at', '')
+        try:
+            start_time = datetime.fromisoformat(race_started_at).replace(microsecond=0)
+        except (ValueError, TypeError):
+            start_time = datetime.min
+
+        quali_grid = None
+        if os.path.exists(results_dir):
+            candidates = []
+            for fname in os.listdir(results_dir):
+                if not fname.endswith('.json'):
+                    continue
+                fpath = os.path.join(results_dir, fname)
+                mtime = datetime.fromtimestamp(os.path.getmtime(fpath))
+                if mtime >= start_time:
+                    candidates.append((mtime, fpath))
+
+            candidates.sort(key=lambda x: x[0], reverse=True)
+            for _, fpath in candidates:
+                try:
+                    with open(fpath, 'r', encoding='utf-8') as f:
+                        res = json.load(f)
+                except Exception:
+                    continue
+                if res.get('Type', '').upper() not in ('QUALIFY', 'Q', 'QUALIFYING'):
+                    continue
+                # Build grid from AC qualifying results — sort by BestLap ascending (ignore 0 = no lap)
+                ac_results = sorted(
+                    res.get('Result', []),
+                    key=lambda x: x.get('BestLap', 999999999) or 999999999
+                )
+                driver_name = career_data.get('driver_name', 'Player')
+                quali_grid = []
+                for pos, entry in enumerate(ac_results, start=1):
+                    is_player = entry.get('DriverName', '').lower() == driver_name.lower()
+                    quali_grid.append({
+                        'name':       entry.get('DriverName', ''),
+                        'car':        entry.get('CarModel', ''),
+                        'team':       '',
+                        'is_player':  is_player,
+                        'pace_score': 0,
+                        'position':   pos,
+                        'best_lap':   entry.get('BestLap', 0),
+                    })
+                break
+
+        if quali_grid:
+            weekend['qualifying']['grid']  = quali_grid
+            result_data['source'] = 'actual'
+            result_data['grid']   = quali_grid
+        else:
+            # Fall back to simulated grid
+            result_data['source'] = 'simulated'
+            result_data['grid']   = weekend['qualifying'].get('sim_result', [])
+    elif session == 'qualifying' and use_sim:
+        result_data['source'] = 'simulated'
+        result_data['grid']   = weekend['qualifying'].get('sim_result', [])
+        weekend['qualifying']['grid'] = result_data['grid']
+
+    weekend[session]['status'] = 'done'
+    save_career_data(career_data)
+
+    return jsonify({'status': 'ok', 'session': session, 'result': result_data})
+
+
+@app.route('/api/weekend/state')
+def weekend_state():
+    """Return current weekend state (for UI refresh after returning from AC)."""
+    career_data = load_career_data()
+    weekend     = career_data.get('current_weekend')
+    if not weekend:
+        return jsonify({'status': 'none'})
+    return jsonify({'status': 'active', 'weekend': weekend})
+
+
 @app.route('/api/start-race', methods=['POST'])
 def start_race():
     career_data  = load_career_data()
@@ -825,7 +1008,7 @@ def _do_end_season():
     tier_key    = career.tiers[tier_index]
     tier_info   = career.get_tier_info(tier_index)
     standings   = career.generate_standings(tier_info, career_data, tier_key=tier_key)
-    position    = next((s['position'] for s in standings if s['is_player']), 1)
+    position    = next((s['position'] for s in standings if s['is_player']), team_count)
     team_count  = len(tier_info['teams'])
 
     # Snapshot AI driver final positions into career history
@@ -857,11 +1040,17 @@ def _do_end_season():
         'wins':   wins,
     })
 
-    contracts   = career.generate_contract_offers(
-        position, tier_index + 1, cfg,
-        current_tier=tier_index,
-        team_count=team_count,
-    )
+    # Career complete: top tier + not in degradation risk → no next tier
+    degradation_risk = position >= team_count - 2
+    at_top_tier      = tier_index >= len(career.tiers) - 1
+    if at_top_tier and not degradation_risk:
+        contracts = [{'message': 'Congratulations! Career complete!', 'complete': True}]
+    else:
+        contracts = career.generate_contract_offers(
+            position, tier_index + 1, cfg,
+            current_tier=tier_index,
+            team_count=team_count,
+        )
     career_data['contracts']      = contracts
     career_data['final_position'] = position
     save_career_data(career_data)
@@ -1257,8 +1446,19 @@ def server_error(e):
 
 if __name__ == '__main__':
     import time
-    import webview
     import ctypes
+
+    # Configure pythonnet to use .NET 8 Desktop Runtime (needed for WinForms/EdgeChromium)
+    try:
+        import pythonnet
+        from clr_loader import get_coreclr
+        _rc = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pythonnet.runtimeconfig.json')
+        if os.path.exists(_rc):
+            pythonnet.set_runtime(get_coreclr(runtime_config=_rc))
+    except Exception:
+        pass  # fall back to auto-detect (netfx or env var)
+
+    import webview
 
     class JsApi:
         """Python functions exposed to JavaScript via window.pywebview.api"""

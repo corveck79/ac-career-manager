@@ -23,6 +23,8 @@ if not exist "venv\Scripts\python.exe" (
     venv\Scripts\pip install -r requirements.txt
 )
 set PYTHON=venv\Scripts\python.exe
+set PYTHONNET_RUNTIME=coreclr
+set PYTHONNET_RUNTIME_CONFIG=%~dp0pythonnet.runtimeconfig.json
 
 echo  [3/3] App starten...
 echo.

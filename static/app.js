@@ -1159,6 +1159,238 @@ async function confirmStartRace(mode) {
     } catch (e) { showToast('Error: ' + e.message, 'error'); }
 }
 
+// ── Race Weekend Panel ─────────────────────────────────────────────────────
+let _weekend     = null;  // current weekend state from /api/weekend/init
+let _weekendGrids = {};   // { practice: {grid, source}, qualifying: {grid, source} }
+
+async function openWeekendPanel() {
+    try {
+        const r = await fetch('/api/weekend/init', { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+        const d = await r.json();
+        if (d.status !== 'ok') { showToast('Failed to initialise weekend', 'error'); return; }
+        _weekend = d;
+        _renderWeekendPanel(d);
+        document.getElementById('modal-race-actions').classList.add('hidden');
+        document.getElementById('weekend-panel').classList.remove('hidden');
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+function _renderWeekendPanel(d) {
+    const race = d.race;
+    document.getElementById('modal-race-title').textContent =
+        'Race Weekend — ' + fmtTrack(race.track);
+
+    document.getElementById('ws-dur-practice').textContent  = (race.practice_minutes || 10) + ' min';
+    document.getElementById('ws-dur-qualifying').textContent = (race.quali_minutes || 10) + ' min';
+    document.getElementById('ws-dur-race').textContent       = race.laps + ' laps';
+
+    // Reset position badges
+    ['practice', 'qualifying'].forEach(s => {
+        const posEl = document.getElementById('ws-pos-' + s);
+        if (posEl) { posEl.textContent = ''; posEl.classList.add('hidden'); posEl.onclick = null; }
+    });
+
+    // Clear stored grids and grid panel
+    _weekendGrids = {};
+    const gridPanel = document.getElementById('ws-grid-panel');
+    if (gridPanel) gridPanel.innerHTML = '<div class="ws-grid-panel-empty">Click a session result badge to view the grid</div>';
+
+    // Remove weekend-review close button and debrief from a previous run
+    const prev = document.getElementById('ws-review-actions');
+    if (prev) prev.remove();
+    const debriefEl = document.getElementById('ws-debrief-inline');
+    if (debriefEl) { debriefEl.innerHTML = ''; debriefEl.classList.add('hidden'); }
+
+    // Practice unlocked, qualifying + race locked initially
+    _setSessionState('practice', 'pending');
+    _setSessionState('qualifying', 'locked');
+    _setSessionState('race', 'locked');
+}
+
+function _setSessionState(session, state) {
+    const el      = document.getElementById('ws-' + session);
+    const iconEl  = document.getElementById('ws-icon-' + session);
+    const actEl   = document.getElementById('ws-actions-' + session);
+    el.classList.remove('ws-done', 'ws-locked');
+    if (state === 'done') {
+        el.classList.add('ws-done');
+        iconEl.textContent = '✓';
+        iconEl.className   = 'ws-icon done';
+        actEl.innerHTML    = '';
+    } else if (state === 'locked') {
+        el.classList.add('ws-locked');
+        iconEl.textContent = '○';
+        iconEl.className   = 'ws-icon';
+    } else {
+        iconEl.textContent = '○';
+        iconEl.className   = 'ws-icon';
+    }
+}
+
+async function weekendStartSession(session) {
+    try {
+        const r = await fetch('/api/weekend/start-session', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ session }),
+        });
+        const d = await r.json();
+        if (d.status !== 'success') { showToast(d.message || 'Failed to launch AC', 'error'); return; }
+        showToast('AC launched — ' + session + ' session starting…');
+        // After AC closes, player clicks "Done" to complete the session
+        const actEl = document.getElementById('ws-actions-' + session);
+        actEl.innerHTML =
+            '<button class="btn btn-sm btn-secondary" onclick="weekendDoneSession(\'' + session + '\', false)">Done (read result)</button>' +
+            '<button class="btn btn-sm btn-ghost"     onclick="weekendDoneSession(\'' + session + '\', true)">Use Simulated</button>';
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function weekendSkipSession(session) {
+    // Mark session done using simulated results
+    await _completeSession(session, true);
+    _advanceWeekend(session);
+}
+
+async function weekendDoneSession(session, useSim) {
+    await _completeSession(session, useSim);
+    _advanceWeekend(session);
+}
+
+async function _completeSession(session, useSim) {
+    try {
+        const r = await fetch('/api/weekend/complete-session', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ session, use_sim: useSim }),
+        });
+        const d = await r.json();
+        if (d.status !== 'ok') { showToast('Error completing session', 'error'); return; }
+
+        _setSessionState(session, 'done');
+
+        // Show result grid for practice, qualifying, and race
+        if (session === 'practice' || session === 'qualifying' || session === 'race') {
+            const result = d.result || {};
+            const grid   = result.grid || (_weekend && (
+                session === 'practice'   ? _weekend.practice_sim :
+                session === 'qualifying' ? _weekend.quali_sim    :
+                // race_sim doesn't exist in init response — fall back to qualifying grid
+                session === 'race'       ? (_weekendGrids['qualifying']?.grid || _weekend.quali_sim || []) : []
+            )) || [];
+            _showSessionGrid(session, grid, result.source);
+        }
+    } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+function _showSessionGrid(session, grid, source) {
+    const posEl    = document.getElementById('ws-pos-' + session);
+    const gridPanel = document.getElementById('ws-grid-panel');
+    if (!gridPanel || !grid || !grid.length) return;
+
+    // Store grid for replay when badge is clicked again
+    _weekendGrids[session] = { grid, source };
+
+    // Update the compact position badge
+    const player   = grid.find(g => g.is_player);
+    const srcShort = source === 'actual' ? '' : ' · sim';
+    if (player && posEl) {
+        posEl.textContent = 'P' + player.position + srcShort;
+        posEl.classList.remove('hidden');
+        posEl.title = 'Click to view grid';
+        posEl.onclick = () => _showSessionGrid(session, _weekendGrids[session].grid, _weekendGrids[session].source);
+    }
+
+    // Render full grid in the right panel
+    const sessionLabel = session === 'practice' ? 'Free Practice' : session === 'race' ? 'Race Result' : 'Qualifying';
+    const srcLabel     = source === 'actual' ? 'Actual result' : 'Simulated';
+    const rows = grid.map(g => {
+        const cls  = g.is_player ? ' class="ws-player"' : '';
+        const name = g.is_player ? '&#128100; YOU' : (g.name || '—');
+        return '<tr' + cls + '><td>P' + g.position + '</td><td>' + name + '</td><td>' + (g.team || '—') + '</td></tr>';
+    });
+    gridPanel.innerHTML =
+        '<div class="ws-grid-panel-header">' + sessionLabel + ' Results</div>' +
+        '<table class="ws-grid-table"><thead><tr><th>Pos</th><th>Driver</th><th>Team</th></tr></thead>' +
+        '<tbody>' + rows.join('') + '</tbody></table>' +
+        '<div class="ws-grid-source">' + srcLabel + '</div>';
+}
+
+function _advanceWeekend(completedSession) {
+    if (completedSession === 'practice')   _setSessionState('qualifying', 'pending');
+    if (completedSession === 'qualifying') _setSessionState('race', 'pending');
+    if (completedSession === 'race') {
+        // Race done — switch to Weekend Review mode; user closes when ready
+        document.getElementById('modal-race-title').textContent = '&#127937; Weekend Review';
+
+        // Race grid is already shown in the right panel (populated by _completeSession).
+        // If somehow missing, fall back to qualifying/practice.
+        if (!_weekendGrids['race']) {
+            const fallback = ['qualifying', 'practice'].find(s => _weekendGrids[s]);
+            if (fallback) _showSessionGrid(fallback, _weekendGrids[fallback].grid, _weekendGrids[fallback].source);
+        }
+
+        // Inject "View Race Result" button below the weekend panel
+        let reviewActions = document.getElementById('ws-review-actions');
+        if (!reviewActions) {
+            reviewActions = document.createElement('div');
+            reviewActions.id = 'ws-review-actions';
+            reviewActions.className = 'modal-actions';
+            reviewActions.style.marginTop = '.75rem';
+            document.getElementById('weekend-panel').after(reviewActions);
+        }
+        reviewActions.innerHTML =
+            '<button class="btn btn-race" onclick="_weekendClose()">&#9654; View Race Result</button>';
+
+        // Fetch engineer debrief and show it below the race card (left column)
+        _fetchWeekendDebrief();
+    }
+}
+
+async function _fetchWeekendDebrief() {
+    const el = document.getElementById('ws-debrief-inline');
+    if (!el) return;
+    el.innerHTML = '<div class="ws-debrief-title">&#128269; Engineer Debrief</div><div style="color:var(--text-faint);font-size:.75rem">Reading race data…</div>';
+    el.classList.remove('hidden');
+    try {
+        const r = await fetch('/api/read-race-result');
+        const d = await r.json();
+        if ((d.status === 'found' || d.status === 'incomplete') && d.lap_analysis) {
+            const a   = d.lap_analysis;
+            const con = a.consistency ?? null;
+            let conBadge = '';
+            if (con !== null) {
+                const conColor = con >= 80 ? '#3cc850' : con >= 60 ? '#e8b45a' : '#FF4757';
+                conBadge = '<span class="ws-debrief-consistency" style="background:' + conColor + '22;color:' + conColor + ';border:1px solid ' + conColor + '55">' +
+                           'Consistency ' + con + '/100</span><br>';
+            }
+            const report = a.engineer_report ? '<div class="ws-debrief-report">' + a.engineer_report + '</div>' : '';
+            el.innerHTML = '<div class="ws-debrief-title">&#128269; Engineer Debrief</div>' + conBadge + report;
+        } else {
+            el.innerHTML = '<div class="ws-debrief-title">&#128269; Engineer Debrief</div>' +
+                           '<div class="ws-debrief-report">Result file not yet available — check the full debrief after closing.</div>';
+        }
+    } catch(e) {
+        el.innerHTML = '<div class="ws-debrief-title">&#128269; Engineer Debrief</div>' +
+                       '<div class="ws-debrief-report">Could not read race result.</div>';
+    }
+}
+
+function _weekendClose() {
+    closeModal('modal-race');
+    const reviewActions = document.getElementById('ws-review-actions');
+    if (reviewActions) reviewActions.remove();
+    document.getElementById('weekend-panel').classList.add('hidden');
+    document.getElementById('modal-race-actions').classList.remove('hidden');
+    _weekend      = null;
+    _weekendGrids = {};
+    if (_resultPollTimer) { clearInterval(_resultPollTimer); _resultPollTimer = null; }
+    document.getElementById('result-auto').style.display     = '';
+    document.getElementById('result-auto-status').textContent = '';
+    document.getElementById('result-auto-status').className   = 'result-auto-status';
+    document.getElementById('result-found').classList.add('hidden');
+    document.getElementById('result-manual').classList.add('hidden');
+    document.getElementById('debrief-panel').classList.add('hidden');
+    setTimeout(() => { showView('result'); startResultPolling(); }, 600);
+}
+
 // ── Auto-read AC result ────────────────────────────────────────────────────
 async function fetchRaceResult() {
     const statusEl = document.getElementById('result-auto-status');
