@@ -978,6 +978,10 @@ class CareerManager:
 
         # Limit to 19 AI cars (20 total including player)
         ai_cars = opponents[:19]
+        # When grid is provided its length is exact; otherwise ai_cars already contains
+        # the right number of slots (player replaces their own team's AI entry, so the
+        # total stays len(ai_cars), not len(ai_cars)+1).
+        total_cars = len(grid) if grid else len(ai_cars)
 
         # Track can be "folder/layout" or just "folder"
         track_raw    = race_data['track']
@@ -1173,7 +1177,6 @@ class CareerManager:
                 if not (player_team and opp.get('team') == player_team)
             ]
 
-        total_cars = len(car_entries)  # must be set after building car_entries
 
         # Write [CAR_N] blocks in grid order
         for i, entry in enumerate(car_entries):
