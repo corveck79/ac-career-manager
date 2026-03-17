@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write   # required to create GitHub releases
-  id-token: write   # required by SignPath GitHub Action
 
 jobs:
   # ── Windows EXE ─────────────────────────────────────────────────────────────
@@ -39,24 +38,18 @@ jobs:
             --collect-all webview `
             app.py
 
-      - name: Upload unsigned EXE
-        id: upload_unsigned
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-exe-unsigned
-          path: dist/AC_Career_GT_Edition.exe
-
       - name: Sign EXE (SignPath Foundation)
-        uses: signpath/github-action-submit-signing-request@v1
-        with:
-          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
-          organization-id: '0868ee38-ffef-49b8-90ab-ed08759df04a'
-          project-slug: 'ac-career-gt-edition'
-          signing-policy-slug: 'release_signing'
-          artifact-configuration-slug: 'exe'
-          github-artifact-id: '${{ steps.upload_unsigned.outputs.artifact-id }}'
-          wait-for-completion: true
-          output-artifact-directory: dist/
+        shell: pwsh
+        run: |
+          Install-Module -Name SignPath -Force -Scope CurrentUser
+          Submit-SigningRequest `
+            -InputArtifactPath "dist/AC_Career_GT_Edition.exe" `
+            -ApiToken "${{ secrets.SIGNPATH_API_TOKEN }}" `
+            -OrganizationId "0868ee38-ffef-49b8-90ab-ed08759df04a" `
+            -ProjectSlug "ac-career-gt-edition" `
+            -SigningPolicySlug "release_signing" `
+            -OutputArtifactPath "dist/AC_Career_GT_Edition.exe" `
+            -WaitForCompletion
 
       - uses: actions/upload-artifact@v4
         with:
