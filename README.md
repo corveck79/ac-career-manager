@@ -67,6 +67,7 @@ AC Career GT Edition adds a full career mode to Assetto Corsa. It runs in its ow
 
 - Windows 10/11 · No Python needed · ~13 MB single file
 - Requires Assetto Corsa installed via Steam
+- **SmartScreen warning?** Click **"More info" → "Run anyway"** — safe to dismiss (code signing in progress)
 
 ### Linux (AppImage)
 **[⬇ Download AC_Career_GT_Edition-1.21.2-x86_64.AppImage](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition-1.21.2-x86_64.AppImage)**
