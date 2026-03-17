@@ -5,6 +5,7 @@ Main application entry point
 
 from flask import Flask, render_template, jsonify, request, send_file, abort
 from flask_cors import CORS
+import base64
 import json
 import os
 import subprocess
@@ -12,6 +13,7 @@ import sys
 import statistics
 import threading
 import random
+import zlib
 from datetime import datetime
 from urllib.parse import urlsplit
 
@@ -33,6 +35,7 @@ from platform_paths import (
     detect_ac_install_path,
     get_ac_docs_path,
     get_default_ac_install_path,
+    get_user_data_dir,
     get_webview_gui,
 )
 
@@ -41,14 +44,14 @@ from platform_paths import (
 # ---------------------------------------------------------------------------
 
 def get_app_dir():
-    """Directory where config/save files live (next to EXE, or project root)."""
+    """Directory of the EXE/script — used to locate bundled template files."""
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
 
 
 def ensure_config():
-    """Copy config template to app dir if config.json is missing."""
+    """Copy bundled config template to user data dir if config.json is missing."""
     if not os.path.exists(CONFIG_PATH):
         if getattr(sys, 'frozen', False):
             bundled = os.path.join(sys._MEIPASS, 'config.json')
@@ -61,10 +64,57 @@ def ensure_config():
             shutil.copy(bundled, CONFIG_PATH)
 
 
-APP_DIR     = get_app_dir()
-CONFIG_PATH = os.path.join(APP_DIR, 'config.json')
-DATA_PATH   = os.path.join(APP_DIR, 'career_data.json')
+def _migrate_legacy_files():
+    """One-time migration: copy old files from EXE dir → user data dir.
 
+    career_data.json is copied as-is to DATA_DIR; load_career_data() will
+    detect the plain JSON, re-save it in encoded format, and delete the copy.
+    """
+    if os.path.normcase(APP_DIR) == os.path.normcase(DATA_DIR):
+        return  # dev mode or same dir — nothing to migrate
+    import shutil
+    old_config = os.path.join(APP_DIR, 'config.json')
+    old_data   = os.path.join(APP_DIR, 'career_data.json')
+    if not os.path.exists(CONFIG_PATH) and os.path.exists(old_config):
+        shutil.copy2(old_config, CONFIG_PATH)
+    legacy_dest = os.path.join(DATA_DIR, 'career_data.json')
+    if not os.path.exists(DATA_PATH) and not os.path.exists(legacy_dest) \
+            and os.path.exists(old_data):
+        shutil.copy2(old_data, legacy_dest)
+
+
+# ---------------------------------------------------------------------------
+# Save file encoding — XOR + zlib + base64 (all stdlib, no extra deps).
+# Prevents casual editing of career_data.sav; not cryptographic security.
+# ---------------------------------------------------------------------------
+
+_SAVE_KEY = bytes([0x41, 0x43, 0x47, 0x54, 0x32, 0x30, 0x32, 0x35, 0x53, 0x56])
+
+
+def _xor(data: bytes) -> bytes:
+    k = _SAVE_KEY
+    return bytes(b ^ k[i % len(k)] for i, b in enumerate(data))
+
+
+def _encode_save(d: dict) -> bytes:
+    """Serialize + obfuscate a career data dict → bytes written to .sav."""
+    raw = json.dumps(d, ensure_ascii=False).encode('utf-8')
+    return base64.b64encode(_xor(zlib.compress(raw, 6)))
+
+
+def _decode_save(blob: bytes) -> dict:
+    """Deobfuscate + deserialize bytes from .sav → career data dict."""
+    return json.loads(zlib.decompress(_xor(base64.b64decode(blob))).decode('utf-8'))
+
+
+APP_DIR  = get_app_dir()
+DATA_DIR = get_user_data_dir()
+os.makedirs(DATA_DIR, exist_ok=True)
+
+CONFIG_PATH = os.path.join(DATA_DIR, 'config.json')
+DATA_PATH   = os.path.join(DATA_DIR, 'career_data.sav')
+
+_migrate_legacy_files()
 ensure_config()
 
 # ---------------------------------------------------------------------------
@@ -135,15 +185,34 @@ def save_config(cfg):
 
 
 def load_career_data():
+    # Encoded save file (.sav) — primary format
     if os.path.exists(DATA_PATH):
-        with open(DATA_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        with open(DATA_PATH, 'rb') as f:
+            try:
+                return _decode_save(f.read())
+            except Exception:
+                return _default_career()
+    # Legacy plain JSON — migration from pre-v1.21.2 or old EXE-dir installs.
+    # Re-save as encoded .sav and remove the plain copy.
+    legacy = os.path.join(DATA_DIR, 'career_data.json')
+    if os.path.exists(legacy):
+        try:
+            with open(legacy, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            save_career_data(data)
+            try:
+                os.remove(legacy)
+            except OSError:
+                pass
+            return data
+        except Exception:
+            pass
     return _default_career()
 
 
 def save_career_data(data):
-    with open(DATA_PATH, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2)
+    with open(DATA_PATH, 'wb') as f:
+        f.write(_encode_save(data))
 
 
 

@@ -1,7 +1,7 @@
 # AC CAREER GT EDITION
 ## Professional Racing Career Simulator for Assetto Corsa
 
-**Version:** 1.21.0
+**Version:** 1.21.2
 **Platform:** Windows 10/11 · Linux (Steam Proton)
 **Python:** 3.12 (required — pywebview does not support 3.13/3.14)
 
@@ -63,13 +63,13 @@ AC Career GT Edition adds a full career mode to Assetto Corsa. It runs in its ow
 ## DOWNLOAD
 
 ### Windows
-**[⬇ Download AC_Career_GT_Edition.exe (v1.21.0)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition.exe)**
+**[⬇ Download AC_Career_GT_Edition.exe (v1.21.2)](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition.exe)**
 
 - Windows 10/11 · No Python needed · ~13 MB single file
 - Requires Assetto Corsa installed via Steam
 
 ### Linux (AppImage)
-**[⬇ Download AC_Career_GT_Edition-1.21.0-x86_64.AppImage](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition-1.21.0-x86_64.AppImage)**
+**[⬇ Download AC_Career_GT_Edition-1.21.2-x86_64.AppImage](https://github.com/corveck79/ac-career-manager/releases/latest/download/AC_Career_GT_Edition-1.21.2-x86_64.AppImage)**
 
 - Requires Assetto Corsa installed via **Steam + Proton**
 - Requires `libwebkit2gtk-4.0` or `libwebkit2gtk-4.1` (GTK WebView):
@@ -86,8 +86,8 @@ sudo pacman -S webkit2gtk
 ```
 
 ```bash
-chmod +x AC_Career_GT_Edition-1.21.0-x86_64.AppImage
-./AC_Career_GT_Edition-1.21.0-x86_64.AppImage
+chmod +x AC_Career_GT_Edition-1.21.2-x86_64.AppImage
+./AC_Career_GT_Edition-1.21.2-x86_64.AppImage
 ```
 
 > **Note:** AC is launched via `steam -applaunch 244210`. Make sure Steam is running before clicking **START RACE**.
@@ -273,8 +273,9 @@ P1: 25 · P2: 18 · P3: 15 · P4: 12 · P5: 10 · P6: 8 · P7: 6 · P8: 4 · P9:
 - The app writes to `Documents\Assetto Corsa\cfg\race.ini`
 
 ### "Career data lost"
-- Backup `career_data.json` before editing config
-- Delete `career_data.json` to start fresh
+- Save file location: `%APPDATA%\AC Career GT Edition\career_data.sav` (Windows) or `~/.local/share/ac-career-gt-edition/career_data.sav` (Linux)
+- Delete `career_data.sav` to start a completely fresh career
+- Config is at the same folder as `config.json` (plain JSON, editable)
 
 ### pywebview / pythonnet error on startup
 - Make sure your venv uses **Python 3.12** (not 3.13 or 3.14)

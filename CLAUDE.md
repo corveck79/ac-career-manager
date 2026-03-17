@@ -7,7 +7,7 @@
 | `x.y.0` | New feature(s), multi-file changes | v1.8.0 — Career Wizard, Debrief, Relegation |
 | `x.y.z` | Single fix, tweak, or small addition | v1.8.1 — trim README overview |
 
-Current version: **1.21.0** (bump in `README.md` header on every release commit).
+Current version: **1.21.2** (bump in `README.md` header on every release commit).
 
 **On every release, update ALL version references in README.md:**
 - Header line: `**Version:** x.y.z`
@@ -22,8 +22,8 @@ AC Career GT Edition is a desktop app (pywebview + Flask) that adds a career mod
 - **Frontend:** Vanilla JS + HTML/CSS (`templates/dashboard.html`, `static/app.js`, `static/style.css`)
 - **Window:** pywebview 4.4.1 — `gui='edgechromium'` on Windows (Edge WebView2), `gui='gtk'` on Linux
 - **Python:** 3.12 required — pythonnet (pywebview dep) has no wheel for 3.13/3.14
-- **Config:** `config.json` (all tunable game settings)
-- **Save data:** `career_data.json` (auto-created at runtime, next to EXE/AppImage)
+- **Config:** `config.json` (plain JSON, editable; stored in user data dir)
+- **Save data:** `career_data.sav` (obfuscated XOR+zlib+base64; stored in user data dir, auto-created)
 - **Platform:** Windows 10/11 · Linux (AC via Steam Proton)
 
 ## Architecture
@@ -39,7 +39,7 @@ templates/dashboard.html         # Single-page web UI (served by Flask)
 static/style.css                 # Dark motorsport CSS theme
 static/app.js                    # Frontend JS
 config.json                      # Master config (tracks, teams, difficulty, format)
-career_data.json                 # Live save file (auto-created; not committed)
+career_data.sav                  # Live save file (obfuscated, in user data dir; not committed)
 build.bat                        # Windows: PyInstaller --onefile → dist/AC_Career_GT_Edition.exe
 build.sh                         # Linux:   PyInstaller --onedir + appimagetool → AppImage
 start.bat                        # Windows dev launcher (activates venv and runs app.py)
@@ -63,9 +63,14 @@ Note: `dashboard.html`, `style.css`, and `app.js` also exist as duplicates in th
 5. User sets AC path → saved to `config.json` → app is ready
 
 ### Frozen EXE path handling
-- Config and save files live **next to the EXE** (not in `sys._MEIPASS`)
-- `get_app_dir()` returns `os.path.dirname(sys.executable)` when frozen
-- `ensure_config()` copies bundled `config.json` template to app dir on first run
+- Config and save files live in the **user data dir** (NOT next to the EXE)
+  - Windows: `%APPDATA%\AC Career GT Edition\`
+  - Linux: `~/.local/share/ac-career-gt-edition/`
+- `get_app_dir()` returns `os.path.dirname(sys.executable)` — used only to locate bundled templates in `sys._MEIPASS`
+- `get_user_data_dir()` (from `platform_paths`) returns the OS-appropriate user data dir; created on startup via `os.makedirs`
+- `ensure_config()` copies bundled `config.json` template to user data dir on first run
+- `_migrate_legacy_files()` runs on startup: detects old `career_data.json`/`config.json` next to the EXE and copies them to the user data dir automatically (one-time migration)
+- `career_data.sav` is obfuscated with XOR + zlib + base64 (stdlib only, no extra deps); `_encode_save()` / `_decode_save()` in `app.py`
 
 ### Folder picker bridge (Python ↔ JS)
 JS calls `window.pywebview.api.browse_folder()`. This invokes `JsApi.browse_folder()` in
@@ -309,9 +314,9 @@ button ("Import Result Manually") stays for edge cases.
 
 **Edit `config.json` only while the app is stopped.**
 
-## Save File (`career_data.json`)
+## Save File (`career_data.sav`)
 
-Auto-created next to the EXE. Key fields:
+Auto-created in the user data dir (`%APPDATA%\AC Career GT Edition\` on Windows). Stored as obfuscated binary (XOR+zlib+base64) — not plain JSON. Delete to reset career. Key fields (logical structure):
 ```json
 {
   "tier": 0,

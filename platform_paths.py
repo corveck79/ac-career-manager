@@ -225,3 +225,22 @@ def get_webview_gui() -> str:
     'gtk'          on Linux  (requires libwebkit2gtk-4.0 or libwebkit2gtk-4.1).
     """
     return "gtk" if is_linux() else "edgechromium"
+
+
+def get_user_data_dir() -> str:
+    """
+    Return the user-writable directory for config and save files.
+
+    Windows: %APPDATA%\\AC Career GT Edition\\
+    Linux:   $XDG_DATA_HOME/ac-career-gt-edition/  (default: ~/.local/share/…)
+
+    The directory is NOT created here — caller is responsible (os.makedirs).
+    """
+    if is_linux():
+        xdg = os.environ.get(
+            "XDG_DATA_HOME",
+            os.path.join(os.path.expanduser("~"), ".local", "share"),
+        )
+        return os.path.join(xdg, "ac-career-gt-edition")
+    appdata = os.environ.get("APPDATA", os.path.expanduser("~"))
+    return os.path.join(appdata, "AC Career GT Edition")
