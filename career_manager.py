@@ -58,7 +58,9 @@ class CareerManager:
 
     def get_driver_profile(self, name, career_data=None):
         """Return profile dict for a driver name, with derived style field."""
-        p = dict(self.DRIVER_PROFILES.get(name, {"nationality": "GBR", "skill": 80, "aggression": 40}))
+        defaults = {"nationality": "GBR", "skill": 80, "aggression": 40,
+                     "wet_skill": 65, "quali_pace": 65, "consistency": 65, "nickname": None}
+        p = {**defaults, **self.DRIVER_PROFILES.get(name, {})}
         if career_data:
             progress = (career_data.get('driver_progress') or {}).get(name, {})
             current = progress.get('current') or {}

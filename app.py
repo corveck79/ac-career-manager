@@ -1624,7 +1624,23 @@ def driver_profile():
 @app.route('/api/paddock-news')
 def paddock_news():
     career_data = load_career_data()
-    return jsonify(career_data.get('paddock_news', []))
+    news = career_data.get('paddock_news', [])
+    # One-time backfill: generate news from existing race results if empty
+    if not news and career_data.get('race_results'):
+        tier_key = career.tiers[career_data.get('tier', 0)]
+        _tier_labels = {'mx5_cup': 'MX5 Cup', 'gt4': 'GT4 SuperCup', 'gt3': 'British GT GT3', 'wec': 'WEC / Elite'}
+        tier_label = _tier_labels.get(tier_key, tier_key)
+        for r in career_data['race_results']:
+            pos = r.get('position', 0)
+            track = _fmt_track(r.get('track', ''))
+            pts = r.get('points', 0)
+            icon = 'trophy' if pos <= 3 else 'flag'
+            text = f"{tier_label} Rd {r.get('race',0)} at {track}: You finished P{pos} (+{pts} pts)"
+            news.append({'season': career_data.get('season', 1), 'race': r.get('race', 0),
+                         'type': 'race_result', 'text': text, 'icon': icon, 'tier': tier_key})
+        career_data['paddock_news'] = news
+        save_career_data(career_data)
+    return jsonify(news)
 
 
 @app.route('/api/player-profile')
