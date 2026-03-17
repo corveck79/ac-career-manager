@@ -102,7 +102,9 @@ class CareerManager:
         opponents = self._generate_opponent_field(tier_info, race_num, tier_key=tier_key,
                                                   season=season, career_data=career_data)
 
-        weather = self._pick_weather(tier_info['race_format'], track, weather_mode=weather_mode)
+        weather_seed = season * 1000 + race_num
+        weather = self._pick_weather(tier_info['race_format'], track, weather_mode=weather_mode,
+                                     seed=weather_seed)
 
         laps = (tier_info['race_laps'][race_num - 1]
                 if tier_info.get('race_laps') and (race_num - 1) < len(tier_info['race_laps'])
@@ -139,7 +141,7 @@ class CareerManager:
         'ks_red_bull_ring', 'ks_vallelunga',
     }
 
-    def _pick_weather(self, race_format, track, weather_mode='realistic'):
+    def _pick_weather(self, race_format, track, weather_mode='realistic', seed=None):
         """Pick a weather preset.
         weather_mode:
           'always_clear'  → always 3_clear
@@ -147,6 +149,7 @@ class CareerManager:
           'csp_pure'      → dramatic mix, maximises CSP Pure visual range
           'realistic'     → use the tier's weighted weather_pool (default)
         Falls back to 7_heavy_clouds if wet is picked on an unsupported track.
+        seed: if provided, uses a seeded RNG so the same race always gets the same weather.
         """
         if weather_mode == 'always_clear':
             return '3_clear'
@@ -162,7 +165,8 @@ class CareerManager:
 
         presets = [p[0] for p in pool]
         weights = [p[1] for p in pool]
-        chosen  = random.choices(presets, weights=weights, k=1)[0]
+        rng     = random.Random(seed) if seed is not None else random
+        chosen  = rng.choices(presets, weights=weights, k=1)[0]
 
         if chosen == 'wet':
             track_folder = track.split('/')[0]

@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 from career_manager import CareerManager
 from driver_progress import (
     DRIVER_SKILL_KEYS,
+    _seed_int,
     compute_progress_deltas,
     driver_trend_label,
     ensure_driver_progress,
@@ -27,6 +28,7 @@ from driver_progress import (
     process_retirements,
     update_rivalries,
 )
+from achievements import check_achievements, ACHIEVEMENTS, ACHIEVEMENT_ORDER
 from platform_paths import (
     detect_ac_install_path,
     get_ac_docs_path,
@@ -182,12 +184,9 @@ def _add_news(career_data, event_type, text, icon, tier=None):
         career_data['paddock_news'] = news[:100]
 
 
-import hashlib as _hl
-
 def _pick_template(templates, seed_text):
     """Deterministically pick a template string from a list, seeded by text."""
-    idx = int(_hl.md5(seed_text.encode('utf-8')).hexdigest()[:8], 16) % len(templates)
-    return templates[idx]
+    return templates[_seed_int(seed_text, 0, len(templates) - 1)]
 
 
 # ── News text templates (variety!) ──────────────────────────────────────────
@@ -197,70 +196,161 @@ _RETIREMENT_TEMPLATES = [
     "{name} ({age}) announces retirement from racing",
     "{name} ({age}) calls time on a distinguished career",
     "{name} ({age}) steps away from the grid",
+    "{name} ({age}) closes the book on a racing career",
+    "Racing farewell: {name} ({age}) announces the end of their career",
+    "{name} ({age}) confirms retirement after years of competition",
+    "The paddock says goodbye to {name} ({age})",
+    "{name} ({age}) parks up for the last time",
 ]
 _RETIREMENT_NICK_TEMPLATES = [
     "{name} ({age}) retires: '{nick}' hangs up the helmet",
     "'{nick}' {name} ({age}) announces retirement",
     "{name} ({age}) bows out. Farewell, '{nick}'",
     "End of an era: '{nick}' {name} ({age}) retires",
+    "The paddock will miss '{nick}' — {name} ({age}) calls it a career",
+    "'{nick}' is gone: {name} ({age}) steps away from racing",
+    "Goodbye to '{nick}': {name} ({age}) hangs up the helmet for good",
+    "A legend departs — '{nick}' {name} ({age}) retires",
 ]
 _SWAP_TEMPLATES = [
     "{team} replaced {dropped} with {replacement} for the remainder of the season",
     "{team} drops {dropped}, signs {replacement} as mid-season replacement",
     "Driver change at {team}: {replacement} in, {dropped} out",
     "{dropped} loses seat at {team}; {replacement} called up",
+    "{team} make a bold call: {dropped} stood down, {replacement} steps in",
+    "Shock move at {team} — {replacement} replaces {dropped} mid-season",
+    "{team} act fast: {dropped} dropped, {replacement} given the drive",
+    "{replacement} gets their chance at {team} as {dropped} is shown the door",
+    "Results cost {dropped} the seat — {replacement} arrives at {team}",
 ]
 _RIVALRY_TEMPLATES = [
     "Rivalry brewing: {d1} vs {d2}",
     "Tensions rising between {d1} and {d2}",
     "{d1} and {d2} locked in a fierce battle",
     "The gloves are off: {d1} vs {d2}",
+    "{d1} has {d2} in their sights",
+    "Close racing turning personal: {d1} vs {d2}",
+    "Neither giving an inch — {d1} and {d2} going wheel to wheel",
+    "One to watch: {d1} vs {d2}, race by race",
+    "A rivalry is born: {d1} and {d2} refuse to yield",
+    "Personal battles on track: {d1} versus {d2} heating up",
 ]
 _FORM_HOT_TEMPLATES = [
     "{name} is on a hot streak!",
     "{name} is in scintillating form",
     "{name} can do no wrong right now",
     "Unstoppable: {name} keeps delivering",
+    "{name} is absolutely flying at the moment",
+    "Nobody on the grid is matching {name} for form right now",
+    "{name} has found something special — results keep coming",
+    "On fire: {name} is setting the pace race after race",
+    "Everything is clicking for {name} — a driver in peak form",
+    "{name} is making it look effortless out there",
 ]
 _FORM_COLD_TEMPLATES = [
     "{name} is struggling for form",
     "{name} is having a season to forget",
     "Tough times for {name}, results not coming",
     "{name} under pressure after poor run of results",
+    "Questions being asked at {name}'s camp — where has the pace gone?",
+    "{name} can't seem to catch a break right now",
+    "A driver under pressure: {name} needs to turn things around fast",
+    "The results have dried up for {name} — a concerning run continues",
+    "{name} looking for answers after another disappointing weekend",
+    "Something's not clicking for {name} — form is worryingly poor",
 ]
 _CHAMPION_TEMPLATES = [
     "{tier}: {name} wins the championship!",
     "{tier}: {name} crowned champion!",
     "{tier}: Title glory for {name}!",
     "{tier}: {name} takes the drivers' title!",
+    "{tier}: {name} is champion — a deserved triumph!",
+    "{tier}: What a season from {name} — championship won!",
+    "{tier}: {name} delivers the title in style!",
+    "{tier}: {name} seals it — the championship is theirs!",
+    "{tier}: Dominant. Clinical. Champion. That's {name}.",
+    "{tier}: They said it was possible — {name} proves it. Champion!",
 ]
 _TEAM_UP_TEMPLATES = [
-    "{team} upgraded: strong season pays off",
-    "{team} invests in development after solid results",
-    "Good news at {team}: performance boost confirmed",
+    "{team} ({tier}): strong season results in a performance boost",
+    "{team} invests in development after a solid {tier} campaign",
+    "Good news at {team}: {tier} performance upgrade confirmed",
+    "{team} reap the rewards of a strong {tier} season",
+    "Off-season development pays off at {team} in {tier}",
+    "{team} capitalise on {tier} success with technical improvements",
+    "A winter of hard work: {team} emerge stronger for {tier}",
+    "{team} on the up — {tier} form translating into real progress",
 ]
 _TEAM_DOWN_TEMPLATES = [
-    "{team} declined: struggling for performance",
-    "{team} loses ground after a difficult season",
-    "Tough off-season for {team}: budget cuts hit hard",
+    "{team} ({tier}): struggling after a difficult season",
+    "{team} loses ground in {tier} — tough off-season ahead",
+    "Budget cuts hit {team} ({tier}) hard this winter",
+    "{team} facing questions after a poor {tier} campaign",
+    "Hard times at {team} — {tier} results spark a rethink",
+    "{team} under pressure to perform after a dismal {tier} showing",
+    "The numbers don't lie: {team} fall behind in {tier} development",
+    "A difficult winter for {team} after struggling in {tier}",
 ]
 _MILESTONE_TEMPLATES = {
     'first_win':    [
         "A moment to remember: {name} takes a maiden victory!",
         "{name} breaks through with a first career win!",
         "History made! {name} wins for the first time!",
+        "They've done it! {name} takes that elusive first victory!",
+        "First win for {name} — a career milestone that won't be forgotten!",
+        "The wait is over: {name} stands on the top step for the first time!",
     ],
     'first_podium': [
         "{name} earns a first career podium, P{pos}!",
         "First podium for {name}! A P{pos} finish to celebrate.",
+        "{name} steps onto the podium for the first time — P{pos}!",
+        "Career milestone: {name} takes a P{pos} podium finish!",
+        "P{pos} and a first trip to the podium for {name}. Brilliant.",
+        "The podium! {name} gets there for the first time — P{pos}!",
+        "{name} on the rostrum — first career podium, P{pos}!",
+        "They'll remember this one: {name} claims a maiden podium at P{pos}.",
     ],
-    'race_10':      ["{name} reaches 10 career races."],
-    'race_25':      ["{name} hits 25 career races. A seasoned competitor now."],
-    'race_50':      ["{name} completes 50 career races! A true veteran."],
-    'race_100':     ["100 races for {name}! What a career."],
+    'race_10':      [
+        "{name} reaches 10 career races.",
+        "Ten races in — {name} is finding their feet.",
+        "Double figures: {name} hits the 10-race mark.",
+        "Race ten for {name}. The grid is getting familiar.",
+        "Ten starts in the books for {name} — the learning curve is flattening.",
+        "A milestone in the making: {name} completes race number ten.",
+    ],
+    'race_25':      [
+        "{name} hits 25 career races. A seasoned competitor now.",
+        "Twenty-five races down for {name} — experience is building.",
+        "Quarter century of starts: {name} hits race 25.",
+        "{name} reaches 25 races — no longer a rookie by any measure.",
+        "Race 25 for {name}. Experience counts, and they're accumulating it.",
+        "Twenty-five starts: {name} is a proper championship regular now.",
+    ],
+    'race_50':      [
+        "{name} completes 50 career races! A true veteran.",
+        "Fifty starts and counting — {name} has seen it all.",
+        "Half a century of races for {name}. Remarkable.",
+        "Race 50 for {name} — half a hundred and still going strong.",
+        "{name} hits fifty starts. The paddock has a new veteran.",
+        "Fifty races in: {name} has earned every grey hair on this grid.",
+    ],
+    'race_100':     [
+        "100 races for {name}! What a career.",
+        "The century! {name} reaches 100 career starts.",
+        "One hundred races — {name} is a true legend of the paddock.",
+        "Race 100 for {name}. An extraordinary milestone.",
+        "{name} hits the century mark — 100 starts and the hunger is still there.",
+        "A hundred races. {name} has given everything to this sport.",
+        "Century club: {name} joins an elite group with race number 100.",
+    ],
     'tier_first_win': [
         "{name} takes a first {tier} victory!",
         "First win in {tier} for {name}!",
+        "{name} breaks through in {tier} — first win secured!",
+        "A new tier, a new win: {name} triumphs in {tier}!",
+        "{name} announces themselves in {tier} with a first victory!",
+        "Winner in {tier}: {name} delivers when it counts.",
+        "{name} gets {tier} off to the best possible start — first win in the bag!",
     ],
 }
 _ROOKIE_TEMPLATES = [
@@ -268,57 +358,194 @@ _ROOKIE_TEMPLATES = [
     "{name} joins the grid as a fresh face",
     "Rookie {name} gets the call-up to race",
     "New talent: {name} enters the championship",
+    "{name} steps into the spotlight — championship debut confirmed",
+    "Eyes on the newcomer: {name} is on the grid",
+    "The next generation arrives: {name} makes their debut",
+    "Debut time for {name} — the grid just got more interesting",
+    "{name} earns their place — championship debut incoming",
 ]
 _MOVE_TEMPLATES = {
     'promotion': [
         "{name} promoted to {tier}!",
         "{name} moves up to {tier}!",
         "Step up for {name}: joining {tier}!",
+        "Onwards and upwards: {name} earns a place in {tier}!",
+        "{name} graduates to {tier} — a well-earned promotion!",
+        "{name} takes the next step — {tier} awaits!",
+        "Big season ahead: {name} joins {tier}!",
     ],
     'relegation': [
         "{name} drops down to {tier}.",
         "{name} relegated to {tier} after a tough season.",
+        "A setback for {name}: dropping to {tier}.",
+        "{name} returns to {tier} — back to rebuild.",
+        "Down but not out: {name} heads to {tier} for a fresh start.",
     ],
     'stay': [
         "{name} stays in {tier} for another season.",
         "{name} extends in {tier}.",
+        "{name} commits to {tier} — unfinished business.",
+        "Another season in {tier} for {name} — the job isn't done yet.",
+        "{name} remains in {tier}: targeting better results next year.",
     ],
 }
 _TITLE_FIGHT_TEMPLATES = [
     "{tier}: Only {gap} points separate the top 3!",
     "{tier}: Tight at the top, {gap} points cover P1 to P3!",
     "Nail-biter in {tier}: {gap}-point gap in the title race!",
+    "{tier}: It's all to play for — {gap} points between the title contenders!",
+    "Championship wide open in {tier}: just {gap} points in it!",
+    "{tier}: Nobody is pulling away — {gap} points covers the top 3!",
+    "This is what motorsport is about: {gap}-point title gap in {tier}!",
 ]
 _TITLE_DECIDED_TEMPLATES = [
     "{tier}: {name} clinches the title with {remaining} races to go!",
     "{tier}: {name} is champion! Sealed it with {remaining} rounds remaining.",
     "It's over in {tier}: {name} wraps up the championship early!",
+    "{tier}: Mathematical. {name} is champion — {remaining} races to spare!",
+    "{name} delivers in {tier}: title sewn up with {remaining} races left!",
+    "{tier}: Done and dusted. {name} is champion with {remaining} to go.",
+    "Early celebrations in {tier}: {name} takes the title with {remaining} rounds remaining!",
 ]
 _WET_SPECIALIST_TEMPLATES = [
     "{name} shows wet-weather mastery after the rain",
     "Rain brings out the best in {name}",
     "{name}'s wet skills shine through in tricky conditions",
+    "Wet track, no problem: {name} thrives in the rain",
+    "{name} is a different driver when it's wet out there",
+    "The rain is {name}'s friend — another strong wet-weather showing",
+    "{name} growing stronger in the wet race by race",
+    "Puddles, spray, and a fast {name} — wet conditions suit this driver",
 ]
 _COMEBACK_TEMPLATES = [
     "{name} is staging a remarkable comeback",
     "What a turnaround from {name}!",
     "{name} fights back from a rough start to the season",
+    "Don't write {name} off — they're back in the mix!",
+    "The comeback is real: {name} is climbing back up the order",
+    "{name} refused to give up — and it's paying off now",
+    "From the back foot to fighting fit: {name}'s season is turning around",
+    "Character shown: {name} bounces back after a difficult run",
 ]
 _VETERAN_TEMPLATES = [
     "Veteran {name} ({age}) begins what could be a final season",
     "{name} ({age}) enters the twilight of a long career",
     "How long can {name} ({age}) keep going?",
+    "Still going strong: {name} ({age}) lines up for another campaign",
+    "{name} ({age}) refuses to walk away — another season on the grid",
+    "The old guard: {name} ({age}) is still here and still competitive",
+    "{name} ({age}) — experience you can't buy, still delivering on track",
+    "Another year, another fight: {name} ({age}) isn't done yet",
 ]
 _TEAMMATE_BATTLE_TEMPLATES = [
     "Internal battle at {team}: {d1} and {d2} separated by just {gap} points",
     "Tension at {team}: teammates {d1} and {d2} only {gap} points apart",
     "{team} teammates {d1} and {d2} in a tight fight ({gap}-point gap)",
+    "The garage is split: {d1} and {d2} locked in a {gap}-point battle at {team}",
+    "Who's the lead driver? {team}'s {d1} and {d2} are {gap} points apart",
+    "Awkward atmosphere at {team}: {d1} vs {d2}, only {gap} points in it",
+    "Intra-team warfare at {team} — {d1} and {d2} refuse to give ground",
 ]
 _BIGGEST_MOVER_TEMPLATES = [
     "{name} climbs {gain} positions in the {tier} standings!",
     "Big mover: {name} up {gain} places in {tier}!",
     "{name} surges {gain} spots in the {tier} championship!",
+    "Charging through the field: {name} gains {gain} positions in {tier}!",
+    "{name} making waves — up {gain} in the {tier} standings!",
+    "Look who's moving: {name} climbs {gain} places in {tier}!",
+    "The momentum is with {name} — {gain} positions gained in {tier}!",
 ]
+_PLAYER_RIVALRY_TEMPLATES = [
+    "You and {name} are separated by just {gap} pts in {tier}",
+    "{gap}-point gap: you vs {name} in {tier}",
+    "Title battle heating up: {gap} pts between you and {name} in {tier}",
+    "Watch out for {name} — only {gap} points between you in {tier}",
+    "{name} is right on your tail in {tier} — just {gap} points back",
+    "Keep an eye on {name}: {gap} points cover you both in {tier}",
+    "This is personal: {gap} pts between you and {name} in {tier}",
+    "The rivalry intensifies — {gap} points separate you from {name} in {tier}",
+    "{name} won't let go — {gap} points behind you in {tier}",
+]
+
+_BOSS_CHAMPION_TEMPLATES = [
+    "Champion! Everything we worked for, delivered. Unbelievable season.",
+    "P1 in the championship — I've been in this sport a long time. This never gets old.",
+    "You've done it. Title won. This whole team couldn't be prouder.",
+    "Championship secured. Everything clicked this season. Outstanding.",
+    "I knew it from race one. You had what it takes. Champion.",
+    "We came here to win a title. Job done. Simple as that.",
+    "This is why we do it. You are champion — enjoy every second of this.",
+    "The title is ours. You drove the season of your life. Remarkable.",
+    "I've worked with a lot of drivers. What you did this season? Special.",
+    "Title. Yours. Well deserved. The whole paddock knows you earned it.",
+]
+_BOSS_WIN_TEMPLATES = [
+    "P{pos} — but {wins_text} this season. That pace is undeniable.",
+    "{wins_text} on the board. That's exactly the kind of season we were targeting.",
+    "Not the title, but {wins_text}. The speed is there. We'll push for the championship next year.",
+    "P{pos} in the standings, but {wins_text} tells the real story. You've got it.",
+    "{wins_text} this year. That's a foundation we can build on. Good season.",
+    "A race winner — multiple times. P{pos} overall, but the ceiling is higher. We'll get there.",
+    "{wins_text} and a P{pos} finish. I'll take that. Next year we go for the lot.",
+]
+_BOSS_PODIUM_TEMPLATES = [
+    "P{pos} with podiums in the bag. We're on the right track.",
+    "Consistent points and podiums — that's how you build a career. Well done.",
+    "Not the result we dreamed of, but those podiums show what's possible. Good foundation.",
+    "P{pos} and on the podium more than once. There's something here. We develop it.",
+    "Podiums mean pace. P{pos} is respectable. Now we turn 'good' into 'great'.",
+    "I saw the potential. P{pos} this season with podiums — next season we push harder.",
+    "Solid. That's the word. P{pos} with podiums. Exactly what we needed from year one.",
+]
+_BOSS_MIDFIELD_TEMPLATES = [
+    "P{pos} — we showed flashes this season. Next year we aim higher.",
+    "Points scored when it mattered. P{pos} isn't the ceiling — we both know that.",
+    "A learning season. P{pos} is honest. We'll use it as fuel.",
+    "P{pos}. Not where we want to be, but not where we'll stay. Keep working.",
+    "Midfield is a start, not a destination. P{pos} this year. Higher next.",
+    "We had speed at times. P{pos} is the result. We fix what held us back.",
+    "P{pos} — I've seen enough to know we'll be competing for more next season.",
+]
+_BOSS_STRUGGLE_TEMPLATES = [
+    "P{pos}. Tough year. But I've seen the work ethic — we'll come back stronger.",
+    "Not what we planned for. P{pos} stings, but that's racing. We regroup and go again.",
+    "It wasn't our season. P{pos} is the result, but the fight in this team hasn't changed.",
+    "P{pos}. Look, it hurt. But setbacks are part of the sport. We learn and move on.",
+    "I won't sugarcoat it — P{pos} is not good enough. We fix it. Together.",
+    "Hard season. P{pos}. The team gave everything. Now we figure out what went wrong.",
+    "P{pos} and a long winter ahead. But I've been through difficult seasons before. We come back.",
+]
+
+
+def _team_boss_message(position, wins, podiums, team_count, tier_key, season):
+    """Generate a seeded team boss quote for the season recap."""
+    seed = f"boss|{position}|{wins}|{tier_key}|{season}"
+    wins_text = f"{wins} win{'s' if wins > 1 else ''}"
+    fmt = {'pos': position, 'wins_text': wins_text}
+    if position == 1:
+        return _pick_template(_BOSS_CHAMPION_TEMPLATES, seed)
+    if wins > 0:
+        return _pick_template(_BOSS_WIN_TEMPLATES, seed).format(**fmt)
+    if podiums > 0:
+        return _pick_template(_BOSS_PODIUM_TEMPLATES, seed).format(**fmt)
+    if position <= team_count // 2:
+        return _pick_template(_BOSS_MIDFIELD_TEMPLATES, seed).format(**fmt)
+    return _pick_template(_BOSS_STRUGGLE_TEMPLATES, seed).format(**fmt)
+
+
+def _find_most_improved(career_data):
+    """Return name of the AI driver with the highest positive season skill delta."""
+    progress = career_data.get('driver_progress', {})
+    retired = set(career_data.get('retired_drivers', []))
+    best_name, best_delta = None, 0.0
+    for name, entry in progress.items():
+        if name in retired:
+            continue
+        deltas = compute_progress_deltas(entry).get('season', {})
+        net = sum(float(deltas.get(k, 0)) for k in DRIVER_SKILL_KEYS)
+        if net > best_delta:
+            best_delta, best_name = net, name
+    return best_name
 
 
 def _is_ac_running():
@@ -577,6 +804,13 @@ def get_standings():
 def get_all_standings():
     career_data = load_career_data()
     all_s, tier_progress = career.generate_all_standings(career_data)
+    form_scores = career_data.get('form_scores', {})
+    # Annotate each driver entry with their form score
+    for tier_data in all_s.values():
+        for entry in tier_data.get('drivers', []):
+            dname = entry.get('driver', '')
+            if dname in form_scores:
+                entry['form_score'] = round(form_scores[dname], 2)
     return jsonify({
         'all_standings':   all_s,
         'tier_progress':   tier_progress,
@@ -1025,6 +1259,20 @@ def finish_race():
             text = _pick_template(_RIVALRY_TEMPLATES, seed).format(d1=d1, d2=d2)
             _add_news(career_data, 'rivalry', text, 'swords', tier=tier_key)
 
+    # Player rivalry callout — if any AI driver is within 10 pts, announce once per season
+    player_pts = career_data.get('points', 0)
+    _tier_label_short = career.tier_names.get(tier_key, tier_key)
+    for s in standings:
+        if s.get('is_player'):
+            continue
+        gap = abs(player_pts - s.get('points', 0))
+        if 0 < gap <= 10:
+            seed = f"player_rivalry|{s['driver']}|{career_data.get('season',1)}"
+            text = _pick_template(_PLAYER_RIVALRY_TEMPLATES, seed).format(
+                name=s['driver'], gap=gap, tier=_tier_label_short)
+            _add_news(career_data, 'player_rivalry', text, 'swords', tier=tier_key)
+            break  # one callout per race
+
     # Form streak news — only announce once per driver per season (dedup handles it)
     for fname, fscore in (career_data.get('form_scores') or {}).items():
         if fscore >= 0.7:
@@ -1091,6 +1339,14 @@ def finish_race():
         seed = f"wet_spec|{player_name}|{career_data.get('season',1)}|{races_done}"
         text = _pick_template(_WET_SPECIALIST_TEMPLATES, seed).format(name=player_name)
         _add_news(career_data, 'wet_specialist', text, 'rain', tier=tier_key)
+
+    # ── Achievement checks (race-based) ──────────────────────────────────
+    newly_unlocked = check_achievements(career_data, {'is_wet': bool(is_wet), 'position': position})
+    for aid in newly_unlocked:
+        ach = ACHIEVEMENTS.get(aid, {})
+        _add_news(career_data, 'achievement',
+                  f"Achievement unlocked: {ach.get('name', aid)}! — {ach.get('desc', '')}",
+                  'trophy')
 
     # ── Close title fight ─────────────────────────────────────────────────
     if races_done >= 3 and len(standings) >= 3:
@@ -1266,6 +1522,14 @@ def _do_end_season():
         'wins':   wins,
     })
 
+    # Achievement checks (season-end — player_history already updated above)
+    season_unlocked = check_achievements(career_data, {'is_season_end': True})
+    for aid in season_unlocked:
+        ach = ACHIEVEMENTS.get(aid, {})
+        _add_news(career_data, 'achievement',
+                  f"Achievement unlocked: {ach.get('name', aid)}! — {ach.get('desc', '')}",
+                  'trophy')
+
     # Evolve team development ratings based on team standings
     team_standings = career.generate_team_standings_from_drivers(standings)
     team_dev = career_data.setdefault('team_development', {})
@@ -1299,29 +1563,45 @@ def _do_end_season():
                 name=ret['name'], age=ret['age'])
         _add_news(career_data, 'retirement', text, 'flag')
 
-    # Championship winner news (all tiers)
+    # Championship winner news + team history snapshot (single standings call)
     tier_labels = {'mx5_cup': 'MX5 Cup', 'gt4': 'GT4', 'gt3': 'GT3', 'wec': 'WEC'}
     all_standings, _ = career.generate_all_standings(career_data)
+    team_history = career_data.get('team_history', {})
     for tk, st_data in all_standings.items():
+        tl = tier_labels.get(tk, tk)
         drivers = st_data.get('drivers', [])
         if drivers:
             champ = drivers[0]
-            tl = tier_labels.get(tk, tk)
             seed = f"champ|{tk}|{season}"
             text = _pick_template(_CHAMPION_TEMPLATES, seed).format(
                 tier=tl, name=champ['driver'])
             _add_news(career_data, 'champion', text, 'trophy', tier=tk)
+        for te in st_data.get('teams', []):
+            tname = te.get('team')
+            if not tname:
+                continue
+            if tname not in team_history:
+                team_history[tname] = {'seasons': []}
+            team_history[tname]['seasons'].append({
+                'season':    season,
+                'tier':      tk,
+                'tier_name': tl,
+                'pos':       te.get('position', 0),
+                'pts':       te.get('points', 0),
+            })
+    career_data['team_history'] = team_history
 
     # Team development news
+    tier_label = {'mx5_cup': 'MX5', 'gt4': 'GT4', 'gt3': 'GT3', 'wec': 'WEC'}.get(tier_key, tier_key.upper())
     for rank, ts_entry in enumerate(team_standings):
         tn = ts_entry.get('team', '')
         td = team_dev.get(tn, {})
         ro = td.get('rating_offset', 0)
         if ro >= 0.2:
-            text = _pick_template(_TEAM_UP_TEMPLATES, f"tdev|{tn}|{season}").format(team=tn)
+            text = _pick_template(_TEAM_UP_TEMPLATES, f"tdev|{tn}|{season}").format(team=tn, tier=tier_label)
             _add_news(career_data, 'team_dev', text, 'chart_up', tier=tier_key)
         elif ro <= -0.2:
-            text = _pick_template(_TEAM_DOWN_TEMPLATES, f"tdev|{tn}|{season}").format(team=tn)
+            text = _pick_template(_TEAM_DOWN_TEMPLATES, f"tdev|{tn}|{season}").format(team=tn, tier=tier_label)
             _add_news(career_data, 'team_dev', text, 'chart_down', tier=tier_key)
 
     # ── Veteran warnings (drivers age 38+ entering next season, max 3) ───
@@ -1372,11 +1652,49 @@ def _do_end_season():
     career_data['contracts']      = contracts
     career_data['final_position'] = position
     save_career_data(career_data)
+
+    # Build season recap (consumed by frontend recap screen before contracts)
+    race_results = career_data.get('race_results', [])
+    podiums = sum(1 for r in race_results if r.get('position', 99) <= 3)
+    recap = {
+        'player': {
+            'wins':        wins,
+            'podiums':     podiums,
+            'best_result': min((r.get('position', 99) for r in race_results), default=None),
+            'races':       career_data['races_completed'],
+            'points':      career_data['points'],
+            'position':    position,
+            'tier':        tier_key,
+        },
+        'tier_champions': {
+            tk: st.get('drivers', [{}])[0].get('driver')
+            for tk, st in all_standings.items() if st.get('drivers')
+        },
+        'most_improved':  _find_most_improved(career_data),
+        'boss_message':   _team_boss_message(position, wins, podiums, team_count, tier_key, season),
+    }
+    career_data['last_recap'] = recap
+    save_career_data(career_data)
+
     return jsonify({
         'status':       'season_complete',
         'position':     position,
         'total_points': career_data['points'],
         'contracts':    contracts,
+        'recap':        recap,
+    })
+
+
+@app.route('/api/season-recap')
+def season_recap():
+    career_data = load_career_data()
+    recap = career_data.get('last_recap')
+    if not recap:
+        return jsonify({'error': 'no recap'}), 404
+    return jsonify({
+        'recap':        recap,
+        'position':     career_data.get('final_position', 0),
+        'total_points': career_data.get('points', 0),
     })
 
 
@@ -1485,6 +1803,7 @@ def new_career():
         'race_results':    [],
         'contracts':       None,
         'driver_history':  {},
+        'team_history':    {},
         'player_history':  [],
         'form_scores':     {},
         'team_development': {},
@@ -1621,6 +1940,69 @@ def driver_profile():
 
     return jsonify({'name': name, 'profile': profile, 'current': current_entry, 'history': history})
 
+def _synthetic_team_history(team_name, career_data):
+    """Generate plausible pre-career season history seeded by team name."""
+    # Find team's tier_level (factory/semi/customer) by searching all tiers
+    tier_level = 'customer'
+    tier_name_map = {}
+    for tk in career.tiers:
+        ti = career.get_tier_info(career.tiers.index(tk))
+        tl = ti.get('name', tk)
+        tier_name_map[tk] = tl
+        for t in ti.get('teams', []):
+            if t.get('name') == team_name:
+                tier_level = t.get('tier', 'customer')
+                break
+
+    # Position ranges by tier_level (min, max)
+    pos_range = {'factory': (1, 5), 'semi': (3, 10), 'customer': (6, 16)}
+    lo, hi = pos_range.get(tier_level, (4, 12))
+
+    seasons = []
+    current_season = career_data.get('season', 1)
+    num_pre = min(3, current_season - 1)
+    if num_pre <= 0:
+        return seasons
+
+    # Use current tier of team to pick tier label
+    player_tier_key = career.tiers[career_data.get('tier', 0)]
+    tier_label = tier_name_map.get(player_tier_key, player_tier_key)
+
+    for i in range(num_pre, 0, -1):
+        s_num = current_season - i
+        seed_val = _seed_int(f"teamhist|{team_name}|{s_num}", lo, hi)
+        pos = seed_val
+        # Points roughly inverse to position
+        pts_seed = _seed_int(f"teampts|{team_name}|{s_num}", 0, 100)
+        pts = max(0, int(250 * (1 - (pos - 1) / max(hi, 1))) + pts_seed // 5 - 10)
+        seasons.append({
+            'season':    s_num,
+            'tier':      player_tier_key,
+            'tier_name': tier_label,
+            'pos':       pos,
+            'pts':       pts,
+            'synthetic': True,
+        })
+    return seasons
+
+
+@app.route('/api/team-profile')
+def team_profile():
+    name        = request.args.get('name', '')
+    career_data = load_career_data()
+    recorded    = career_data.get('team_history', {}).get(name, {}).get('seasons', [])
+
+    # Synthetic pre-career seasons for seasons not yet recorded
+    recorded_season_nums = {s['season'] for s in recorded}
+    synthetic = [s for s in _synthetic_team_history(name, career_data)
+                 if s['season'] not in recorded_season_nums]
+
+    seasons = sorted(synthetic + recorded, key=lambda s: s['season'])
+    best = min((s['pos'] for s in seasons), default=None)
+    wins = sum(1 for s in seasons if s.get('pos') == 1)
+    return jsonify({'name': name, 'history': {'seasons': seasons}, 'best_result': best, 'titles': wins})
+
+
 @app.route('/api/paddock-news')
 def paddock_news():
     career_data = load_career_data()
@@ -1641,6 +2023,17 @@ def paddock_news():
         career_data['paddock_news'] = news
         save_career_data(career_data)
     return jsonify(news)
+
+
+@app.route('/api/achievements')
+def achievements():
+    career_data = load_career_data()
+    unlocked = career_data.get('achievements', [])
+    return jsonify({
+        'all':      ACHIEVEMENTS,
+        'order':    ACHIEVEMENT_ORDER,
+        'unlocked': unlocked,
+    })
 
 
 @app.route('/api/player-profile')

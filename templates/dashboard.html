@@ -51,14 +51,20 @@
         <div class="dstat"><div class="dstat-val" id="driver-pos">-</div><div class="dstat-lbl">Position</div></div>
         <div class="dstat"><div class="dstat-val" id="races-done">0/10</div><div class="dstat-lbl">Races</div></div>
       </div>
+      <div class="rival-stat hidden" id="rival-stat">
+        <span class="rival-stat-icon">⚔</span>
+        <span class="rival-stat-name" id="rival-stat-name"></span>
+        <span class="rival-stat-pos" id="rival-stat-pos"></span>
+      </div>
     </div>
     <div class="card actions-card">
-      <button class="btn btn-race" onclick="startRace()">&#127937; Start Race</button>
+      <button class="btn btn-race" id="btn-start-race" onclick="startRace()">&#127937; Start Race</button>
       <div class="action-sep"></div>
       <button class="nav-btn" onclick="showView('main')"><span class="nav-icon">&#127968;</span>Home</button>
       <button class="nav-btn" onclick="showView('standings')"><span class="nav-icon">&#127942;</span>Standings</button>
       <button class="nav-btn" onclick="openStats()"><span class="nav-icon">&#128200;</span>Statistics</button>
       <button class="nav-btn" onclick="showView('paddock'); loadPaddockNews()"><span class="nav-icon">&#128240;</span>Paddock</button>
+      <button class="nav-btn" onclick="showView('achievements'); loadAchievements()"><span class="nav-icon">&#127941;</span>Achievements</button>
       <button class="nav-btn" onclick="openConfig()"><span class="nav-icon">&#9881;</span>Settings</button>
       <div class="action-sep"></div>
       <button class="btn-ghost-sm" onclick="openNewCareer()">&#128260; New Career</button>
@@ -78,14 +84,16 @@
           <div class="nrb-track" id="nrb-track">-</div>
           <div class="nrb-meta"  id="nrb-meta">-</div>
         </div>
+        <div class="nrb-center">
+          <div class="nrb-ai-label">WEATHER</div>
+          <div class="nrb-weather-val" id="nrb-weather">–</div>
+        </div>
         <div class="nrb-right">
           <div class="nrb-ai-label">AI LEVEL</div>
           <div class="nrb-ai-val" id="nrb-ai">-</div>
         </div>
       </div>
-      <div class="season-done-bar hidden" id="season-done-bar">
-        &#127942; Season complete - check your contract offers below!
-      </div>
+
     </div>
     <!-- Main page: news ticker + mini standings side by side -->
     <div class="dashboard-grid">
@@ -216,9 +224,22 @@
       <h3 class="subsection-title">Contract Offers</h3>
       <div id="contracts-list" class="contracts-grid"></div>
     </div>
+    <div id="view-recap" class="card view-card hidden">
+      <h2 class="section-title">&#127942; Season Complete!</h2>
+      <p class="view-subtitle" id="recap-pos-text"></p>
+      <div id="recap-boss-quote" class="recap-quote hidden"></div>
+      <div id="recap-body"></div>
+      <div class="form-actions" style="margin-top:1.5rem">
+        <button class="btn btn-race" onclick="showRecapContracts()">View Contracts &#8250;</button>
+      </div>
+    </div>
     <div id="view-paddock" class="card view-card hidden">
       <h2 class="section-title">&#128240; Paddock News</h2>
       <div id="paddock-feed" class="paddock-feed"></div>
+    </div>
+    <div id="view-achievements" class="card view-card hidden">
+      <h2 class="section-title">&#127941; Achievements</h2>
+      <div id="achievements-grid" class="achievements-grid"></div>
     </div>
     <div id="view-config" class="card view-card hidden">
       <div class="view-header">
@@ -500,11 +521,6 @@
     </div>
     <div class="dp-nickname hidden" id="dp-nickname"></div>
     <div class="dp-trend" id="dp-trend"></div>
-    <div class="dp-delta-controls">
-      <button class="dp-delta-btn active" id="dp-mode-season" onclick="setDriverDeltaMode('season')">Season</button>
-      <button class="dp-delta-btn" id="dp-mode-race" onclick="setDriverDeltaMode('race')">Race</button>
-      <button class="dp-delta-btn" id="dp-mode-career" onclick="setDriverDeltaMode('career')">Career</button>
-    </div>
     <div class="dp-stats">
       <div class="dp-stat-row">
         <span class="dp-stat-label">SKILL</span>
@@ -552,6 +568,11 @@
       <button class="close-btn" onclick="closeModal('modal-team')">&#10005;</button>
     </div>
     <div id="tm-drivers" class="tm-drivers"></div>
+    <div id="tm-champion-banner" class="tm-champion-banner hidden"></div>
+    <div id="tm-history-section" class="dp-history-section hidden">
+      <div class="dp-history-label" id="tm-history-label">Season History</div>
+      <div id="tm-history"></div>
+    </div>
   </div>
 </div>
 <!-- Player profile modal -->

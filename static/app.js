@@ -11,30 +11,43 @@ let standingsTier = 0;        // currently displayed tier index
 let champMode     = 'drivers'; // 'drivers' | 'teams'
 let calendar      = [];
 let pendingRace   = null;
+let nextRacePreview = null;   // cached /api/next-race result for weather preview
 const THEME_PALETTE_KEY = 'ac-theme-palette';
 
 // ── Track name map ──────────────────────────────────────────────────────────
 const TRACK_NAMES = {
     // MX5 Cup
-    'ks_silverstone/national':         'Silverstone National',
-    'ks_brands_hatch/indy':            'Brands Hatch Indy',
+    'ks_silverstone/national':         'Silverstone',
+    'ks_brands_hatch/indy':            'Brands Hatch',
     'magione':                         'Magione',
-    'ks_vallelunga/club_circuit':      'Vallelunga Club',
+    'ks_vallelunga/club_circuit':      'Vallelunga',
     'ks_black_cat_county/layout_long': 'Black Cat County',
     // GT4
-    'ks_silverstone/gp':               'Silverstone GP',
-    'ks_brands_hatch/gp':              'Brands Hatch GP',
+    'ks_silverstone/gp':               'Silverstone',
+    'ks_brands_hatch/gp':              'Brands Hatch',
     'ks_red_bull_ring/layout_national':'Red Bull Ring',
     // GT3 / WEC
-    'spa':                             'Spa-Francorchamps',
+    'spa':                             'Spa',
     'monza':                           'Monza',
     'ks_laguna_seca':                  'Laguna Seca',
     'mugello':                         'Mugello',
     'imola':                           'Imola',
+    'zandvoort':                       'Zandvoort',
+    'ks_nurburgring/layout_gp':        'Nürburgring',
+    'ks_nurburgring/layout_sprint_c':  'Nürburgring',
+    'ks_paul_ricard':                  'Paul Ricard',
+    'ks_barcelona':                    'Barcelona',
+    'ks_barcelona/layout_gp':          'Barcelona',
+    'ks_hungaroring':                  'Hungaroring',
+    'ks_austria':                      'Red Bull Ring',
+    'ks_interlagos':                   'Interlagos',
+    'ks_melbourne':                    'Melbourne',
+    'ks_monaco':                       'Monaco',
+    'ks_silverstone':                  'Silverstone',
 };
 
 function fmtTrack(id) {
-    return TRACK_NAMES[id] || id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    return TRACK_NAMES[id] || id.replace(/^ks_/, '').replace(/\//g, ' ').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 function fmtCar(id) {
     if (!id) return '–';
@@ -97,6 +110,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkSetup();
     await Promise.all([loadCareer(), loadConfig()]);
     await Promise.all([loadAllStandings(), loadCalendar()]);
+    loadNextRacePreview().then(() => renderCalendar());
     refresh();
     loadNewsTicker();
     showView('main');
@@ -140,6 +154,13 @@ async function loadCalendar() {
         const r  = await fetch('/api/season-calendar');
         calendar = await r.json();
     } catch (e) { console.error('loadCalendar', e); }
+}
+async function loadNextRacePreview() {
+    try {
+        if (!career || career.contracts || career.final_position != null) return;
+        const r = await fetch('/api/next-race');
+        nextRacePreview = await r.json();
+    } catch (e) { nextRacePreview = null; }
 }
 
 // ── Full refresh ───────────────────────────────────────────────────────────
@@ -242,6 +263,33 @@ function updateDriverCard() {
     const playerTierDrivers = (allStandings[playerTierK] || {}).drivers || standings;
     const me = playerTierDrivers.find(s => s.is_player);
     document.getElementById('driver-pos').textContent = me ? 'P' + me.position : '–';
+
+    // Rival sidebar indicator
+    const rivalStatEl = document.getElementById('rival-stat');
+    if (rivalStatEl) {
+        const rv = career.rival_name && playerTierDrivers.find(d => d.driver === career.rival_name);
+        if (rv) {
+            document.getElementById('rival-stat-name').textContent = career.rival_name;
+            const gapTxt = rv.gap === 0 ? 'Leader' : 'P' + rv.position + ' ·  –' + rv.gap;
+            document.getElementById('rival-stat-pos').textContent = gapTxt;
+            rivalStatEl.classList.remove('hidden');
+        } else {
+            rivalStatEl.classList.add('hidden');
+        }
+    }
+
+    // Swap Start Race ↔ End Season based on season completion
+    const raceBtn = document.getElementById('btn-start-race');
+    if (raceBtn) {
+        const seasonDone = done >= total && career.team;
+        if (seasonDone) {
+            raceBtn.innerHTML  = '&#127942; End Season';
+            raceBtn.onclick    = goToContracts;
+        } else {
+            raceBtn.innerHTML  = '&#127937; Start Race';
+            raceBtn.onclick    = startRace;
+        }
+    }
 }
 
 // ── Season Calendar ────────────────────────────────────────────────────────
@@ -249,7 +297,7 @@ function renderCalendar() {
     const row     = document.getElementById('rounds-row');
     const progEl  = document.getElementById('calendar-progress');
     const nrbBar  = document.getElementById('next-race-bar');
-    const doneBanner = document.getElementById('season-done-bar');
+
     if (!row) return;
 
     row.innerHTML = '';
@@ -273,7 +321,7 @@ function renderCalendar() {
 
         // Circle icon: ✓ done | ► next | round number upcoming
         const icon = r.status === 'completed' ? '✓' : r.status === 'next' ? '▶' : r.round;
-        const shortTrack = fmtTrack(r.track).split(' ')[0].slice(0, 7);
+        const shortTrack = fmtTrack(r.track);
         const resultHtml = (r.status === 'completed' && r.result)
             ? '<div class="rp-result">P' + r.result.position + '</div>'
             : '';
@@ -290,12 +338,10 @@ function renderCalendar() {
     // Season done?
     if (done >= total) {
         nrbBar.style.display = 'none';
-        doneBanner.classList.remove('hidden');
         return;
     }
 
     // Show next race bar
-    doneBanner.classList.add('hidden');
     nrbBar.style.display = '';
 
     if (nextRound && config) {
@@ -310,6 +356,11 @@ function renderCalendar() {
         // AI level filled when race modal opens; show placeholder here
         const baseAi = config && config.difficulty ? (config.difficulty.base_ai_level || 85) : 85;
         document.getElementById('nrb-ai').textContent = '~' + (baseAi + (tierCfg ? tierCfg.ai_difficulty : 0));
+        // Weather preview (from cached next-race call)
+        const weatherEl = document.getElementById('nrb-weather');
+        if (weatherEl) {
+            weatherEl.textContent = nextRacePreview ? fmtWeather(nextRacePreview.weather) : '–';
+        }
     }
 }
 
@@ -385,8 +436,13 @@ function renderStandings() {
             : (s.driver2 ? s.driver + ' / ' + s.driver2 : (s.driver || ''));
         const mainSafe = escHtml(main);
         const subSafe  = escHtml(sub);
-        const star      = s.is_player ? '★ ' : '';
+        const star       = s.is_player ? '★ ' : '';
         const rivalBadge = isRival ? '⚔ ' : '';
+        const formBadge  = !s.is_player && isDriverMode && s.form_score != null
+            ? (s.form_score >= 0.35 ? '<span class="form-badge form-hot" title="Hot streak">🔥</span>'
+             : s.form_score <= -0.35 ? '<span class="form-badge form-cold" title="Poor form">❄️</span>'
+             : '')
+            : '';
         const driverName = (s.driver || '').replace(/'/g, "\\'");
         const teamName   = (s.team  || '').replace(/'/g, "\\'");
         // For teams mode: look up primary driver's skin_index from driver standings
@@ -395,11 +451,11 @@ function renderStandings() {
             const primDr = (tierData.drivers || []).find(d => d.team === s.team && d.is_primary !== false);
             if (primDr) skinIdxForRow = primDr.skin_index || 0;
         }
-        const clickable = s.is_player
-            ? ' onclick="showPlayerProfile()"'
-            : (isDriverMode
-                ? ' onclick="showDriverProfile(\'' + driverName + '\',\'' + (s.car || '') + '\',' + (s.skin_index || 0) + ')"'
-                : ' onclick="showTeamProfile(\'' + teamName + '\',\'' + (s.car || '') + '\')"');
+        const clickable = isDriverMode
+            ? (s.is_player
+                ? ' onclick="showPlayerProfile()"'
+                : ' onclick="showDriverProfile(\'' + driverName + '\',\'' + (s.car || '') + '\',' + (s.skin_index || 0) + ')"')
+            : ' onclick="showTeamProfile(\'' + teamName + '\',\'' + (s.car || '') + '\')"';
         const liveryImg = s.car != null
             ? '<img class="livery-swatch" src="/api/livery-preview?car=' +
               encodeURIComponent(s.car) + '&index=' + skinIdxForRow +
@@ -408,7 +464,7 @@ function renderStandings() {
         return (
             '<tr class="' + rowClass + '"' + clickable + '>' +
             '<td class="col-pos ' + posClass + '">' + liveryImg + s.position + '</td>' +
-            '<td class="col-name">' + star + rivalBadge + mainSafe +
+            '<td class="col-name">' + star + rivalBadge + mainSafe + formBadge +
               (sub ? '<div class="sub-name">' + subSafe + '</div>' : '') +
             '</td>' +
             '<td class="col-pts">' + s.points + '</td>' +
@@ -454,6 +510,7 @@ async function confirmSetup() {
             document.getElementById('setup-overlay').classList.add('hidden');
             await Promise.all([loadCareer(), loadConfig()]);
             await Promise.all([loadAllStandings(), loadCalendar()]);
+            loadNextRacePreview().then(() => renderCalendar());
             refresh();
             showToast('Assetto Corsa found!');
         } else {
@@ -471,7 +528,7 @@ async function browseFolder() {
 }
 
 // ── View management ────────────────────────────────────────────────────────
-const ALL_VIEWS = ['standings', 'stats', 'result', 'contracts', 'config', 'paddock'];
+const ALL_VIEWS = ['standings', 'stats', 'result', 'contracts', 'recap', 'config', 'paddock', 'achievements'];
 // 'main' is the default home state: no view-card active, calendar + dashboard grid visible
 
 function showView(name) {
@@ -499,6 +556,11 @@ function showView(name) {
     if (cal) cal.classList.toggle('hidden', !isHome);
     const grid = document.querySelector('.dashboard-grid');
     if (grid) grid.classList.toggle('hidden', !isHome);
+
+    // Auto-render contracts from career data when navigating to contracts view
+    if (name === 'contracts' && career && career.contracts && career.contracts.length) {
+        renderContracts(career.contracts);
+    }
 }
 
 function openConfig() {
@@ -624,6 +686,36 @@ async function loadPaddockNews() {
     }
 }
 
+async function loadAchievements() {
+    const grid = document.getElementById('achievements-grid');
+    if (!grid) return;
+    try {
+        const data = await fetch('/api/achievements').then(r => r.json());
+        const all = data.all || {};
+        const order = data.order || [];
+        const unlocked = data.unlocked || [];
+        const unlockedMap = {};
+        for (const u of unlocked) unlockedMap[u.id] = u;
+        let html = '';
+        for (const aid of order) {
+            const ach = all[aid];
+            if (!ach) continue;
+            const u = unlockedMap[aid];
+            const cls = u ? 'ach-card unlocked' : 'ach-card locked';
+            const seasonTag = u ? `<div class="ach-season">Season ${u.season}</div>` : '';
+            html += `<div class="${cls}">
+                <div class="ach-icon">${ach.icon}</div>
+                <div class="ach-name">${ach.name}</div>
+                <div class="ach-desc">${ach.desc}</div>
+                ${seasonTag}
+            </div>`;
+        }
+        grid.innerHTML = html || '<p class="muted">No achievements defined.</p>';
+    } catch (e) {
+        grid.innerHTML = '<p class="muted">Could not load achievements.</p>';
+    }
+}
+
 function renderStats() {
     const el = document.getElementById('stats-content');
     if (!el || !career) {
@@ -698,45 +790,26 @@ const NATIONALITY_FLAGS = {
 function nationalityFlag(code) { return NATIONALITY_FLAGS[code] || '🏁'; }
 
 const TIER_LABELS = {mx5_cup:'MX5 Cup', gt4:'GT4', gt3:'GT3', wec:'WEC'};
-let driverDeltaMode = 'season';
 let _driverProfileData = null;
-
-function _fmtSkillDelta(v) {
-    const n = Number(v || 0);
-    if (!Number.isFinite(n) || Math.abs(n) < 0.05) return '0.0';
-    return (n > 0 ? '+' : '') + n.toFixed(1);
-}
 
 function _setDeltaBadge(id, value) {
     const el = document.getElementById(id);
     if (!el) return;
     const n = Number(value || 0);
-    el.textContent = _fmtSkillDelta(n);
     el.classList.remove('up', 'down', 'flat');
-    if (n > 0.05) el.classList.add('up');
-    else if (n < -0.05) el.classList.add('down');
-    else el.classList.add('flat');
+    if (n > 0.05)       { el.textContent = '↑' + n.toFixed(1); el.classList.add('up'); }
+    else if (n < -0.05) { el.textContent = '↓' + Math.abs(n).toFixed(1); el.classList.add('down'); }
+    else                { el.textContent = ''; el.classList.add('flat'); }
 }
 
 function renderDriverDeltas() {
     const p = (_driverProfileData && _driverProfileData.profile) ? _driverProfileData.profile : {};
-    const deltas = p.skill_deltas || {};
-    const modeSet = deltas[driverDeltaMode] || {};
-    _setDeltaBadge('dp-skill-delta', modeSet.skill);
-    _setDeltaBadge('dp-aggr-delta', modeSet.aggression);
-    _setDeltaBadge('dp-wet-delta', modeSet.wet_skill);
-    _setDeltaBadge('dp-quali-delta', modeSet.quali_pace);
-    _setDeltaBadge('dp-cons-delta', modeSet.consistency);
-
-    ['season', 'race', 'career'].forEach((mode) => {
-        const btn = document.getElementById('dp-mode-' + mode);
-        if (btn) btn.classList.toggle('active', mode === driverDeltaMode);
-    });
-}
-
-function setDriverDeltaMode(mode) {
-    driverDeltaMode = mode || 'season';
-    renderDriverDeltas();
+    const season = (p.skill_deltas || {}).season || {};
+    _setDeltaBadge('dp-skill-delta',  season.skill);
+    _setDeltaBadge('dp-aggr-delta',   season.aggression);
+    _setDeltaBadge('dp-wet-delta',    season.wet_skill);
+    _setDeltaBadge('dp-quali-delta',  season.quali_pace);
+    _setDeltaBadge('dp-cons-delta',   season.consistency);
 }
 
 async function showDriverProfile(name, car, skinIndex) {
@@ -865,6 +938,34 @@ function showTeamProfile(teamName, car) {
         tmEl.innerHTML = '<span style="color:var(--text-faint);font-size:.8rem">No driver data</span>';
     }
     openModal('modal-team');
+
+    // Fetch and render team history + champion banner
+    const histSection  = document.getElementById('tm-history-section');
+    const histEl       = document.getElementById('tm-history');
+    const champBanner  = document.getElementById('tm-champion-banner');
+    if (histSection)  histSection.classList.add('hidden');
+    if (champBanner)  champBanner.classList.add('hidden');
+    fetch('/api/team-profile?name=' + encodeURIComponent(teamName))
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (!data) return;
+            const seasons = (data.history && data.history.seasons) || [];
+            const titles  = data.titles || 0;
+            // Champion banner
+            if (champBanner && titles > 0) {
+                champBanner.textContent = '🏆 ' + titles + 'x Championship Winner';
+                champBanner.classList.remove('hidden');
+            }
+            if (!seasons.length) return;
+            histSection.classList.remove('hidden');
+            histEl.innerHTML = seasons.slice().reverse().map(s =>
+                '<div class="dp-history-row' + (s.pos === 1 ? ' hist-champion' : '') + '">' +
+                '<span>S' + s.season + ' ' + (s.tier_name || s.tier) + '</span>' +
+                '<span>P' + s.pos + ' · ' + s.pts + ' pts' + (s.pos === 1 ? ' 🏆' : '') + '</span>' +
+                '</div>'
+            ).join('');
+        })
+        .catch(() => {});
 }
 
 async function showPlayerProfile() {
@@ -1094,6 +1195,7 @@ async function startCareerFromWizard() {
         if (d.status === 'success') {
             await Promise.all([loadCareer(), loadConfig()]);
             await Promise.all([loadAllStandings(), loadCalendar()]);
+            loadNextRacePreview().then(() => renderCalendar());
             refresh();
             showView('main');
             showToast('Career started! Good luck, ' + name + '! \uD83C\uDFC1');
@@ -1101,6 +1203,48 @@ async function startCareerFromWizard() {
             showToast(d.message || 'Error starting career', 'error');
         }
     } catch (e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+// ── End Season / Go to Contracts ───────────────────────────────────────────
+async function goToContracts() {
+    // If recap data is cached from this session, show it first
+    if (_lastRecap) {
+        renderRecap(_lastRecap.recap, _lastRecap.position, _lastRecap.total_points);
+        showView('recap');
+        return;
+    }
+    // Contracts already generated (e.g. app restarted after season end) — fetch stored recap first
+    if (career && career.contracts && career.contracts.length) {
+        try {
+            const r = await fetch('/api/season-recap');
+            if (r.ok) {
+                const d = await r.json();
+                _lastRecap = { recap: d.recap, position: d.position, total_points: d.total_points };
+                renderRecap(d.recap, d.position, d.total_points);
+                showView('recap');
+                return;
+            }
+        } catch (_) {}
+        showView('contracts');
+        return;
+    }
+    // End-season not yet processed — trigger it now
+    try {
+        const r = await fetch('/api/end-season', { method: 'POST' });
+        const d = await r.json();
+        await Promise.all([loadCareer(), loadAllStandings(), loadCalendar()]);
+        refresh();
+        _pendingContracts = d.contracts || [];
+        _lastRecap = d.recap
+            ? { recap: d.recap, position: d.position, total_points: d.total_points }
+            : null;
+        if (d.recap) {
+            renderRecap(d.recap, d.position, d.total_points);
+            showView('recap');
+        } else {
+            showView('contracts');
+        }
+    } catch (e) { showToast('Error loading season end data', 'error'); }
 }
 
 // ── Start Race ─────────────────────────────────────────────────────────────
@@ -1112,7 +1256,7 @@ async function startRace() {
     const total = (career && career.total_races) || (config && config.seasons && config.seasons.races_per_tier) || 10;
     if ((career.races_completed || 0) >= total) {
         showToast('Season complete! Check your contract offers.', 'warning');
-        showView('contracts');
+        goToContracts();
         return;
     }
     try {
@@ -1458,6 +1602,7 @@ async function _postFinishRace(pos, lapTime, marginMs) {
             const aiMsg = d.ai_change ? (' AI ' + (d.ai_change > 0 ? '+' : '') + d.ai_change + ' (offset ' + d.ai_offset + ')') : '';
             showToast(fmtPos(pos) + ' — +' + pts + ' pts!' + aiMsg);
             await Promise.all([loadCareer(), loadAllStandings(), loadCalendar()]);
+            loadNextRacePreview().then(() => renderCalendar());
             refresh();
             loadNewsTicker();
             showView('main');
@@ -1468,20 +1613,92 @@ async function _postFinishRace(pos, lapTime, marginMs) {
 }
 
 // ── Season Complete ────────────────────────────────────────────────────────
+let _pendingContracts = [];
+let _lastRecap = null;  // cached for End Season button re-entry
+
 async function handleSeasonComplete(data) {
     await Promise.all([loadCareer(), loadAllStandings(), loadCalendar()]);
     refresh();
     loadNewsTicker();
 
-    const posEl = document.getElementById('final-pos-text');
-    if (posEl) {
-        posEl.textContent =
-            'You finished P' + data.position +
-            ' with ' + data.total_points + ' points.';
+    _pendingContracts = data.contracts || [];
+    _lastRecap = data.recap
+        ? { recap: data.recap, position: data.position, total_points: data.total_points }
+        : null;
+
+    if (data.recap) {
+        renderRecap(data.recap, data.position, data.total_points);
+        showView('recap');
+        showToast('Season over! Review your recap, then choose a contract.');
+    } else {
+        // Fallback for old responses without recap
+        renderContracts(_pendingContracts);
+        showView('contracts');
+        showToast('Season over! Choose your next contract.');
     }
-    renderContracts(data.contracts || []);
+}
+
+function showRecapContracts() {
+    renderContracts(_pendingContracts);
     showView('contracts');
-    showToast('Season over! Choose your next contract.');
+}
+
+const _TIER_LABELS = {mx5_cup: 'MX5 Cup', gt4: 'GT4', gt3: 'GT3', wec: 'WEC'};
+
+function renderRecap(recap, position, totalPoints) {
+    const posEl = document.getElementById('recap-pos-text');
+    if (posEl) posEl.textContent = 'You finished P' + position + ' with ' + totalPoints + ' points.';
+
+    const p = recap.player || {};
+    const champions = recap.tier_champions || {};
+    const improved = recap.most_improved;
+
+    // Team boss quote
+    if (recap.boss_message) {
+        const bossEl = document.getElementById('recap-boss-quote');
+        if (bossEl) {
+            bossEl.innerHTML =
+                `<span class="recap-quote-text">"${recap.boss_message}"</span>` +
+                `<span class="recap-quote-attr">Team Principal</span>`;
+            bossEl.classList.remove('hidden');
+        }
+    }
+
+    let html = '<div class="recap-grid">';
+
+    // Player stats block
+    html += '<div class="recap-block">';
+    html += '<div class="recap-block-title">Your Season</div>';
+    html += '<div class="recap-stats">';
+    html += `<div class="recap-stat"><span class="recap-stat-val">${p.wins ?? 0}</span><span class="recap-stat-lbl">Wins</span></div>`;
+    html += `<div class="recap-stat"><span class="recap-stat-val">${p.podiums ?? 0}</span><span class="recap-stat-lbl">Podiums</span></div>`;
+    html += `<div class="recap-stat"><span class="recap-stat-val">${p.best_result ? 'P' + p.best_result : '—'}</span><span class="recap-stat-lbl">Best Result</span></div>`;
+    html += `<div class="recap-stat"><span class="recap-stat-val">${p.races ?? 0}</span><span class="recap-stat-lbl">Races</span></div>`;
+    html += '</div></div>';
+
+    // Tier champions block
+    const tierKeys = ['mx5_cup', 'gt4', 'gt3', 'wec'];
+    const champEntries = tierKeys.filter(tk => champions[tk]);
+    if (champEntries.length) {
+        html += '<div class="recap-block">';
+        html += '<div class="recap-block-title">&#127942; Champions</div>';
+        html += '<table class="recap-table">';
+        for (const tk of champEntries) {
+            html += `<tr><td class="recap-tier-lbl">${_TIER_LABELS[tk] || tk}</td><td>${champions[tk]}</td></tr>`;
+        }
+        html += '</table></div>';
+    }
+
+    // Most improved
+    if (improved) {
+        html += '<div class="recap-block">';
+        html += '<div class="recap-block-title">&#128200; Most Improved</div>';
+        html += `<p class="recap-improved">${improved}</p>`;
+        html += '</div>';
+    }
+
+    html += '</div>';
+    document.getElementById('recap-body').innerHTML = html;
 }
 
 // ── Contracts ──────────────────────────────────────────────────────────────
@@ -1524,9 +1741,12 @@ async function acceptContract(contractId) {
         });
         const d = await r.json();
         if (d.status === 'success') {
+            _lastRecap = null;
+            _pendingContracts = [];
             showToast('Welcome to ' + d.new_team + '! 🏎');
             await Promise.all([loadCareer(), loadConfig()]);
             await Promise.all([loadAllStandings(), loadCalendar()]);
+            loadNextRacePreview().then(() => renderCalendar());
             refresh();
             loadNewsTicker();
             showView('main');

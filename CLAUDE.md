@@ -7,7 +7,7 @@
 | `x.y.0` | New feature(s), multi-file changes | v1.8.0 — Career Wizard, Debrief, Relegation |
 | `x.y.z` | Single fix, tweak, or small addition | v1.8.1 — trim README overview |
 
-Current version: **1.20.0** (bump in `README.md` header on every release commit).
+Current version: **1.21.0** (bump in `README.md` header on every release commit).
 
 **On every release, update ALL version references in README.md:**
 - Header line: `**Version:** x.y.z`
@@ -18,7 +18,7 @@ Current version: **1.20.0** (bump in `README.md` header on every release commit)
 
 AC Career GT Edition is a desktop app (pywebview + Flask) that adds a career mode to Assetto Corsa (AC). It runs a local Flask server on `http://127.0.0.1:5000` and displays the UI in a native Edge WebView2 window — no browser needed.
 
-- **Backend:** Python / Flask (`app.py`, `career_manager.py`)
+- **Backend:** Python / Flask (`app.py`, `career_manager.py`, `driver_data.py`, `driver_progress.py`)
 - **Frontend:** Vanilla JS + HTML/CSS (`templates/dashboard.html`, `static/app.js`, `static/style.css`)
 - **Window:** pywebview 4.4.1 — `gui='edgechromium'` on Windows (Edge WebView2), `gui='gtk'` on Linux
 - **Python:** 3.12 required — pythonnet (pywebview dep) has no wheel for 3.13/3.14
@@ -30,7 +30,9 @@ AC Career GT Edition is a desktop app (pywebview + Flask) that adds a career mod
 
 ```
 app.py                           # Flask server, REST API, AC launch logic, pywebview window
-career_manager.py                # Game logic: tiers, teams, contracts, race generation
+career_manager.py                # Game logic: tiers, teams, contracts, race generation, AI simulation
+driver_data.py                   # Static data: DRIVER_NAMES (120), DRIVER_PROFILES, DRIVERS_PER_TEAM, TIER_SLOT_OFFSET
+driver_progress.py               # Driver evolution: skill drift, form scores, retirements, rivalries
 platform_paths.py                # OS path helpers (Windows vs Linux Proton, GUI backend)
 extract_gt_cars.py               # Utility: extracts GT car data from AC content folder
 templates/dashboard.html         # Single-page web UI (served by Flask)
@@ -84,7 +86,7 @@ pip install -r requirements.txt
 pip install pythonnet --pre   # pythonnet needs --pre flag
 
 # ── Release (preferred — GitHub Actions) ─────────────────────────────────────
-git tag v1.18.1 && git push origin v1.18.1
+git tag v1.21.0 && git push origin v1.21.0
 # → CI builds EXE (windows-latest) + AppImage (ubuntu-latest) + creates release
 
 # ── Manual build (Windows, fallback only) ────────────────────────────────────
@@ -131,6 +133,8 @@ venv\Scripts\python.exe -c "import types,sys; sys.modules['webview']=types.Modul
 | GET | `/api/preflight-check` | Validate track & car exist: `?track=<id>&car=<id>` → `{ok, issues:[{type,msg}]}` |
 | GET | `/api/scan-content` | Scan AC content folder → `{cars:{gt4:[],gt3:[]}, tracks:[{id,name,length}]}` |
 | POST | `/api/career-settings` | Patch career_settings in career_data.json; body `{dynamic_weather: bool, night_cycle: bool}` |
+| GET | `/api/paddock-news` | Chronological news feed: retirements, swaps, rivalries, champions, form streaks; backfills from race_results on first call for pre-v1.20 saves |
+| GET | `/api/livery-preview` | Returns livery image for a given car/skin |
 
 ## Career Tiers
 
@@ -155,20 +159,21 @@ Base AI level: 95 (0–100 scale), with ±1.5 variance per race.
 
 F1-standard: 25-18-15-12-10-8-6-4-2-1. Fastest lap bonus removed.
 
-## Driver Name Architecture (career_manager.py)
+## Driver Name Architecture
 
-- `DRIVER_NAMES`: 120-name pool — enough for all 106 championship driver slots
+- `DRIVER_NAMES`: 120-name pool in `driver_data.py` — enough for all 106 championship driver slots
 - `DRIVERS_PER_TEAM`: `{mx5_cup:1, gt4:2, gt3:2, wec:2}` — MX5 is single-driver
-- `TIER_SLOT_OFFSET`: `{mx5_cup:0, gt4:14, gt3=46, wec:86}` — global slot start per tier
+- `TIER_SLOT_OFFSET`: `{mx5_cup:0, gt4:14, gt3:46, wec:86}` — global slot start per tier
+- Re-exported as class attrs on `CareerManager` for backward compat (`career.DRIVERS_PER_TEAM` etc.)
 - `_get_driver_name(global_slot, season)`: season-seeded global shuffle → each slot → unique name
 - `generate_standings()`: returns driver championship (1 or 2 entries per team)
 - `generate_team_standings_from_drivers()`: aggregates driver entries to team championship
 - `generate_all_standings()`: returns `{tier_key: {drivers:[...], teams:[...]}}` for all 4 tiers
 - `_get_car_skin(car, ac_path, index=0)`: index-based skin picker; player gets 0, AI cars get 1,2,3…
 
-## Driver Profiles & Personalities (v1.7.0 → v1.18.0, career_manager.py)
+## Driver Profiles & Personalities (v1.7.0 → v1.20.0)
 
-- `DRIVER_PROFILES`: class-level dict — 120 entries matching `DRIVER_NAMES` exactly
+- `DRIVER_PROFILES`: defined in `driver_data.py`, re-exported via `CareerManager` — 120 entries matching `DRIVER_NAMES` exactly
   - Each entry: `{"nationality":"GBR","skill":80,"aggression":50,"wet_skill":60,"quali_pace":70,"consistency":75,"nickname":null}`
   - `skill` (70–95) → `AI_LEVEL` offset: `skill_offset = int((skill-80)*0.2)`
   - `aggression` (0–100) → `AI_AGGRESSION` in race.ini
@@ -185,6 +190,33 @@ F1-standard: 25-18-15-12-10-8-6-4-2-1. Fastest lap bonus removed.
 - `_generate_opponent_field()` stores `driver_name` + `global_slot` + `tier` per opponent
 - `_write_race_config()` uses per-driver AI_LEVEL, AI_AGGRESSION, wet_adj, consistency variance, and team ballast
 - standings↔race name sync: both use `_get_driver_name(global_slot, season)` — names now match
+
+## Driver Progress System (v1.20.0, driver_progress.py)
+
+Skills evolve across races. After each race, `evolve_driver_progress_for_race()` applies drift to all 5 skills based on age, potential, and noise. Wet races give extra `wet_skill` growth.
+
+Key functions:
+- `ensure_driver_progress(career_data)` — initialises `driver_progress` entries for all roster drivers on first use
+- `evolve_driver_progress_for_race(career_data, race_num, weather=None)` — per-race skill drift; wet weather triggers wet_skill bonus
+- `advance_driver_progress_season(career_data)` — age all drivers +1 at season end, snapshot season_start
+- `update_form_scores(career_data, ai_standings)` — EMA form score (−1.0 to +1.0) from recent finishing positions
+- `process_retirements(career_data, season)` — age 38+ drivers retire probabilistically; populates `retired_drivers` + `retirement_log`
+- `update_rivalries(career_data, standings, tier_key)` — detect/decay rivalries from standings proximity; intensity 1–5
+- `compute_progress_deltas(entry)` — returns `{key: delta}` for driver card trend arrows
+- `driver_trend_label(entry)` — `"improving"` / `"declining"` / `"stable"` for UI
+
+**`driver_progress` save data structure:**
+```json
+"driver_progress": {
+  "Driver Name": {
+    "age": 28, "potential": 82,
+    "current": {"skill":81.2, "aggression":52.0, "wet_skill":63.4, "quali_pace":70.1, "consistency":74.8},
+    "season_start": {"skill":80.0, ...},
+    "career_start": {"skill":78.5, ...},
+    "last_delta": {"skill":0.12, ...}
+  }
+}
+```
 
 ## Contracts & Promotion/Relegation (v1.8.0)
 
@@ -306,6 +338,13 @@ Auto-created next to the EXE. Key fields:
 - `final_position` — set by `_do_end_season()`, cleared to `null` on contract acceptance
 - `career_settings` — persists across seasons; stores difficulty, weather mode, and optional custom track lists
 - `driver_history` format: `{name: {seasons: [{season:1, tier:"gt4", pos:3, pts:45}]}}`
+- `driver_progress` — per-driver skill evolution (see Driver Progress System section)
+- `last_race_weather` — weather preset of last started race; used by `evolve_driver_progress_for_race`
+- `paddock_news` — chronological event feed (max 100 entries); `[{season, race, type, text, icon, tier}]`
+- `form_scores` — `{driver_name: float}` EMA scores from −1.0 to +1.0
+- `retired_drivers` — sorted list of retired driver names
+- `retirement_log` — `[{name, age, season, nickname}]` cumulative retirement history
+- `rivalries` — `{tier_key: [{drivers:[a,b], intensity:1-5, since_season:N}]}`
 
 Delete to reset career. Backup before editing config.
 
