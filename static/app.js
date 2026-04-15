@@ -634,6 +634,10 @@ function openStats() {
     showView('stats');
 }
 
+let _allPaddockNews = [];
+let _pfTier = 'all';
+let _pfType = 'all';
+
 const _TICKER_ICONS = {
     flag: '🏁', trophy: '🏆', chart_up: '📈', chart_down: '📉',
     clipboard: '📋', swords: '⚔️', form_hot: '🔥', form_cold: '❄️',
@@ -659,31 +663,64 @@ async function loadNewsTicker() {
     } catch (e) { card.style.display = 'none'; }
 }
 
+function applyPaddockFilters() {
+    const feed = document.getElementById('paddock-feed');
+    if (!feed) return;
+    const items = _pfTier === 'all' && _pfType === 'all'
+        ? _allPaddockNews
+        : _allPaddockNews.filter(item => {
+            const tierOk = _pfTier === 'all' || item.tier === _pfTier;
+            const typeOk = _pfType === 'all' || _pfType.split(',').includes(item.type);
+            return tierOk && typeOk;
+        });
+    let html = '';
+    let lastHeader = '';
+    for (const item of items) {
+        const header = item.race > 0
+            ? `Season ${item.season}, Race ${item.race}`
+            : `Season ${item.season}, Pre-Season`;
+        if (header !== lastHeader) {
+            html += `<div class="news-header">${header}</div>`;
+            lastHeader = header;
+        }
+        const icon = _TICKER_ICONS[item.icon] || '📌';
+        html += `<div class="news-item">
+            <span class="news-icon">${icon}</span>
+            <span class="news-text">${item.text}</span>
+        </div>`;
+    }
+    feed.innerHTML = html || '<p class="muted">No news matching current filter.</p>';
+}
+
 async function loadPaddockNews() {
     const feed = document.getElementById('paddock-feed');
     if (!feed) return;
+    // Reset filter state + button active classes when view is (re)opened
+    _pfTier = 'all';
+    _pfType = 'all';
+    document.querySelectorAll('.pf-row').forEach(row => {
+        row.querySelectorAll('.pf-btn').forEach((btn, i) => btn.classList.toggle('active', i === 0));
+    });
     try {
-        const news = await fetch('/api/paddock-news').then(r => r.json());
-        let html = '';
-        let lastHeader = '';
-        for (const item of news) {
-            const header = item.race > 0
-                ? `Season ${item.season}, Race ${item.race}`
-                : `Season ${item.season}, Pre-Season`;
-            if (header !== lastHeader) {
-                html += `<div class="news-header">${header}</div>`;
-                lastHeader = header;
-            }
-            const icon = _TICKER_ICONS[item.icon] || '📌';
-            html += `<div class="news-item">
-                <span class="news-icon">${icon}</span>
-                <span class="news-text">${item.text}</span>
-            </div>`;
-        }
-        feed.innerHTML = html || '<p class="muted">No news yet. Complete some races first.</p>';
+        _allPaddockNews = await fetch('/api/paddock-news').then(r => r.json());
+        applyPaddockFilters();
     } catch (e) {
         feed.innerHTML = '<p class="muted">Could not load paddock news.</p>';
     }
+}
+
+function setPaddockTier(btn) {
+    _pfTier = btn.dataset.val;
+    btn.closest('.pf-row').querySelectorAll('.pf-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyPaddockFilters();
+}
+
+function setPaddockType(btn) {
+    _pfType = btn.dataset.val;
+    btn.closest('.pf-row').querySelectorAll('.pf-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyPaddockFilters();
 }
 
 async function loadAchievements() {
@@ -1697,7 +1734,16 @@ function renderRecap(recap, position, totalPoints) {
         html += '</div>';
     }
 
-    html += '</div>';
+    html += '</div>'; // closes recap-grid
+
+    // Season Story — shown only when present (old saves without it are silently skipped)
+    if (recap.season_story) {
+        html += '<div class="recap-story-block">';
+        html += '<div class="recap-block-title">&#128214; Season Story</div>';
+        html += `<p class="recap-story-text">${recap.season_story}</p>`;
+        html += '</div>';
+    }
+
     document.getElementById('recap-body').innerHTML = html;
 }
 

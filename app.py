@@ -1547,6 +1547,54 @@ def finish_race():
     })
 
 
+def _build_season_story(race_results):
+    """Generate a 1-2 sentence narrative of the player's season arc."""
+    positions = [r.get('position', 99) for r in race_results if r.get('position')]
+    if len(positions) < 3:
+        return None
+
+    n = len(positions)
+    third = max(1, n // 3)
+    first_third  = positions[:third]
+    middle_third = positions[third:2 * third]
+    last_third   = positions[2 * third:]
+
+    wins      = positions.count(1)
+    avg_first = sum(first_third) / len(first_third)
+    avg_last  = sum(last_third)  / len(last_third)
+
+    # Std dev for consistency check
+    mean = sum(positions) / n
+    std  = (sum((p - mean) ** 2 for p in positions) / n) ** 0.5
+
+    # Check for mid-season slump (3+ consecutive P5+ in middle third)
+    slump = False
+    if len(middle_third) >= 3:
+        run = 0
+        for p in middle_third:
+            run = run + 1 if p >= 5 else 0
+            if run >= 3:
+                slump = True
+                break
+
+    # Priority order: wins > strong_finish > strong_start > slump > consistent > default
+    if wins >= 3:
+        return f"A dominant season — {wins} wins from {n} races. You made your mark."
+    if avg_last <= avg_first - 2:  # improved by 2+ avg positions in second half
+        if slump:
+            return "A rocky middle stretch, but you found your pace in the final races and finished strongly."
+        return "You grew into the season, your best form coming in the second half."
+    if avg_first <= 2.0 and n >= 4:  # opened with avg P1-P2 pace
+        if avg_last > avg_first + 2:
+            return "A lightning start, then a difficult second half — but the early points proved crucial."
+        return "You hit the ground running and never looked back."
+    if slump:
+        return "A tough mid-season stretch tested your resolve, but you kept fighting to the end."
+    if std < 1.5:  # positions rarely deviated by more than 1.5 places
+        return "Rock-solid consistency all season — no wild swings, just steady points accumulation."
+    return "A season of ups and downs — every race a new challenge."
+
+
 @app.route('/api/end-season', methods=['POST'])
 def end_season():
     return _do_end_season()
@@ -1725,6 +1773,7 @@ def _do_end_season():
     # Build season recap (consumed by frontend recap screen before contracts)
     race_results = career_data.get('race_results', [])
     podiums = sum(1 for r in race_results if r.get('position', 99) <= 3)
+    story = _build_season_story(race_results)
     recap = {
         'player': {
             'wins':        wins,
@@ -1741,6 +1790,7 @@ def _do_end_season():
         },
         'most_improved':  _find_most_improved(career_data),
         'boss_message':   _team_boss_message(position, wins, podiums, team_count, tier_key, season),
+        'season_story':   story,
     }
     career_data['last_recap'] = recap
     save_career_data(career_data)

@@ -12,6 +12,7 @@
 | **v1.18.0** | Player career card, team modal with liveries, driver card 5-bar stats |
 | **v1.19.x** | Qualifying simulation, correct grid order for Race Only mode |
 | **v1.20.0** | **Big wave:** cross-tier AI race simulation (all 4 tiers race every round), driver progress system (skill drift / wet evolution / form scores / retirements / rivalries / mid-season swaps), tier progress UI, Paddock News feed |
+| **v1.22.0** | Paddock News player rivalry callout (A — was already shipped in v1.20), Season Story recap block (B), Paddock News tier+type filter (C) |
 
 ---
 
@@ -27,22 +28,7 @@ These are unranked ideas to discuss. Each tagged with rough complexity.
 
 ### 🎯 High value, low complexity
 
-**A. Paddock News — player rivalry callout**
-Show a special news item when the player and an AI driver are within 10 pts in standings:
-> "⚔️ Rivalry: You vs. Fabio Romano — only 8 points separate you."
-Currently rivalries only track AI vs AI. Easy addition to `update_rivalries()`.
-
-**B. Season recap screen**
-Before contracts are shown, display a season summary card:
-- Your stats (wins, podiums, DNFs, best result)
-- Championship story (who led, who fell)
-- Driver of the season (most improved / most wins)
-Feeds from existing `race_results` + `driver_progress`. Mostly frontend.
-
-**C. Paddock News filter**
-Add tier/type filter buttons to the Paddock view:
-`[All] [GT3] [GT4] [MX5] [Retirements] [Rivalries]`
-Pure frontend, ~20 lines of JS.
+*(A, B, C shipped in v1.22.0)*
 
 ---
 
@@ -120,7 +106,6 @@ Mostly a career_manager + race.ini change. High complexity due to AC session con
 
 ## Notes
 
-- Features A–C are small wins that make the existing paddock system feel more complete
 - Features D + G add narrative depth without touching the race loop
 - Feature E (team development) was always meant to be in the system — lowest-hanging medium feature
 - Stats dashboard (H) would make the career feel more "alive" to look back on
