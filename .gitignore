@@ -17,3 +17,16 @@ career_data.json
 nul
 *.log
 tmp/
+
+# Test data
+career_data_TEST*.json
+
+# WinForms experiment
+WinFormsCompat.cs
+WinFormsCompat.dll
+build_compat.bat
+pythonnet.runtimeconfig.json
+
+# Claude internal
+.claude/settings.local.json
+.claude/worktrees/
