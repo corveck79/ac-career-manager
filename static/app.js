@@ -1697,7 +1697,16 @@ function renderRecap(recap, position, totalPoints) {
         html += '</div>';
     }
 
-    html += '</div>';
+    html += '</div>'; // closes recap-grid
+
+    // Season Story — shown only when present (old saves without it are silently skipped)
+    if (recap.season_story) {
+        html += '<div class="recap-story-block">';
+        html += '<div class="recap-block-title">&#128214; Season Story</div>';
+        html += `<p class="recap-story-text">${recap.season_story}</p>`;
+        html += '</div>';
+    }
+
     document.getElementById('recap-body').innerHTML = html;
 }
 
