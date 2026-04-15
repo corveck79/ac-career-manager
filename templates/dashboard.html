@@ -235,6 +235,25 @@
     </div>
     <div id="view-paddock" class="card view-card hidden">
       <h2 class="section-title">&#128240; Paddock News</h2>
+      <div class="paddock-filters">
+        <div class="pf-row">
+          <span class="pf-label">Tier</span>
+          <button class="pf-btn active" onclick="setPaddockTier(this)" data-val="all">All</button>
+          <button class="pf-btn" onclick="setPaddockTier(this)" data-val="mx5_cup">MX5</button>
+          <button class="pf-btn" onclick="setPaddockTier(this)" data-val="gt4">GT4</button>
+          <button class="pf-btn" onclick="setPaddockTier(this)" data-val="gt3">GT3</button>
+          <button class="pf-btn" onclick="setPaddockTier(this)" data-val="wec">WEC</button>
+        </div>
+        <div class="pf-row">
+          <span class="pf-label">Type</span>
+          <button class="pf-btn active" onclick="setPaddockType(this)" data-val="all">All</button>
+          <button class="pf-btn" onclick="setPaddockType(this)" data-val="retirement">Retirements</button>
+          <button class="pf-btn" onclick="setPaddockType(this)" data-val="swap">Swaps</button>
+          <button class="pf-btn" onclick="setPaddockType(this)" data-val="rivalry,rivalry_callout">Rivalries</button>
+          <button class="pf-btn" onclick="setPaddockType(this)" data-val="champion">Champions</button>
+          <button class="pf-btn" onclick="setPaddockType(this)" data-val="form">Form</button>
+        </div>
+      </div>
       <div id="paddock-feed" class="paddock-feed"></div>
     </div>
     <div id="view-achievements" class="card view-card hidden">
