@@ -30,3 +30,4 @@ pythonnet.runtimeconfig.json
 # Claude internal
 .claude/settings.local.json
 .claude/worktrees/
+.worktrees/
