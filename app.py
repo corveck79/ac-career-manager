@@ -1580,17 +1580,17 @@ def _build_season_story(race_results):
     # Priority order: wins > strong_finish > strong_start > slump > consistent > default
     if wins >= 3:
         return f"A dominant season — {wins} wins from {n} races. You made your mark."
-    if avg_last <= avg_first - 2:
+    if avg_last <= avg_first - 2:  # improved by 2+ avg positions in second half
         if slump:
             return "A rocky middle stretch, but you found your pace in the final races and finished strongly."
         return "You grew into the season, your best form coming in the second half."
-    if avg_first <= 2.0 and n >= 4:
+    if avg_first <= 2.0 and n >= 4:  # opened with avg P1-P2 pace
         if avg_last > avg_first + 2:
             return "A lightning start, then a difficult second half — but the early points proved crucial."
         return "You hit the ground running and never looked back."
     if slump:
         return "A tough mid-season stretch tested your resolve, but you kept fighting to the end."
-    if std < 1.5:
+    if std < 1.5:  # positions rarely deviated by more than 1.5 places
         return "Rock-solid consistency all season — no wild swings, just steady points accumulation."
     return "A season of ups and downs — every race a new challenge."
 
